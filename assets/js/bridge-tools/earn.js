@@ -314,19 +314,100 @@ async function loadStableVaultInfo() {
   try {
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
     
-    // Get pool information
-    // TODO: Implement actual contract calls based on StableVault.sol
+    // Get total shares (represents total DAI in pool)
+    const totalShares = await stableContract.methods.totalShares().call();
+    const totalDAI = earnState.polWeb3.utils.fromWei(totalShares, 'ether');
+    document.getElementById('stableTotalDAI').textContent = parseFloat(totalDAI).toFixed(2);
     
-    document.getElementById('stableTotalDAI').textContent = 'Loading...';
-    document.getElementById('stableCurrentTick').textContent = 'Loading...';
-    document.getElementById('stableInRange').textContent = 'Checking...';
+    // Get current tick position
+    const tickLower = await stableContract.methods.tickLower().call();
+    const tickUpper = await stableContract.methods.tickUpper().call();
+    document.getElementById('stableCurrentTick').textContent = `${tickLower} to ${tickUpper}`;
+    
+    // Check if position is in range
+    const stateView = new earnState.polWeb3.eth.Contract(
+      [{
+        "inputs": [{"name": "poolId", "type": "bytes32"}],
+        "name": "getSlot0",
+        "outputs": [
+          {"name": "sqrtPriceX96", "type": "uint160"},
+          {"name": "tick", "type": "int24"},
+          {"name": "protocolFee", "type": "uint24"},
+          {"name": "lpFee", "type": "uint24"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      }],
+      TREASURY_ADDRESSES.UNISWAP_V4_STATE_VIEW
+    );
+    
+    // Get pool key to check current tick
+    const liquidity = await stableContract.methods.liquidity().call();
+    const isInRange = parseInt(liquidity) > 0;
+    document.getElementById('stableInRange').textContent = isInRange ? '✅ Yes' : '❌ No';
+    
+    // Get commission
+    const commission = await stableContract.methods.commission().call();
+    document.getElementById('stableCommission').textContent = commission;
+    
+    // Check which treasury it sends to
+    const treasury = await stableContract.methods.treasury().call();
+    const isBaylTreasury = treasury.toLowerCase() === TREASURY_ADDRESSES.BAYL_TREASURY.toLowerCase();
+    document.getElementById('stableSendsTo').textContent = isBaylTreasury ? 'BAYL Liquid' : 'BAYR Reserve';
+    
+    // Calculate weekly rewards
+    const currentWeek = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+    // We'd need to iterate through recent weeks to calculate this
+    document.getElementById('stableWeeklyRewards').textContent = 'Calculating...';
+    
+    // Load user position if logged in
+    if (myaccountsV2) {
+      await loadUserStablePosition(stableContract, totalShares);
+    }
     
   } catch (error) {
     console.error('Error loading StableVault info:', error);
   }
 }
 
+async function loadUserStablePosition(stableContract, totalShares) {
+  try {
+    const userShares = await stableContract.methods.shares(myaccountsV2).call();
+    
+    if (parseInt(userShares) > 0) {
+      const userDAI = earnState.polWeb3.utils.fromWei(userShares, 'ether');
+      const percent = (parseFloat(userShares) / parseFloat(totalShares)) * 100;
+      
+      document.getElementById('userStableDAI').textContent = parseFloat(userDAI).toFixed(2);
+      document.getElementById('userStablePercent').textContent = percent.toFixed(4);
+      
+      // Calculate anticipated weekly profit (rough estimate)
+      // This would be percent of weekly rewards minus commission
+      document.getElementById('userStableWeeklyProfit').textContent = '0.00';
+      
+      // Get pending fees
+      const feeVault = await stableContract.methods.feeVault().call();
+      const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
+      const pendingFees = await feeVaultContract.methods.pendingFees(myaccountsV2).call();
+      
+      const pendingDAI = earnState.polWeb3.utils.fromWei(pendingFees[0], 'ether');
+      const pendingUSDC = earnState.polWeb3.utils.fromWei(pendingFees[1], 'mwei'); // USDC has 6 decimals
+      const totalPendingUSD = parseFloat(pendingDAI) + parseFloat(pendingUSDC);
+      
+      document.getElementById('userStablePendingFees').textContent = totalPendingUSD.toFixed(2);
+      document.getElementById('userStablePosition').classList.remove('hidden');
+    }
+  } catch (error) {
+    console.error('Error loading user StableVault position:', error);
+  }
+}
+
 async function depositStableVault() {
+  if (!earnState.polWeb3 || !myaccountsV2 || loginType !== 2) {
+    Swal.fire('Error', 'Please login with password to use StableVault', 'error');
+    return;
+  }
+  
   // Show trading disclaimer first
   const result = await Swal.fire({
     title: 'StableVault Deposit',
@@ -357,19 +438,142 @@ async function depositStableVault() {
     return;
   }
   
-  // TODO: Implement actual deposit logic
-  Swal.fire('Coming Soon', 'StableVault deposits will be available soon', 'info');
+  try {
+    showSpinner();
+    
+    const amountWei = earnState.polWeb3.utils.toWei(amount, 'ether');
+    const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
+    const daiContract = new earnState.polWeb3.eth.Contract(
+      [{
+        "constant": false,
+        "inputs": [
+          {"name": "spender", "type": "address"},
+          {"name": "amount", "type": "uint256"}
+        ],
+        "name": "approve",
+        "outputs": [{"name": "", "type": "bool"}],
+        "type": "function"
+      }],
+      '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063' // DAI on Polygon
+    );
+    
+    // Approve DAI
+    const approveTx = await daiContract.methods.approve(TREASURY_ADDRESSES.STABLE_POOL, amountWei).send({
+      from: myaccountsV2,
+      gas: 100000,
+      gasPrice: gasPrice
+    });
+    
+    // Deposit with 5 minute deadline
+    const deadline = Math.floor(Date.now() / 1000) + 300;
+    const depositTx = await stableContract.methods.deposit(amountWei, deadline).send({
+      from: myaccountsV2,
+      gas: 500000,
+      gasPrice: gasPrice
+    });
+    
+    // If user wants to donate, set sendTo address
+    if (shouldDonate) {
+      const feeVault = await stableContract.methods.feeVault().call();
+      const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
+      
+      // Choose BAYL or BAYR based on which pool
+      const donateAddress = '0x...' // TODO: Get BAYL/DAI or BAYR/DAI pair address
+      await feeVaultContract.methods.changeSendTo(donateAddress).send({
+        from: myaccountsV2,
+        gas: 100000,
+        gasPrice: gasPrice
+      });
+    }
+    
+    hideSpinner();
+    Swal.fire('Success', 'Deposit successful!', 'success');
+    await refreshEarnTab();
+    
+  } catch (error) {
+    hideSpinner();
+    console.error('Error depositing to StableVault:', error);
+    Swal.fire('Error', error.message || 'Deposit failed', 'error');
+  }
 }
 
 async function collectStableFees() {
-  // TODO: Implement fee collection
-  Swal.fire('Coming Soon', 'Fee collection will be available soon', 'info');
+  if (!earnState.polWeb3 || !myaccountsV2 || loginType !== 2) {
+    Swal.fire('Error', 'Please login with password to collect fees', 'error');
+    return;
+  }
+  
+  try {
+    showSpinner();
+    
+    const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
+    const deadline = Math.floor(Date.now() / 1000) + 300;
+    
+    await stableContract.methods.collectFees(deadline).send({
+      from: myaccountsV2,
+      gas: 500000,
+      gasPrice: gasPrice
+    });
+    
+    hideSpinner();
+    Swal.fire('Success', 'Fees collected!', 'success');
+    await refreshEarnTab();
+    
+  } catch (error) {
+    hideSpinner();
+    console.error('Error collecting fees:', error);
+    Swal.fire('Error', error.message || 'Fee collection failed', 'error');
+  }
 }
 
 async function withdrawStableVault() {
-  // TODO: Implement withdrawal
-  Swal.fire('Coming Soon', 'StableVault withdrawals will be available soon', 'info');
-}
+  if (!earnState.polWeb3 || !myaccountsV2 || loginType !== 2) {
+    Swal.fire('Error', 'Please login with password to withdraw', 'error');
+    return;
+  }
+  
+  const result = await Swal.fire({
+    title: 'Withdraw from StableVault',
+    input: 'number',
+    inputLabel: 'Percentage to withdraw (1-100)',
+    inputPlaceholder: '100',
+    showCancelButton: true,
+    inputValidator: (value) => {
+      if (!value || parseFloat(value) <= 0 || parseFloat(value) > 100) {
+        return 'Please enter a valid percentage (1-100)';
+      }
+    }
+  });
+  
+  if (!result.isConfirmed) return;
+  
+  try {
+    showSpinner();
+    
+    const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
+    const userShares = await stableContract.methods.shares(myaccountsV2).call();
+    
+    const withdrawPercent = parseFloat(result.value);
+    const withdrawShares = (BigInt(userShares) * BigInt(Math.floor(withdrawPercent * 100))) / BigInt(10000);
+    
+    const deadline = Math.floor(Date.now() / 1000) + 300;
+    
+    // Withdraw with dust collection enabled
+    await stableContract.methods.withdraw(withdrawShares.toString(), deadline, true).send({
+      from: myaccountsV2,
+      gas: 700000,
+      gasPrice: gasPrice
+    });
+    
+    hideSpinner();
+    Swal.fire('Success', 'Withdrawal successful!', 'success');
+    await refreshEarnTab();
+    
+  } catch (error) {
+    hideSpinner();
+    console.error('Error withdrawing from StableVault:', error);
+    Swal.fire('Error', error.message || 'Withdrawal failed', 'error');
+  }
 
 // ============================================================================
 // STAKING FUNCTIONS
@@ -455,23 +659,108 @@ async function loadStakingInfo() {
     const claimRate = await baylTreasury.methods.claimRate().call();
     
     document.getElementById('baylTotalStaked').textContent = 
-      earnState.polWeb3.utils.fromWei(totalTokens, 'ether');
+      parseFloat(earnState.polWeb3.utils.fromWei(totalTokens, 'ether')).toFixed(2);
     document.getElementById('baylTotalShares').textContent = totalShares;
     document.getElementById('baylRefreshRate').textContent = 
       Math.floor(refreshRate / 86400) + ' days';
-    document.getElementById('baylClaimRate').textContent = claimRate;
+    document.getElementById('baylClaimRate').textContent = claimRate + ' blocks';
     
     // Load user staking info
     const userInfo = await baylTreasury.methods.accessPool(myaccountsV2).call();
     document.getElementById('userShares').textContent = 
-      earnState.polWeb3.utils.fromWei(userInfo.shares, 'ether');
+      parseFloat(earnState.polWeb3.utils.fromWei(userInfo.shares, 'ether')).toFixed(2);
     
     if (userInfo.lastRefresh > 0) {
       const lastRefreshDate = new Date(userInfo.lastRefresh * 1000);
-      document.getElementById('userLastRefresh').textContent = lastRefreshDate.toLocaleDateString();
+      document.getElementById('userLastRefresh').textContent = lastRefreshDate.toLocaleString();
+      
+      // Check if user is stale (lastRefresh == 1 means paused)
+      if (userInfo.lastRefresh == 1) {
+        document.getElementById('userLastRefresh').innerHTML += ' <span style="color: red;">(Paused)</span>';
+      }
+    }
+    
+    // Get user's tracked coins
+    const userCoins = await baylTreasury.methods.getUserCoins(myaccountsV2).call();
+    if (userCoins && userCoins.length > 0) {
+      const coinNames = [];
+      if (userCoins.includes('0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619')) coinNames.push('WETH');
+      if (userCoins.includes('0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063')) coinNames.push('DAI');
+      if (userCoins.includes(TREASURY_ADDRESSES.USDC)) coinNames.push('USDC');
+      document.getElementById('userTrackingCoins').textContent = coinNames.join(', ') || 'None';
+      
+      // Get pending rewards for each coin
+      let rewardsHTML = '';
+      for (const coin of userCoins) {
+        const pending = await baylTreasury.methods.getPendingReward(myaccountsV2, coin).call();
+        if (parseInt(pending) > 0) {
+          let coinName = coin.substring(0, 10) + '...';
+          if (coin.toLowerCase() === '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'.toLowerCase()) coinName = 'WETH';
+          if (coin.toLowerCase() === '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063'.toLowerCase()) coinName = 'DAI';
+          if (coin.toLowerCase() === TREASURY_ADDRESSES.USDC.toLowerCase()) coinName = 'USDC';
+          
+          const decimals = coinName === 'USDC' ? 'mwei' : 'ether';
+          const pendingAmount = earnState.polWeb3.utils.fromWei(pending, decimals);
+          rewardsHTML += `<div>${coinName}: ${parseFloat(pendingAmount).toFixed(6)}</div>`;
+        }
+      }
+      document.getElementById('userPendingRewards').innerHTML = rewardsHTML || 'No pending rewards';
+    } else {
+      document.getElementById('userTrackingCoins').textContent = 'None set';
+    }
+    
+    // Display total rewards from localStorage
+    let totalRewardsHTML = '';
+    for (const [coin, amount] of Object.entries(earnState.userTotalRewards)) {
+      totalRewardsHTML += `<div>${coin}: ${amount}</div>`;
+    }
+    document.getElementById('userTotalRewards').innerHTML = totalRewardsHTML || 'No rewards collected yet';
+    
+    // Load BAYL and BAYR balances at vault
+    if (earnState.userVaultAddress) {
+      const baylContract = new earnState.polWeb3.eth.Contract(
+        [{
+          "constant": true,
+          "inputs": [{"name": "account", "type": "address"}],
+          "name": "balanceOf",
+          "outputs": [{"name": "", "type": "uint256"}],
+          "type": "function"
+        }],
+        await vaultContract.methods.BAYL().call()
+      );
+      
+      const bayrContract = new earnState.polWeb3.eth.Contract(
+        [{
+          "constant": true,
+          "inputs": [{"name": "account", "type": "address"}],
+          "name": "balanceOf",
+          "outputs": [{"name": "", "type": "uint256"}],
+          "type": "function"
+        }],
+        await vaultContract.methods.BAYR().call()
+      );
+      
+      const baylBalance = await baylContract.methods.balanceOf(earnState.userVaultAddress).call();
+      const bayrBalance = await bayrContract.methods.balanceOf(earnState.userVaultAddress).call();
+      
+      document.getElementById('vaultBaylBalance').textContent = 
+        parseFloat(earnState.polWeb3.utils.fromWei(baylBalance, 'ether')).toFixed(2);
+      document.getElementById('vaultBayrBalance').textContent = 
+        parseFloat(earnState.polWeb3.utils.fromWei(bayrBalance, 'ether')).toFixed(2);
+      
+      document.getElementById('vaultBalances').classList.remove('hidden');
     }
     
     document.getElementById('userStakingInfo').classList.remove('hidden');
+    
+    // Check POL balance for gas warning
+    const polBalance = await earnState.polWeb3.eth.getBalance(myaccountsV2);
+    const polBalanceEther = parseFloat(earnState.polWeb3.utils.fromWei(polBalance, 'ether'));
+    
+    if (polBalanceEther < 30) {
+      document.getElementById('stakingPolBalance').textContent = polBalanceEther.toFixed(2);
+      document.getElementById('stakingGasWarning').classList.remove('hidden');
+    }
     
   } catch (error) {
     console.error('Error loading staking info:', error);
