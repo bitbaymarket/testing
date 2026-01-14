@@ -621,20 +621,262 @@ function stopStakingAutomation() {
 }
 
 async function checkStakingConditions() {
-  if (!earnState.stakingEnabled || !earnState.isPasswordLogin) {
+  if (!earnState.stakingEnabled || !earnState.isPasswordLogin || !myaccountsV2) {
     return;
   }
   
   console.log('Checking staking conditions...');
   
-  // TODO: Implement comprehensive staking checks:
-  // 1. Check if we're 85% into the stake interval
-  // 2. Check POL balance (warn if < 30, pause if < 10)
-  // 3. Check Flow contract for pending ETH
-  // 4. Check Lido for yield to harvest
-  // 5. Check StableVault position
-  // 6. Check for inactive users to update
-  // 7. Execute stake/claim if ready
+  try {
+    const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
+    const userInfo = await baylTreasury.methods.accessPool(myaccountsV2).call();
+    
+    // Check if user has any stake
+    if (parseInt(userInfo.shares) === 0) {
+      console.log('No stake, skipping automation');
+      return;
+    }
+    
+    // Check POL balance
+    const polBalance = await earnState.polWeb3.eth.getBalance(myaccountsV2);
+    const polBalanceEther = parseFloat(earnState.polWeb3.utils.fromWei(polBalance, 'ether'));
+    
+    if (polBalanceEther < 10) {
+      console.log('POL balance too low, pausing staking');
+      earnState.stakingEnabled = false;
+      document.getElementById('stakingEnabledCheckbox').checked = false;
+      localStorage.setItem('earnStakingEnabled', 'false');
+      Swal.fire('Warning', 'Staking paused due to low POL balance (< 10)', 'warning');
+      return;
+    }
+    
+    // Check if user needs to refresh (if lastRefresh == 1, they are paused)
+    if (userInfo.lastRefresh == 1 && parseInt(userInfo.shares) > 0) {
+      console.log('User is paused, refreshing vault...');
+      await baylTreasury.methods.refreshVault().send({
+        from: myaccountsV2,
+        gas: 300000,
+        gasPrice: gasPrice
+      });
+      return;
+    }
+    
+    // Calculate if we're 85% into the staking interval
+    const currentBlock = await earnState.polWeb3.eth.getBlockNumber();
+    const claimRate = await baylTreasury.methods.claimRate().call();
+    const blocksSinceStake = currentBlock - userInfo.stakeBlock;
+    const targetBlocks = Math.floor(parseInt(claimRate) * 0.85) + (earnState.randomDelaySeconds / 3); // ~3 sec per block
+    
+    if (blocksSinceStake < targetBlocks) {
+      console.log(`Not time to stake yet. Blocks since stake: ${blocksSinceStake}, target: ${targetBlocks}`);
+      return;
+    }
+    
+    console.log('Time to execute staking tasks!');
+    
+    // 1. Check Flow contract for pending ETH
+    await checkAndDripFlow();
+    
+    // 2. Check Lido for yield to harvest
+    await checkAndHarvestLido();
+    
+    // 3. Check StableVault position management
+    await checkAndManageStableVault();
+    
+    // 4. Check for inactive users to update (once per week, max 4 at a time)
+    await checkAndUpdateInactiveUsers();
+    
+    // 5. Claim own rewards
+    await claimStakingRewards();
+    
+    // Reset random delay for next round
+    earnState.randomDelaySeconds = Math.floor(Math.random() * 600);
+    
+  } catch (error) {
+    console.error('Error in staking automation:', error);
+  }
+}
+
+async function checkAndDripFlow() {
+  try {
+    const flowContract = new earnState.polWeb3.eth.Contract(flowABI, TREASURY_ADDRESSES.FLOW_BAYL);
+    const pending = await flowContract.methods.pendingYield().call();
+    
+    if (parseInt(pending) > 0) {
+      console.log('Flow has pending ETH, calling drip...');
+      await flowContract.methods.drip().send({
+        from: myaccountsV2,
+        gas: 200000,
+        gasPrice: gasPrice
+      });
+      console.log('Flow drip successful');
+    }
+  } catch (error) {
+    console.error('Error checking/dripping flow:', error);
+  }
+}
+
+async function checkAndHarvestLido() {
+  try {
+    if (!earnState.ethWeb3) return;
+    
+    const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
+    const availableYield = await lidoContract.methods.availableYield().call();
+    
+    // Check if yield exceeds 0.01 ETH (10000000000000000 wei)
+    if (BigInt(availableYield) > BigInt('10000000000000000')) {
+      // Check ETH balance for gas
+      const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccountsV2);
+      const ethBalanceEther = parseFloat(earnState.ethWeb3.utils.fromWei(ethBalance, 'ether'));
+      
+      if (ethBalanceEther < 0.01) {
+        console.log('Not enough ETH gas to harvest Lido yield');
+        document.getElementById('stakingEthGasWarning').classList.remove('hidden');
+        return;
+      }
+      
+      // Estimate gas cost
+      const gasPrice = await earnState.ethWeb3.eth.getGasPrice();
+      const estimatedGas = 300000; // Rough estimate
+      const gasCostWei = BigInt(gasPrice) * BigInt(estimatedGas);
+      
+      // Check if gas cost is less than 25% of available yield
+      if (gasCostWei * BigInt(4) < BigInt(availableYield)) {
+        console.log('Harvesting Lido yield...');
+        
+        // Check time since last collection based on balance
+        const totalPrincipal = await lidoContract.methods.totalPrincipal().call();
+        const principalETH = parseFloat(earnState.ethWeb3.utils.fromWei(totalPrincipal, 'ether'));
+        const minimumTime = principalETH > 5 ? 7 * 24 * 60 * 60 : 30 * 24 * 60 * 60; // Weekly if > 5 ETH, else monthly
+        
+        // TODO: Track last collection time in localStorage
+        const lastCollection = parseInt(localStorage.getItem('lidoLastCollection') || '0');
+        const now = Math.floor(Date.now() / 1000);
+        
+        if (now - lastCollection > minimumTime) {
+          await lidoContract.methods.harvestAndSwapToETH(100, 0).send({
+            from: myaccountsV2,
+            gas: estimatedGas,
+            gasPrice: gasPrice
+          });
+          
+          localStorage.setItem('lidoLastCollection', now.toString());
+          console.log('Lido harvest successful');
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error checking/harvesting Lido:', error);
+  }
+}
+
+async function checkAndManageStableVault() {
+  try {
+    const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
+    
+    // Check if user has donated to fee vault (if so, collect their pending fees daily)
+    const feeVault = await stableContract.methods.feeVault().call();
+    const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
+    const userShares = await feeVaultContract.methods.shares(myaccountsV2).call();
+    
+    if (parseInt(userShares) > 0) {
+      const lastFeeCollection = parseInt(localStorage.getItem('stableFeeLastCollection') || '0');
+      const now = Math.floor(Date.now() / 1000);
+      
+      if (now - lastFeeCollection > 86400) { // Once per day
+        console.log('Collecting stable vault fees...');
+        const deadline = now + 300;
+        await stableContract.methods.collectFees(deadline).send({
+          from: myaccountsV2,
+          gas: 500000,
+          gasPrice: gasPrice
+        });
+        localStorage.setItem('stableFeeLastCollection', now.toString());
+      }
+    }
+    
+    // Check if position needs repositioning
+    const liquidity = await stableContract.methods.liquidity().call();
+    if (parseInt(liquidity) > 0) {
+      // Check if out of range
+      const tickLower = await stableContract.methods.tickLower().call();
+      const tickUpper = await stableContract.methods.tickUpper().call();
+      
+      // This would require checking current tick vs position ticks
+      // For now, just check if reposition timelock has passed
+      const lastReposition = await stableContract.methods.lastReposition().call();
+      const positionTimelock = await stableContract.methods.POSITION_TIMELOCK().call();
+      const now = Math.floor(Date.now() / 1000);
+      
+      if (now - lastReposition > positionTimelock) {
+        // Check if actually out of range before repositioning
+        console.log('Checking if stable vault needs repositioning...');
+        // TODO: Implement range check logic
+      }
+      
+      // Check if dust needs cleaning
+      const lastDustClean = await stableContract.methods.lastDustClean().call();
+      const cleanTimelock = await stableContract.methods.CLEAN_TIMELOCK().call();
+      
+      if (now - lastDustClean > cleanTimelock) {
+        console.log('Cleaning stable vault dust...');
+        const deadline = now + 300;
+        await stableContract.methods.cleanDust(deadline).send({
+          from: myaccountsV2,
+          gas: 500000,
+          gasPrice: gasPrice
+        });
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error managing stable vault:', error);
+  }
+}
+
+async function checkAndUpdateInactiveUsers() {
+  try {
+    // Only check once per week
+    const lastCheck = parseInt(localStorage.getItem('inactiveUserLastCheck') || '0');
+    const now = Math.floor(Date.now() / 1000);
+    
+    if (now - lastCheck < 7 * 24 * 60 * 60) {
+      return;
+    }
+    
+    const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
+    const topStakers = await baylTreasury.methods.getTopStakers().call();
+    const claimRate = await baylTreasury.methods.claimRate().call();
+    const currentBlock = await earnState.polWeb3.eth.getBlockNumber();
+    
+    let updated = 0;
+    for (const staker of topStakers) {
+      if (updated >= 4) break;
+      
+      if (staker.user === myaccountsV2) continue; // Skip self
+      
+      const userInfo = await baylTreasury.methods.accessPool(staker.user).call();
+      const blocksSinceStake = currentBlock - userInfo.stakeBlock;
+      
+      // Check if user is inactive (more than 10x claim rate)
+      if (blocksSinceStake > parseInt(claimRate) * 10) {
+        console.log(`Updating inactive user: ${staker.user}`);
+        await baylTreasury.methods.updateUser(staker.user).send({
+          from: myaccountsV2,
+          gas: 300000,
+          gasPrice: gasPrice
+        });
+        updated++;
+      }
+    }
+    
+    if (updated > 0) {
+      localStorage.setItem('inactiveUserLastCheck', now.toString());
+    }
+    
+  } catch (error) {
+    console.error('Error updating inactive users:', error);
+  }
 }
 
 async function loadStakingInfo() {
@@ -790,6 +1032,11 @@ async function loadTopStakers() {
 }
 
 async function depositStake() {
+  if (!earnState.polWeb3 || !myaccountsV2 || loginType !== 2) {
+    Swal.fire('Error', 'Please login with password to stake', 'error');
+    return;
+  }
+  
   const result = await Swal.fire({
     title: 'Staking Disclaimer',
     html: `
@@ -811,20 +1058,165 @@ async function depositStake() {
     return;
   }
   
-  // TODO: Implement actual staking deposit
-  // Before first deposit, set coins to WETH, DAI, USDC
-  Swal.fire('Coming Soon', 'Staking deposits will be available soon', 'info');
+  try {
+    showSpinner();
+    
+    const amountWei = earnState.polWeb3.utils.toWei(amount, 'ether');
+    const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
+    const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
+    
+    // Check if this is first deposit - if so, set coins first
+    const userInfo = await baylTreasury.methods.accessPool(myaccountsV2).call();
+    const userCoins = await baylTreasury.methods.getUserCoins(myaccountsV2).call();
+    
+    if (!userCoins || userCoins.length === 0) {
+      // Set default coins: WETH, DAI, USDC
+      const coins = [
+        '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619', // WETH on Polygon
+        '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063', // DAI on Polygon
+        TREASURY_ADDRESSES.USDC
+      ];
+      
+      await baylTreasury.methods.setCoins(coins).send({
+        from: myaccountsV2,
+        gas: 200000,
+        gasPrice: gasPrice
+      });
+    }
+    
+    // Get BAYL address
+    const baylAddress = await vaultContract.methods.BAYL().call();
+    const baylContract = new earnState.polWeb3.eth.Contract(
+      [{
+        "constant": false,
+        "inputs": [
+          {"name": "spender", "type": "address"},
+          {"name": "amount", "type": "uint256"}
+        ],
+        "name": "approve",
+        "outputs": [{"name": "", "type": "bool"}],
+        "type": "function"
+      }],
+      baylAddress
+    );
+    
+    // Approve BAYL to vault
+    await baylContract.methods.approve(TREASURY_ADDRESSES.VAULT, amountWei).send({
+      from: myaccountsV2,
+      gas: 100000,
+      gasPrice: gasPrice
+    });
+    
+    // Deposit to vault (which will stake to treasury)
+    await vaultContract.methods.depositBAYL(amountWei).send({
+      from: myaccountsV2,
+      gas: 500000,
+      gasPrice: gasPrice
+    });
+    
+    hideSpinner();
+    Swal.fire('Success', 'BAYL staked successfully!', 'success');
+    await refreshEarnTab();
+    
+  } catch (error) {
+    hideSpinner();
+    console.error('Error staking BAYL:', error);
+    Swal.fire('Error', error.message || 'Staking failed', 'error');
+  }
 }
 
 async function unstakeBAYL() {
-  // TODO: Implement unstaking
-  Swal.fire('Coming Soon', 'Unstaking will be available soon', 'info');
+  if (!earnState.polWeb3 || !myaccountsV2 || loginType !== 2) {
+    Swal.fire('Error', 'Please login with password to unstake', 'error');
+    return;
+  }
+  
+  const result = await Swal.fire({
+    title: 'Unstake BAYL',
+    input: 'number',
+    inputLabel: 'Amount to unstake',
+    inputPlaceholder: '0.0',
+    showCancelButton: true,
+    inputValidator: (value) => {
+      if (!value || parseFloat(value) <= 0) {
+        return 'Please enter a valid amount';
+      }
+    }
+  });
+  
+  if (!result.isConfirmed) return;
+  
+  try {
+    showSpinner();
+    
+    const amountWei = earnState.polWeb3.utils.toWei(result.value, 'ether');
+    const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
+    
+    await vaultContract.methods.withdrawBAYL(amountWei).send({
+      from: myaccountsV2,
+      gas: 500000,
+      gasPrice: gasPrice
+    });
+    
+    hideSpinner();
+    Swal.fire('Success', 'BAYL unstaked successfully!', 'success');
+    await refreshEarnTab();
+    
+  } catch (error) {
+    hideSpinner();
+    console.error('Error unstaking BAYL:', error);
+    Swal.fire('Error', error.message || 'Unstaking failed', 'error');
+  }
 }
 
 async function claimStakingRewards() {
-  // TODO: Implement claiming rewards with voting
-  Swal.fire('Coming Soon', 'Claiming rewards will be available soon', 'info');
-}
+  if (!earnState.polWeb3 || !myaccountsV2 || loginType !== 2) {
+    Swal.fire('Error', 'Please login with password to claim rewards', 'error');
+    return;
+  }
+  
+  try {
+    showSpinner();
+    
+    const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
+    
+    // Get user votes (empty for now - voting UI to be implemented)
+    const votes = [];
+    
+    // Claim rewards
+    await baylTreasury.methods.claimRewards(TREASURY_ADDRESSES.VOTE_BAYL, votes).send({
+      from: myaccountsV2,
+      gas: 700000,
+      gasPrice: gasPrice
+    });
+    
+    // Update total rewards in localStorage
+    const userCoins = await baylTreasury.methods.getUserCoins(myaccountsV2).call();
+    for (const coin of userCoins) {
+      let coinName = 'Unknown';
+      if (coin.toLowerCase() === '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'.toLowerCase()) coinName = 'WETH';
+      if (coin.toLowerCase() === '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063'.toLowerCase()) coinName = 'DAI';
+      if (coin.toLowerCase() === TREASURY_ADDRESSES.USDC.toLowerCase()) coinName = 'USDC';
+      
+      const pending = await baylTreasury.methods.getPendingReward(myaccountsV2, coin).call();
+      if (parseInt(pending) > 0) {
+        const decimals = coinName === 'USDC' ? 'mwei' : 'ether';
+        const amount = parseFloat(earnState.polWeb3.utils.fromWei(pending, decimals));
+        earnState.userTotalRewards[coinName] = (earnState.userTotalRewards[coinName] || 0) + amount;
+      }
+    }
+    
+    localStorage.setItem('earnTotalRewards', JSON.stringify(earnState.userTotalRewards));
+    
+    hideSpinner();
+    Swal.fire('Success', 'Rewards claimed successfully!', 'success');
+    await refreshEarnTab();
+    
+  } catch (error) {
+    hideSpinner();
+    console.error('Error claiming rewards:', error);
+    Swal.fire('Error', error.message || 'Claiming rewards failed', 'error');
+  }
 
 // ============================================================================
 // VOTING FUNCTIONS
@@ -869,13 +1261,124 @@ function showVoteDetailsDialog() {
 // ============================================================================
 
 async function calculateAndDisplayROI() {
-  // TODO: Calculate yearly ROI based on weekly profits
-  // Only display if > 5%
+  if (!earnState.polWeb3) return;
+  
+  try {
+    const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
+    const totalTokens = await baylTreasury.methods.totalTokens().call();
+    
+    // Only calculate if there's actual stake
+    if (parseInt(totalTokens) === 0) {
+      document.getElementById('earnRoiDisplay').classList.add('hidden');
+      return;
+    }
+    
+    // Get total weekly rewards across all coins
+    const currentWeek = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+    
+    // We need to get WETH, DAI, and USDC prices from Chainlink or similar
+    // For now, use approximate values:
+    // WETH ~= $2000 (would need to fetch from Chainlink)
+    // DAI ~= $1
+    // USDC ~= $1
+    
+    const wethPrice = 2000; // TODO: Fetch from Chainlink
+    const daiPrice = 1;
+    const usdcPrice = 1;
+    
+    // Get weekly rewards for each coin
+    const wethAddress = '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619';
+    const daiAddress = '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063';
+    const usdcAddress = TREASURY_ADDRESSES.USDC;
+    
+    const wethRewards = await baylTreasury.methods.weeklyRewards(currentWeek, wethAddress).call();
+    const daiRewards = await baylTreasury.methods.weeklyRewards(currentWeek, daiAddress).call();
+    const usdcRewards = await baylTreasury.methods.weeklyRewards(currentWeek, usdcAddress).call();
+    
+    const wethRewardsEther = parseFloat(earnState.polWeb3.utils.fromWei(wethRewards, 'ether'));
+    const daiRewardsEther = parseFloat(earnState.polWeb3.utils.fromWei(daiRewards, 'ether'));
+    const usdcRewardsFormatted = parseFloat(earnState.polWeb3.utils.fromWei(usdcRewards, 'mwei'));
+    
+    const weeklyRewardsUSD = (wethRewardsEther * wethPrice) + (daiRewardsEther * daiPrice) + (usdcRewardsFormatted * usdcPrice);
+    const yearlyRewardsUSD = weeklyRewardsUSD * 52;
+    
+    // Get BAY price from UniSwap (or use approximate)
+    // For simplicity, assume BAYL price ~= $0.10 (would need to fetch from pair)
+    const bayPrice = 0.10; // TODO: Fetch from UniSwap pair
+    
+    const totalStakedUSD = parseFloat(earnState.polWeb3.utils.fromWei(totalTokens, 'ether')) * bayPrice;
+    
+    if (totalStakedUSD > 0) {
+      const yearlyROI = (yearlyRewardsUSD / totalStakedUSD) * 100;
+      
+      // Only display if ROI > 5%
+      if (yearlyROI > 5) {
+        document.getElementById('earnRoiText').textContent = 
+          `📈 Yearly Staking ROI: ${yearlyROI.toFixed(2)}% (Based on current week rewards)`;
+        document.getElementById('earnRoiDisplay').classList.remove('hidden');
+      } else {
+        document.getElementById('earnRoiDisplay').classList.add('hidden');
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error calculating ROI:', error);
+  }
 }
 
 // ============================================================================
 // REFRESH FUNCTIONS
 // ============================================================================
+
+async function loadTokenBalances() {
+  if (!earnState.polWeb3 || !myaccountsV2) return;
+  
+  try {
+    // Load DAI balance
+    const daiContract = new earnState.polWeb3.eth.Contract(
+      [{
+        "constant": true,
+        "inputs": [{"name": "account", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "type": "function"
+      }],
+      '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063' // DAI on Polygon
+    );
+    
+    const daiBalance = await daiContract.methods.balanceOf(myaccountsV2).call();
+    const daiBalanceEther = parseFloat(earnState.polWeb3.utils.fromWei(daiBalance, 'ether'));
+    
+    if (daiBalanceEther > 0) {
+      document.getElementById('daiBalanceAmount').textContent = daiBalanceEther.toFixed(2);
+      document.getElementById('daiBalance').classList.remove('hidden');
+    }
+    
+    // Load USDC balance
+    const usdcContract = new earnState.polWeb3.eth.Contract(
+      [{
+        "constant": true,
+        "inputs": [{"name": "account", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "type": "function"
+      }],
+      TREASURY_ADDRESSES.USDC
+    );
+    
+    const usdcBalance = await usdcContract.methods.balanceOf(myaccountsV2).call();
+    const usdcBalanceFormatted = parseFloat(earnState.polWeb3.utils.fromWei(usdcBalance, 'mwei'));
+    
+    // Display USDC if balance exists and user is in loginType 2
+    if (usdcBalanceFormatted > 0 && loginType === 2) {
+      // Could add USDC display similar to DAI
+      console.log('USDC Balance:', usdcBalanceFormatted);
+    }
+    
+  } catch (error) {
+    console.error('Error loading token balances:', error);
+  }
+}
 
 async function refreshEarnTab() {
   const now = Date.now();
@@ -895,6 +1398,7 @@ async function refreshEarnTab() {
     await loadStakingInfo();
     await loadTopStakers();
     await loadVotingInfo();
+    await loadTokenBalances();
   }
   
   await calculateAndDisplayROI();
