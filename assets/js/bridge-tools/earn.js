@@ -63,8 +63,11 @@ function initializeEarnTab() {
   // Load saved staking state
   const stakingEnabled = localStorage.getItem('earnStakingEnabled');
   if (stakingEnabled === 'true') {
-    document.getElementById('stakingEnabledCheckbox').checked = true;
-    earnState.stakingEnabled = true;
+    const checkbox = document.getElementById('stakingEnabledCheckbox');
+    if (checkbox) {
+      checkbox.checked = true;
+      earnState.stakingEnabled = true;
+    }
   }
   
   // Load saved total rewards
@@ -84,6 +87,27 @@ function initializeEarnTab() {
   setupLockDaysEstimator();
   
   console.log('Earn tab initialized');
+}
+
+// Function to be called when user logs in
+async function onEarnUserLogin() {
+  console.log('User logged in, initializing Earn data...');
+  
+  // Update polWeb3 reference
+  if (typeof web3 !== 'undefined') {
+    earnState.polWeb3 = web3;
+  }
+  
+  // Detect login type
+  earnState.isPasswordLogin = (loginType === 2);
+  
+  // Load initial data
+  await refreshEarnTab();
+  
+  // Start staking automation if enabled and using password login
+  if (earnState.stakingEnabled && earnState.isPasswordLogin) {
+    startStakingAutomation();
+  }
 }
 
 function setupEarnSubTabs() {
@@ -172,11 +196,11 @@ async function loadLidoVaultInfo() {
 }
 
 async function loadUserLidoPosition() {
-  if (!earnState.ethWeb3 || !selectedAccount) return;
+  if (!earnState.ethWeb3 || !myaccountsV2) return;
   
   try {
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
-    const userDeposit = await lidoContract.methods.deposits(selectedAccount).call();
+    const userDeposit = await lidoContract.methods.deposits(myaccountsV2).call();
     
     if (userDeposit.amount > 0) {
       const amountETH = earnState.ethWeb3.utils.fromWei(userDeposit.amount, 'ether');
@@ -192,11 +216,11 @@ async function loadUserLidoPosition() {
 }
 
 async function loadETHBalances() {
-  if (!earnState.ethWeb3 || !selectedAccount) return;
+  if (!earnState.ethWeb3 || !myaccountsV2) return;
   
   try {
     // Get ETH balance
-    const ethBalance = await earnState.ethWeb3.eth.getBalance(selectedAccount);
+    const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccountsV2);
     const ethBalanceETH = earnState.ethWeb3.utils.fromWei(ethBalance, 'ether');
     document.getElementById('ethBalance').textContent = parseFloat(ethBalanceETH).toFixed(4);
     
@@ -219,7 +243,7 @@ async function loadETHBalances() {
       TREASURY_ADDRESSES.LIDO_STETH
     );
     
-    const stETHBalance = await stETHContract.methods.balanceOf(selectedAccount).call();
+    const stETHBalance = await stETHContract.methods.balanceOf(myaccountsV2).call();
     const stETHBalanceETH = earnState.ethWeb3.utils.fromWei(stETHBalance, 'ether');
     
     if (parseFloat(stETHBalanceETH) > 0) {
@@ -410,12 +434,12 @@ async function checkStakingConditions() {
 }
 
 async function loadStakingInfo() {
-  if (!earnState.polWeb3 || !selectedAccount) return;
+  if (!earnState.polWeb3 || !myaccountsV2) return;
   
   try {
     // Get user's vault address
     const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
-    earnState.userVaultAddress = await vaultContract.methods.getVaultAddress(selectedAccount).call();
+    earnState.userVaultAddress = await vaultContract.methods.getVaultAddress(myaccountsV2).call();
     
     if (earnState.userVaultAddress) {
       document.getElementById('userVaultAddress').textContent = 
@@ -438,7 +462,7 @@ async function loadStakingInfo() {
     document.getElementById('baylClaimRate').textContent = claimRate;
     
     // Load user staking info
-    const userInfo = await baylTreasury.methods.accessPool(selectedAccount).call();
+    const userInfo = await baylTreasury.methods.accessPool(myaccountsV2).call();
     document.getElementById('userShares').textContent = 
       earnState.polWeb3.utils.fromWei(userInfo.shares, 'ether');
     

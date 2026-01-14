@@ -1580,6 +1580,46 @@
     background-size: cover;
     pointer-events: none; /* ensures it doesn't interfere with clicks */
   }
+
+  /* Earn Tab Styles */
+  .earn-section {
+    margin-bottom: 30px;
+    padding: 15px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .earn-subtabs .tabs__nav {
+    margin-bottom: 20px;
+  }
+
+  .earn-subnav .tabs__nav-list {
+    display: flex;
+    gap: 10px;
+  }
+
+  .earn-subnav .tabs__nav-item {
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.1);
+    transition: all 0.3s;
+  }
+
+  .earn-subnav .tabs__nav-item.js-active {
+    background: rgba(39, 120, 196, 0.5);
+    color: white;
+  }
+
+  .earn-subnav .tabs__nav-item:hover {
+    background: rgba(39, 120, 196, 0.3);
+  }
+
+  #earnRoiDisplay {
+    text-align: center;
+    font-size: 1.2em;
+    margin-bottom: 20px;
+  }
 </style>
 
 <script type="text/javascript">
@@ -2268,6 +2308,12 @@ async function login2() {
         isConnected = true;
         await checkbalances();
         makeFairRatio();
+        
+        // Initialize Earn tab data if function exists
+        if (typeof onEarnUserLogin === 'function') {
+          onEarnUserLogin().catch(e => console.error('Error initializing Earn tab:', e));
+        }
+        
         hideSpinner();
     } catch (e) {
         hideSpinner()
