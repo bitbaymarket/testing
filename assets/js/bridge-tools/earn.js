@@ -1180,11 +1180,40 @@ async function claimStakingRewards() {
     
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
     
-    // Get user votes (empty for now - voting UI to be implemented)
-    const votes = [];
+    // Get user's saved votes
+    const savedVotes = JSON.parse(localStorage.getItem('earnUserVotes') || '[]');
+    const votesToCast = [];
     
-    // Claim rewards
-    await baylTreasury.methods.claimRewards(TREASURY_ADDRESSES.VOTE_BAYL, votes).send({
+    for (const vote of savedVotes) {
+      if (vote.timesCast < vote.repeat) {
+        // Encode the vote according to the function signatures
+        // This is a simplified version - actual encoding would use web3.eth.abi.encodeFunctionCall
+        for (const func of vote.functions) {
+          // Build the vote payload
+          // Format: function selector + encoded parameters
+          try {
+            const encoded = earnState.polWeb3.eth.abi.encodeFunctionCall({
+              name: func.signature.split('(')[0],
+              type: 'function',
+              inputs: [{ type: func.paramType, name: 'param' }]
+            }, [func.paramValue]);
+            
+            votesToCast.push(encoded);
+          } catch (e) {
+            console.error('Error encoding vote:', e);
+          }
+        }
+        
+        // Increment times cast
+        vote.timesCast++;
+      }
+    }
+    
+    // Save updated vote counts
+    localStorage.setItem('earnUserVotes', JSON.stringify(savedVotes));
+    
+    // Claim rewards with votes
+    await baylTreasury.methods.claimRewards(TREASURY_ADDRESSES.VOTE_BAYL, votesToCast).send({
       from: myaccountsV2,
       gas: 700000,
       gasPrice: gasPrice
@@ -1209,7 +1238,13 @@ async function claimStakingRewards() {
     localStorage.setItem('earnTotalRewards', JSON.stringify(earnState.userTotalRewards));
     
     hideSpinner();
-    Swal.fire('Success', 'Rewards claimed successfully!', 'success');
+    
+    let message = 'Rewards claimed successfully!';
+    if (votesToCast.length > 0) {
+      message += ` ${votesToCast.length} vote(s) cast.`;
+    }
+    
+    Swal.fire('Success', message, 'success');
     await refreshEarnTab();
     
   } catch (error) {
@@ -1228,32 +1263,211 @@ async function loadVotingInfo() {
   try {
     const voteContract = new earnState.polWeb3.eth.Contract(stakingVoteABI, TREASURY_ADDRESSES.VOTE_BAYL);
     
-    // TODO: Load voting information
-    document.getElementById('currentVoteEpoch').textContent = 'Loading...';
-    document.getElementById('voteEpochBlocks').textContent = 'Loading...';
+    // Get current epoch
+    const currentEpoch = await voteContract.methods.currentEpoch().call();
+    document.getElementById('currentVoteEpoch').textContent = currentEpoch;
+    
+    // Get epoch block info
+    const epochBlocks = await voteContract.methods.epochBlocks().call();
+    document.getElementById('voteEpochBlocks').textContent = epochBlocks;
+    
+    // Load previous and pending votes
+    await loadVotes(voteContract, currentEpoch);
     
   } catch (error) {
     console.error('Error loading voting info:', error);
   }
 }
 
+async function loadVotes(voteContract, currentEpoch) {
+  try {
+    // Get votes for previous epoch
+    if (currentEpoch > 0) {
+      const prevVotes = await voteContract.methods.getEpochVotes(currentEpoch - 1).call();
+      let prevHTML = '';
+      if (prevVotes && prevVotes.length > 0) {
+        for (const vote of prevVotes) {
+          prevHTML += `<div><a href="#" onclick="showVoteDetails('${vote.hash}')">${vote.hash.substring(0, 10)}...</a></div>`;
+        }
+      } else {
+        prevHTML = 'No votes in last epoch';
+      }
+      document.getElementById('baylPreviousVotes').innerHTML = prevHTML;
+    }
+    
+    // Get pending votes for current epoch
+    const pendingVotes = await voteContract.methods.getEpochVotes(currentEpoch).call();
+    let pendingHTML = '';
+    if (pendingVotes && pendingVotes.length > 0) {
+      for (const vote of pendingVotes) {
+        pendingHTML += `<div><a href="#" onclick="showVoteDetails('${vote.hash}')">${vote.hash.substring(0, 10)}...</a> (${vote.count} votes)</div>`;
+      }
+    } else {
+      pendingHTML = 'No pending votes';
+    }
+    document.getElementById('baylPendingVotes').innerHTML = pendingHTML;
+    
+  } catch (error) {
+    console.error('Error loading votes:', error);
+  }
+}
+
 function showCreateVoteDialog() {
+  // Load any saved votes from localStorage
+  const savedVotes = JSON.parse(localStorage.getItem('earnUserVotes') || '[]');
+  
   Swal.fire({
     title: 'Create New Vote',
     html: `
-      <p>Vote creation interface coming soon...</p>
-      <p>You will be able to add function calls with payloads (uint, string, bytes, address)</p>
+      <div style="text-align: left;">
+        <p>Create a vote by adding function calls with their payloads. Each function call will be executed if the vote passes.</p>
+        
+        <div id="voteFunctions">
+          <div class="vote-function-item">
+            <label>Function Signature:</label>
+            <input type="text" id="funcSig0" class="swal2-input" placeholder="e.g., setMinDays(uint256)" />
+            
+            <label>Parameter Type:</label>
+            <select id="paramType0" class="swal2-select">
+              <option value="uint">uint256</option>
+              <option value="string">string</option>
+              <option value="bytes">bytes</option>
+              <option value="address">address</option>
+            </select>
+            
+            <label>Parameter Value:</label>
+            <input type="text" id="paramValue0" class="swal2-input" placeholder="Enter value" />
+          </div>
+        </div>
+        
+        <button onclick="addVoteFunction()" class="swal2-confirm swal2-styled" style="margin-top: 10px;">Add Another Function</button>
+        
+        <div style="margin-top: 20px;">
+          <label>Times to cast this vote consecutively (max 10):</label>
+          <input type="number" id="voteRepeat" class="swal2-input" value="1" min="1" max="10" />
+        </div>
+      </div>
     `,
-    icon: 'info'
+    width: '600px',
+    showCancelButton: true,
+    confirmButtonText: 'Create Vote',
+    cancelButtonText: 'Cancel',
+    preConfirm: () => {
+      return createVoteFromDialog();
+    }
   });
 }
 
+function addVoteFunction() {
+  const container = document.getElementById('voteFunctions');
+  const index = container.children.length;
+  
+  if (index >= 10) {
+    Swal.showValidationMessage('Maximum 10 functions per vote');
+    return;
+  }
+  
+  const newFunction = document.createElement('div');
+  newFunction.className = 'vote-function-item';
+  newFunction.style.marginTop = '20px';
+  newFunction.style.borderTop = '1px solid #ccc';
+  newFunction.style.paddingTop = '10px';
+  newFunction.innerHTML = `
+    <label>Function Signature:</label>
+    <input type="text" id="funcSig${index}" class="swal2-input" placeholder="e.g., setMaxDays(uint256)" />
+    
+    <label>Parameter Type:</label>
+    <select id="paramType${index}" class="swal2-select">
+      <option value="uint">uint256</option>
+      <option value="string">string</option>
+      <option value="bytes">bytes</option>
+      <option value="address">address</option>
+    </select>
+    
+    <label>Parameter Value:</label>
+    <input type="text" id="paramValue${index}" class="swal2-input" placeholder="Enter value" />
+  `;
+  
+  container.appendChild(newFunction);
+}
+
+function createVoteFromDialog() {
+  const container = document.getElementById('voteFunctions');
+  const numFunctions = container.children.length;
+  const functions = [];
+  
+  for (let i = 0; i < numFunctions; i++) {
+    const sig = document.getElementById(`funcSig${i}`).value;
+    const type = document.getElementById(`paramType${i}`).value;
+    const value = document.getElementById(`paramValue${i}`).value;
+    
+    if (!sig || !value) {
+      Swal.showValidationMessage(`Please fill all fields for function ${i + 1}`);
+      return false;
+    }
+    
+    functions.push({ signature: sig, paramType: type, paramValue: value });
+  }
+  
+  const repeat = parseInt(document.getElementById('voteRepeat').value);
+  if (repeat < 1 || repeat > 10) {
+    Swal.showValidationMessage('Repeat count must be between 1 and 10');
+    return false;
+  }
+  
+  // Save to localStorage
+  const savedVotes = JSON.parse(localStorage.getItem('earnUserVotes') || '[]');
+  const newVote = {
+    id: Date.now(),
+    functions: functions,
+    repeat: repeat,
+    timesCast: 0
+  };
+  savedVotes.push(newVote);
+  localStorage.setItem('earnUserVotes', JSON.stringify(savedVotes));
+  
+  Swal.fire('Success', 'Vote created! It will be cast during your next reward claim.', 'success');
+  return true;
+}
+
 function showVoteDetailsDialog() {
+  const savedVotes = JSON.parse(localStorage.getItem('earnUserVotes') || '[]');
+  
+  let html = '<div style="text-align: left;">';
+  
+  if (savedVotes.length === 0) {
+    html += '<p>You have not created any votes yet.</p>';
+  } else {
+    html += '<p><strong>Your Created Votes:</strong></p>';
+    savedVotes.forEach((vote, index) => {
+      html += `<div style="margin-bottom: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">`;
+      html += `<p><strong>Vote ${index + 1}</strong> (Cast ${vote.timesCast}/${vote.repeat} times)</p>`;
+      html += '<ul>';
+      vote.functions.forEach(func => {
+        html += `<li>${func.signature} - ${func.paramType}: ${func.paramValue}</li>`;
+      });
+      html += '</ul>';
+      html += `<button onclick="deleteVote(${vote.id})" class="swal2-cancel swal2-styled">Delete</button>`;
+      html += `</div>`;
+    });
+  }
+  
+  html += '</div>';
+  
   Swal.fire({
-    title: 'Vote Details',
-    html: '<p>Select a vote to view its details...</p>',
-    icon: 'info'
+    title: 'Your Votes',
+    html: html,
+    width: '600px',
+    confirmButtonText: 'Close'
   });
+}
+
+function deleteVote(voteId) {
+  const savedVotes = JSON.parse(localStorage.getItem('earnUserVotes') || '[]');
+  const filtered = savedVotes.filter(v => v.id !== voteId);
+  localStorage.setItem('earnUserVotes', JSON.stringify(filtered));
+  Swal.close();
+  showVoteDetailsDialog();
 }
 
 // ============================================================================
