@@ -631,19 +631,19 @@
               <!-- Sub-tabs for Earn sections -->
               <div class="tabs earn-subtabs">
                 <div class="tabs__nav earn-subnav">
-                  <ul class="tabs__nav-list">
-                    <li class="tabs__nav-item js-active">Savings</li>
-                    <li class="tabs__nav-item">Staking</li>
+                  <ul class="tabs__nav-list" style="display: flex; justify-content: space-between; align-items: center;">
+                    <li class="tabs__nav-item js-active">Treasury Profits</li>
+                    <li class="tabs__nav-item">Staking Yield</li>
                   </ul>
                 </div>
 
                 <div class="tabs__panels">
-                  <!-- Savings Panel (Lido HODL + StableVault) -->
+                  <!-- Treasury Profits Panel (Lido HODL + StableVault) -->
                   <div class="tabs__panel js-active">
                     
                     <!-- Lido HODL Vault Section -->
-                    <div class="earn-section">
-                      <div class="boxTitle">🏦 Lido HODL Vault (Ethereum)</div>
+                    <div class="earn-section" style="margin-bottom: 30px;">
+                      <div class="boxTitle" style="margin-bottom: 15px;">🏦 Lido HODL Vault (Ethereum)</div>
                       <div class="callout">
                         <details>
                           <summary style="cursor: pointer;">ℹ️ Why HODL with Lido?</summary>
@@ -652,7 +652,7 @@
                       </div>
 
                       <!-- Lido Vault Info -->
-                      <div id="lidoVaultInfo" class="callout">
+                      <div id="lidoVaultInfo" class="callout" style="margin-top: 10px;">
                         <div><strong>Total Principal:</strong> <span id="lidoTotalPrincipal">Loading...</span> ETH</div>
                         <div><strong>Estimated Yearly Yield:</strong> ~3%</div>
                         <div><strong>Total Yield Generated:</strong> <span id="lidoTotalYield">Loading...</span> ETH</div>
@@ -661,57 +661,73 @@
                       </div>
 
                       <!-- User's Lido Position -->
-                      <div id="userLidoPosition" class="callout logged-in hidden">
+                      <div id="userLidoPosition" class="callout logged-in hidden" style="margin-top: 10px;">
                         <div><strong>Your Locked Amount:</strong> <span id="userLidoAmount">0</span> stETH</div>
                         <div><strong>Unlock Date:</strong> <span id="userLidoUnlockDate">N/A</span></div>
                       </div>
 
-                      <!-- ETH and Lido Balances -->
-                      <div id="ethBalances" class="logged-in hidden">
-                        <div class="swapField">
-                          <div class="swapFirstCoin">
-                            <img class="swapSelectorLogo" src="./assets/images/eth.png">
-                            <div class="swapSelectorText">ETH</div>
+                      <!-- Separator -->
+                      <hr class="logged-in hidden" style="margin: 20px 0;">
+
+                      <!-- Lido Actions Form -->
+                      <div class="logged-in hidden" style="margin-top: 20px;">
+                        <div class="boxTitle" style="margin-bottom: 10px;">💰 Deposit Actions</div>
+                        <div class="swapFields">
+                          <div class="swapField">
+                            <div class="input-group">
+                              <input type="number" id="lidoDepositAmount" class="form_field buttons-inside" placeholder="0.0" />
+                              <div class="btn-inside btn-inside-end">ETH/stETH</div>
+                            </div>
                           </div>
-                          <div class="swapBalance">
-                            <span id="ethBalance">0.0</span> ETH
-                            <span id="ethGasWarning" class="hidden" style="color: red;"> (Low gas!)</span>
+                          <div class="swapField">
+                            <div class="input-group">
+                              <input type="number" id="lidoLockDays" class="form_field buttons-inside" placeholder="Days to lock" />
+                              <div class="btn-inside btn-inside-end">Days</div>
+                            </div>
+                            <div style="margin-top: 5px; font-size: 0.9em; color: #666;"><span id="lidoLockEstimate">0m</span></div>
                           </div>
-                        </div>
-                        <div class="swapField" id="lidoBalanceField" class="hidden">
-                          <div class="swapFirstCoin">
-                            <div class="swapSelectorText">stETH</div>
-                          </div>
-                          <div class="swapBalance">
-                            <span id="lidoBalance">0.0</span> stETH
+                          <div class="swapField" style="display: flex; gap: 10px;">
+                            <button class="swapSelector btn" style="flex: 1;" onclick="depositLidoHODL()">Deposit & HODL</button>
+                            <button class="swapSelector btn" style="flex: 1;" onclick="withdrawLidoHODL()">Withdraw</button>
                           </div>
                         </div>
                       </div>
 
-                      <!-- Lido Actions -->
-                      <div class="swapFields logged-in hidden">
-                        <div class="swapField">
-                          <div class="input-group">
-                            <input type="number" id="lidoDepositAmount" class="form_field buttons-inside" placeholder="0.0" />
-                            <div class="btn-inside btn-inside-end">ETH/stETH</div>
+                      <!-- Separator -->
+                      <hr class="logged-in hidden" style="margin: 20px 0;">
+
+                      <!-- ETH and Lido Balances -->
+                      <div id="ethBalances" class="logged-in hidden" style="margin-top: 20px;">
+                        <div class="boxTitle" style="margin-bottom: 10px;">💼 Your Balances</div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #f5f5f5; border-radius: 5px; margin-bottom: 10px;">
+                          <div style="display: flex; align-items: center; gap: 10px;">
+                            <img class="swapSelectorLogo" src="./assets/images/eth.png" style="width: 24px; height: 24px; filter: hue-rotate(200deg);">
+                            <div>
+                              <div style="font-size: 0.9em; color: #666;">ETH</div>
+                              <div style="font-weight: bold;">
+                                <span id="ethBalance">0.0</span>
+                                <span id="ethGasWarning" class="hidden" style="color: red; font-size: 0.85em;"> (⚠️ Low gas!)</span>
+                              </div>
+                            </div>
                           </div>
+                          <button class="btn-small" onclick="copyDepositAddress('ETH')" title="Copy deposit address" style="padding: 5px 10px;">📋</button>
                         </div>
-                        <div class="swapField">
-                          <div class="input-group">
-                            <input type="number" id="lidoLockDays" class="form_field buttons-inside" placeholder="Days to lock" />
-                            <div class="btn-inside btn-inside-end">Days (<span id="lidoLockEstimate">0m</span>)</div>
+                        <div id="lidoBalanceField" class="hidden" style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+                          <div style="display: flex; align-items: center; gap: 10px;">
+                            <img class="swapSelectorLogo" src="./assets/images/eth.png" style="width: 24px; height: 24px; filter: hue-rotate(160deg);">
+                            <div>
+                              <div style="font-size: 0.9em; color: #666;">stETH</div>
+                              <div style="font-weight: bold;"><span id="lidoBalance">0.0</span></div>
+                            </div>
                           </div>
-                        </div>
-                        <div class="swapField">
-                          <button class="swapSelector btn" onclick="depositLidoHODL()">Deposit & HODL</button>
-                          <button class="swapSelector btn" onclick="withdrawLidoHODL()">Withdraw</button>
+                          <button class="btn-small" onclick="copyDepositAddress('Lido')" title="Copy deposit address" style="padding: 5px 10px;">📋</button>
                         </div>
                       </div>
                     </div>
 
                     <!-- StableVault Section -->
-                    <div class="earn-section">
-                      <div class="boxTitle">🪙 StableVault (DAI/USDC Automated Position)</div>
+                    <div class="earn-section" style="margin-bottom: 30px;">
+                      <div class="boxTitle" style="margin-bottom: 15px;">🪙 StableVault (DAI/USDC Automated Position)</div>
                       <div class="callout">
                         <details>
                           <summary style="cursor: pointer;">ℹ️ Why use StableVault?</summary>
@@ -720,7 +736,7 @@
                       </div>
 
                       <!-- StableVault Pool Info -->
-                      <div id="stableVaultInfo" class="callout">
+                      <div id="stableVaultInfo" class="callout" style="margin-top: 10px;">
                         <div><strong>Pool Pair:</strong> DAI/USDC</div>
                         <div><strong>Total Pool Size:</strong> <span id="stableTotalDAI">Loading...</span> DAI</div>
                         <div><strong>Current Tick:</strong> <span id="stableCurrentTick">Loading...</span></div>
@@ -732,60 +748,18 @@
                       </div>
 
                       <!-- User's StableVault Position -->
-                      <div id="userStablePosition" class="callout logged-in hidden">
+                      <div id="userStablePosition" class="callout logged-in hidden" style="margin-top: 10px;">
                         <div><strong>Your Position:</strong> <span id="userStableDAI">0</span> DAI (<span id="userStablePercent">0</span>%)</div>
                         <div><strong>Anticipated Weekly Profit:</strong> $<span id="userStableWeeklyProfit">0</span></div>
                         <div><strong>Pending Fees:</strong> $<span id="userStablePendingFees">0</span></div>
                       </div>
 
-                      <!-- DAI Balance -->
-                      <div id="daiBalance" class="swapField logged-in hidden">
-                        <div class="swapFirstCoin">
-                          <div class="swapSelectorText">DAI</div>
-                        </div>
-                        <div class="swapBalance">
-                          <span id="daiBalanceAmount">0.0</span> DAI
-                          <button class="btn-small" onclick="copyDepositAddress('DAI')" title="Copy deposit address" style="margin-left: 10px;">📋</button>
-                        </div>
-                      </div>
-
-                      <div id="usdcBalance" class="swapField logged-in hidden">
-                        <div class="swapFirstCoin">
-                          <div class="swapSelectorText">USDC</div>
-                        </div>
-                        <div class="swapBalance">
-                          <span id="usdcBalanceAmount">0.0</span> USDC
-                          <button class="btn-small" onclick="copyDepositAddress('USDC')" title="Copy deposit address" style="margin-left: 10px;">📋</button>
-                        </div>
-                      </div>
-
-                      <div id="wethBalance" class="swapField logged-in hidden">
-                        <div class="swapFirstCoin">
-                          <div class="swapSelectorText">WETH</div>
-                        </div>
-                        <div class="swapBalance">
-                          <span id="wethBalanceAmount">0.0</span> WETH
-                          <button class="btn-small" onclick="copyDepositAddress('WETH')" title="Copy deposit address" style="margin-left: 10px;">📋</button>
-                        </div>
-                      </div>
-
-                      <div id="polBalance" class="swapField logged-in hidden">
-                        <div class="swapFirstCoin">
-                          <div class="swapSelectorText">POL</div>
-                        </div>
-                        <div class="swapBalance">
-                          <span id="polBalanceAmount">0.0</span> POL
-                          <button class="btn-small" onclick="copyDepositAddress('POL')" title="Copy deposit address" style="margin-left: 10px;">📋</button>
-                        </div>
-                      </div>
-
-                      <!-- Withdraw Coins Button -->
-                      <div class="swapField logged-in hidden" id="withdrawCoinsSection">
-                        <button class="swapSelector btn" onclick="showWithdrawDialog()">Withdraw Coins</button>
-                      </div>
+                      <!-- Separator -->
+                      <hr class="logged-in hidden" style="margin: 20px 0;">
 
                       <!-- StableVault Actions -->
-                      <div class="swapFields logged-in hidden">
+                      <div class="swapFields logged-in hidden" style="margin-top: 20px;">
+                        <div class="boxTitle" style="margin-bottom: 10px;">💰 Deposit Actions</div>
                         <div class="swapField">
                           <div class="input-group">
                             <input type="number" id="stableDepositAmount" class="form_field buttons-inside" placeholder="0.0 DAI" />
@@ -800,36 +774,101 @@
                             <option value="bayr">Donate to BAYR liquidity providers (UniSwap)</option>
                           </select>
                         </div>
-                        <div class="swapField">
-                          <button class="swapSelector btn" onclick="depositStableVault()">Deposit</button>
-                          <button class="swapSelector btn" onclick="collectStableFees()">Collect Fees</button>
-                          <button class="swapSelector btn" onclick="withdrawStableVault()">Withdraw</button>
+                        <div class="swapField" style="display: flex; gap: 10px;">
+                          <button class="swapSelector btn" style="flex: 1;" onclick="depositStableVault()">Deposit</button>
+                          <button class="swapSelector btn" style="flex: 1;" onclick="collectStableFees()">Collect Fees</button>
+                          <button class="swapSelector btn" style="flex: 1;" onclick="withdrawStableVault()">Withdraw</button>
+                        </div>
+                      </div>
+
+                      <!-- Separator -->
+                      <hr class="logged-in hidden" style="margin: 20px 0;">
+
+                      <!-- Token Balances -->
+                      <div class="logged-in hidden" style="margin-top: 20px;">
+                        <div class="boxTitle" style="margin-bottom: 10px;">💼 Your Balances</div>
+
+                        <div id="daiBalance" class="hidden" style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #f5f5f5; border-radius: 5px; margin-bottom: 10px;">
+                          <div style="display: flex; align-items: center; gap: 10px;">
+                            <img class="swapSelectorLogo" src="./assets/images/dai.png" style="width: 24px; height: 24px;">
+                            <div>
+                              <div style="font-size: 0.9em; color: #666;">DAI</div>
+                              <div style="font-weight: bold;"><span id="daiBalanceAmount">0.0</span></div>
+                            </div>
+                          </div>
+                          <button class="btn-small" onclick="copyDepositAddress('DAI')" title="Copy deposit address" style="padding: 5px 10px;">📋</button>
+                        </div>
+
+                        <div id="usdcBalance" class="hidden" style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #f5f5f5; border-radius: 5px; margin-bottom: 10px;">
+                          <div style="display: flex; align-items: center; gap: 10px;">
+                            <img class="swapSelectorLogo" src="./assets/images/usdc.png" style="width: 24px; height: 24px;">
+                            <div>
+                              <div style="font-size: 0.9em; color: #666;">USDC</div>
+                              <div style="font-weight: bold;"><span id="usdcBalanceAmount">0.0</span></div>
+                            </div>
+                          </div>
+                          <button class="btn-small" onclick="copyDepositAddress('USDC')" title="Copy deposit address" style="padding: 5px 10px;">📋</button>
+                        </div>
+
+                        <div id="wethBalance" class="hidden" style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #f5f5f5; border-radius: 5px; margin-bottom: 10px;">
+                          <div style="display: flex; align-items: center; gap: 10px;">
+                            <img class="swapSelectorLogo" src="./assets/images/eth.png" style="width: 24px; height: 24px;">
+                            <div>
+                              <div style="font-size: 0.9em; color: #666;">WETH</div>
+                              <div style="font-weight: bold;"><span id="wethBalanceAmount">0.0</span></div>
+                            </div>
+                          </div>
+                          <button class="btn-small" onclick="copyDepositAddress('WETH')" title="Copy deposit address" style="padding: 5px 10px;">📋</button>
+                        </div>
+
+                        <div id="polBalance" class="hidden" style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #f5f5f5; border-radius: 5px; margin-bottom: 10px;">
+                          <div style="display: flex; align-items: center; gap: 10px;">
+                            <img class="swapSelectorLogo" src="./assets/images/polygon.svg" style="width: 24px; height: 24px;">
+                            <div>
+                              <div style="font-size: 0.9em; color: #666;">POL</div>
+                              <div style="font-weight: bold;"><span id="polBalanceAmount">0.0</span></div>
+                            </div>
+                          </div>
+                          <button class="btn-small" onclick="copyDepositAddress('POL')" title="Copy deposit address" style="padding: 5px 10px;">📋</button>
+                        </div>
+
+                        <!-- Withdraw Coins Button -->
+                        <div id="withdrawCoinsSection" class="hidden" style="margin-top: 10px;">
+                          <button class="swapSelector btn" style="width: 100%;" onclick="showWithdrawDialog()">💸 Withdraw Coins</button>
                         </div>
                       </div>
                     </div>
 
                   </div>
 
-                  <!-- Staking Panel -->
+                  <!-- Staking Yield Panel -->
                   <div class="tabs__panel">
                     
                     <div class="earn-section">
+                      <!-- Why Stake BitBay Intro -->
+                      <div class="callout" style="margin-bottom: 15px;">
+                        <details>
+                          <summary style="cursor: pointer; font-weight: bold;">❓ Why Stake BitBay?</summary>
+                          <p style="margin-top: 10px;">The Treasury sends BAY stakers rewards in valuable ETH/DAI and USDC. You do work to secure the network, vote on important decisions, and manage the AMM positions in exchange. To stake, just make sure this tab is always open in a dedicated browser window and that it is activated.</p>
+                        </details>
+                      </div>
+
                       <!-- Staking Enable Checkbox -->
-                      <div class="callout callout-warning">
-                        <label style="font-weight: bold;">
-                          <input type="checkbox" id="stakingEnabledCheckbox" onchange="toggleStaking()" />
-                          Enable Automated Staking
+                      <div class="callout callout-warning" style="margin-bottom: 15px;">
+                        <label style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                          <input type="checkbox" id="stakingEnabledCheckbox" onchange="toggleStaking()" style="width: 18px; height: 18px; cursor: pointer;" />
+                          <span>Enable Automated Staking</span>
                         </label>
-                        <p style="margin-top: 5px; font-size: 0.9em;">When enabled, your account will automatically manage staking, rewards, and protocol operations.</p>
+                        <p style="margin-top: 10px; font-size: 0.9em;">When enabled, your account will automatically manage staking, rewards, and protocol operations.</p>
                       </div>
 
                       <!-- Staking Note -->
-                      <div class="callout callout-info">
+                      <div class="callout callout-info" style="margin-bottom: 15px;">
                         <p><strong>Note:</strong> Staking requires password-based login (not MetaMask). This enables browser-based automated staking and voting.</p>
                       </div>
 
                       <!-- Display what stakers are automating -->
-                      <div id="stakingAutomationInfo" class="callout hidden">
+                      <div id="stakingAutomationInfo" class="callout hidden" style="margin-bottom: 15px;">
                         <div class="boxTitle">🤖 Automated Tasks</div>
                         <div>✓ AMM Position Management</div>
                         <div>✓ Yield Payment Collection</div>
@@ -838,16 +877,16 @@
                       </div>
 
                       <!-- Gas Warning -->
-                      <div id="stakingGasWarning" class="callout callout-warning hidden">
+                      <div id="stakingGasWarning" class="callout callout-warning hidden" style="margin-bottom: 15px;">
                         <p>⚠️ Low POL balance: <span id="stakingPolBalance">0</span> POL. Keep above 30 POL for optimal staking. Below 10 POL staking will be paused.</p>
                       </div>
 
-                      <div id="stakingEthGasWarning" class="callout callout-warning hidden">
+                      <div id="stakingEthGasWarning" class="callout callout-warning hidden" style="margin-bottom: 15px;">
                         <p>⚠️ Insufficient ETH gas on Ethereum mainnet for Lido yield collection. Add ETH to continue collecting rewards.</p>
                       </div>
 
                       <!-- Treasury Staking Info -->
-                      <div class="boxTitle">💎 BAYL Treasury Staking</div>
+                      <div class="boxTitle" style="margin-top: 20px; margin-bottom: 10px;">💎 BAYL Treasury Staking</div>
                       <div id="baylTreasuryInfo" class="callout">
                         <div><strong>Total BAY Staked:</strong> <span id="baylTotalStaked">Loading...</span> BAYL</div>
                         <div><strong>Total Shares Pending:</strong> <span id="baylTotalShares">Loading...</span></div>
@@ -856,13 +895,13 @@
                       </div>
 
                       <!-- Top Stakers -->
-                      <div id="topStakersInfo" class="callout">
+                      <div id="topStakersInfo" class="callout" style="margin-top: 10px;">
                         <div class="boxTitle">🏆 Top Stakers</div>
                         <div id="topStakersList">Loading...</div>
                       </div>
 
                       <!-- User Staking Info -->
-                      <div id="userStakingInfo" class="callout logged-in hidden">
+                      <div id="userStakingInfo" class="callout logged-in hidden" style="margin-top: 10px;">
                         <div class="boxTitle">Your Staking Info</div>
                         <div><strong>Vault Address:</strong> <span id="userVaultAddress">Loading...</span></div>
                         <div><strong>Shares:</strong> <span id="userShares">0</span></div>
@@ -874,28 +913,37 @@
                         <div id="userTotalRewards" style="margin-left: 20px;">Loading...</div>
                       </div>
 
+                      <!-- Separator -->
+                      <hr class="logged-in hidden" style="margin: 20px 0;">
+
                       <!-- BAYL/BAYR Balances at Vault -->
-                      <div id="vaultBalances" class="logged-in hidden">
-                        <div class="swapField">
-                          <div class="swapFirstCoin">
-                            <div class="swapSelectorText">BAYL (at Vault)</div>
-                          </div>
-                          <div class="swapBalance">
-                            <span id="vaultBaylBalance">0.0</span> BAYL
+                      <div id="vaultBalances" class="logged-in hidden" style="margin-top: 20px;">
+                        <div class="boxTitle" style="margin-bottom: 10px;">💼 Vault Balances</div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #f5f5f5; border-radius: 5px; margin-bottom: 10px;">
+                          <div style="display: flex; align-items: center; gap: 10px;">
+                            <img class="swapSelectorLogo" src="./icon.png" style="width: 24px; height: 24px;">
+                            <div>
+                              <div style="font-size: 0.9em; color: #666;">BAYL (at Vault)</div>
+                              <div style="font-weight: bold;"><span id="vaultBaylBalance">0.0</span></div>
+                            </div>
                           </div>
                         </div>
-                        <div class="swapField">
-                          <div class="swapFirstCoin">
-                            <div class="swapSelectorText">BAYR (at Vault)</div>
-                          </div>
-                          <div class="swapBalance">
-                            <span id="vaultBayrBalance">0.0</span> BAYR
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+                          <div style="display: flex; align-items: center; gap: 10px;">
+                            <img class="swapSelectorLogo" src="./icon.png" style="width: 24px; height: 24px;">
+                            <div>
+                              <div style="font-size: 0.9em; color: #666;">BAYR (at Vault)</div>
+                              <div style="font-weight: bold;"><span id="vaultBayrBalance">0.0</span></div>
+                            </div>
                           </div>
                         </div>
                       </div>
 
+                      <!-- Separator -->
+                      <hr class="logged-in hidden" style="margin: 20px 0;">
+
                       <!-- Staking Actions -->
-                      <div class="swapFields logged-in hidden">
+                      <div class="swapFields logged-in hidden" style="margin-top: 20px;">
                         <div class="callout callout-info">
                           <details>
                             <summary style="cursor: pointer;">📋 Staking Disclaimer</summary>
@@ -903,21 +951,21 @@
                           </details>
                         </div>
                         
-                        <div class="swapField">
+                        <div class="swapField" style="margin-top: 10px;">
                           <div class="input-group">
                             <input type="number" id="stakingDepositAmount" class="form_field buttons-inside" placeholder="0.0 BAYL" />
                             <div class="btn-inside btn-inside-end">BAYL</div>
                           </div>
                         </div>
-                        <div class="swapField">
-                          <button class="swapSelector btn" onclick="depositStake()">Stake BAYL</button>
-                          <button class="swapSelector btn" onclick="unstakeBAYL()">Unstake</button>
-                          <button class="swapSelector btn" onclick="claimStakingRewards()">Claim Rewards</button>
+                        <div class="swapField" style="display: flex; gap: 10px;">
+                          <button class="swapSelector btn" style="flex: 1;" onclick="depositStake()">Stake BAYL</button>
+                          <button class="swapSelector btn" style="flex: 1;" onclick="unstakeBAYL()">Unstake</button>
+                          <button class="swapSelector btn" style="flex: 1;" onclick="claimStakingRewards()">Claim Rewards</button>
                         </div>
                       </div>
 
                       <!-- Protocol Management Info (for stakers) -->
-                      <div id="protocolManagementInfo" class="callout hidden">
+                      <div id="protocolManagementInfo" class="callout hidden" style="margin-top: 20px;">
                         <div class="boxTitle">🔧 Protocol Management Status</div>
                         <div><strong>AMM Position:</strong> <span id="ammPositionStatus">Loading...</span></div>
                         <div><strong>AMM Weekly Yield:</strong> $<span id="ammWeeklyYield">0</span></div>
@@ -927,7 +975,7 @@
                       </div>
 
                       <!-- Voting Section -->
-                      <div class="boxTitle">🗳️ Staking Votes</div>
+                      <div class="boxTitle" style="margin-top: 20px; margin-bottom: 10px;">🗳️ Staking Votes</div>
                       
                       <div id="votingInfo" class="callout">
                         <div><strong>Current Epoch:</strong> <span id="currentVoteEpoch">Loading...</span></div>
@@ -935,16 +983,16 @@
                       </div>
 
                       <!-- BAYL Votes -->
-                      <div id="baylVotes" class="callout">
+                      <div id="baylVotes" class="callout" style="margin-top: 10px;">
                         <div class="boxTitle">BAYL Votes</div>
-                        <div><strong>Previous Epoch Votes:</strong></div>
+                        <div><strong>Previous Epoch Winner:</strong></div>
                         <div id="baylPreviousVotes" style="margin-left: 20px;">Loading...</div>
-                        <div><strong>Current Pending Votes:</strong></div>
+                        <div style="margin-top: 10px;"><strong>Current Top 5 Votes:</strong></div>
                         <div id="baylPendingVotes" style="margin-left: 20px;">Loading...</div>
                       </div>
 
                       <!-- BAYR Votes -->
-                      <div id="bayrVotes" class="callout">
+                      <div id="bayrVotes" class="callout" style="margin-top: 10px;">
                         <div class="boxTitle">BAYR Votes</div>
                         <div><strong>Previous Epoch Votes:</strong></div>
                         <div id="bayrPreviousVotes" style="margin-left: 20px;">Not Active</div>
@@ -953,14 +1001,19 @@
                       </div>
 
                       <!-- Vote Creation -->
-                      <div class="swapFields logged-in hidden">
-                        <button class="swapSelector btn" onclick="showCreateVoteDialog()">Create New Vote</button>
-                        <button class="swapSelector btn" onclick="showVoteDetailsDialog()">View Vote Details</button>
+                      <div class="swapFields logged-in hidden" style="margin-top: 15px;">
+                        <div style="display: flex; gap: 10px; justify-content: center;">
+                          <button class="swapSelector btn" style="flex: 1;" onclick="showCreateVoteDialog()">Create New Vote</button>
+                          <button class="swapSelector btn" style="flex: 1;" onclick="showVoteDetailsDialog()">View Vote Details</button>
+                        </div>
                       </div>
                       
-                      <!-- Console History -->
-                      <div style="margin-top: 30px; text-align: center;">
-                        <button class="swapSelector btn" onclick="showConsoleHistory()">📜 Show Console History</button>
+                      <!-- Retro Console -->
+                      <div style="margin-top: 30px;">
+                        <button class="swapSelector btn" style="width: 100%;" onclick="showConsoleHistory()">📜 Console History</button>
+                        <div id="stakingConsole" class="hidden" style="margin-top: 10px; background: #000; color: #0f0; font-family: 'Courier New', monospace; padding: 15px; border-radius: 5px; max-height: 300px; overflow-y: auto; font-size: 0.85em;">
+                          <pre id="stakingConsoleContent" style="margin: 0; white-space: pre-wrap; word-wrap: break-word;"></pre>
+                        </div>
                       </div>
 
                     </div>
@@ -2923,7 +2976,9 @@ async function checkbalances() {
       if (Object.keys(earnBalances).length > 0) {
         const balancesList = Object.keys(earnBalances).map(coin => `${coin} (${earnBalances[coin]})`).join(', ');
         document.getElementById('earn_balances_list').textContent = balancesList;
-        document.getElementById('earn_balances_notification').classList.remove('hidden');
+        const notification = document.getElementById('earn_balances_notification');
+        notification.classList.remove('hidden');
+        notification.style.display = 'block';
       }
     } catch (e) {
       console.log('No earn tab balances found');

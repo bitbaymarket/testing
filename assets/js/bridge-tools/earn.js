@@ -81,14 +81,46 @@ function logToConsole(message) {
   console.log(logEntry);
 }
 
-function showConsoleHistory() {
-  const logs = earnState.consoleLog.join('\n');
-  Swal.fire({
-    title: 'Console History',
-    html: `<div style="text-align: left; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.85em; white-space: pre-wrap;">${logs || 'No logs yet'}</div>`,
-    width: '800px',
-    confirmButtonText: 'Close'
+// Helper function to show vote payload details
+function showVotePayload(hash) {
+  if (!earnState.polWeb3) return;
+  
+  const voteContract = new earnState.polWeb3.eth.Contract(stakingABI, TREASURY_ADDRESSES.VOTE_BAYL);
+  
+  voteContract.methods.getProposalPayload(hash).call().then(payload => {
+    let html = `<div style="text-align: left; font-family: monospace; font-size: 0.85em;">`;
+    html += `<p><strong>Hash:</strong> ${hash}</p>`;
+    html += `<p><strong>Payload:</strong></p>`;
+    html += `<pre style="background: #f5f5f5; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto;">${JSON.stringify(payload, null, 2)}</pre>`;
+    html += `</div>`;
+    
+    Swal.fire({
+      title: 'Vote Details',
+      html: html,
+      width: '700px',
+      confirmButtonText: 'Close'
+    });
+  }).catch(error => {
+    Swal.fire('Error', 'Failed to load vote details', 'error');
   });
+}
+
+function showConsoleHistory() {
+  // Toggle console visibility instead of showing popup
+  const consoleDiv = document.getElementById('stakingConsole');
+  if (consoleDiv) {
+    if (consoleDiv.classList.contains('hidden')) {
+      consoleDiv.classList.remove('hidden');
+      const consoleContent = document.getElementById('stakingConsoleContent');
+      if (consoleContent) {
+        consoleContent.textContent = earnState.consoleLog.join('\n') || 'No logs yet';
+        // Scroll to bottom
+        consoleContent.scrollTop = consoleContent.scrollHeight;
+      }
+    } else {
+      consoleDiv.classList.add('hidden');
+    }
+  }
 }
 
 // ============================================================================
@@ -1810,28 +1842,33 @@ async function loadVotingInfo() {
 
 async function loadVotes(voteContract, currentEpoch) {
   try {
-    // Get votes for previous epoch
+    // For previous epoch: Only show winner and its votes
     if (currentEpoch > 0) {
-      const prevVotes = await voteContract.methods.getEpochVotes(currentEpoch - 1).call();
+      const prevEpoch = currentEpoch - 1;
+      const winningHash = await voteContract.methods.winningHash(prevEpoch).call();
       let prevHTML = '';
-      if (prevVotes && prevVotes.length > 0) {
-        for (const vote of prevVotes) {
-          prevHTML += `<div><a href="#" onclick="showVoteDetails('${vote.hash}')">${vote.hash.substring(0, 10)}...</a></div>`;
-        }
+      
+      if (winningHash && winningHash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+        const weight = await voteContract.methods.winningWeight(prevEpoch).call();
+        const payload = await voteContract.methods.getProposalPayload(winningHash).call();
+        prevHTML += `<div><strong>Winner:</strong> <a href="#" onclick="showVotePayload('${winningHash}')">${winningHash.substring(0, 10)}...</a> (${weight} votes)</div>`;
       } else {
         prevHTML = 'No votes in last epoch';
       }
       document.getElementById('baylPreviousVotes').innerHTML = prevHTML;
     }
     
-    // Get pending votes for current epoch
-    const pendingVotes = await voteContract.methods.getEpochVotes(currentEpoch).call();
+    // For current epoch: Show top 5 hashes (getEpochHashes)
+    const topHashes = await voteContract.methods.getEpochHashes(currentEpoch).call();
     let pendingHTML = '';
-    if (pendingVotes && pendingVotes.length > 0) {
-      for (const vote of pendingVotes) {
-        pendingHTML += `<div><a href="#" onclick="showVoteDetails('${vote.hash}')">${vote.hash.substring(0, 10)}...</a> (${vote.count} votes)</div>`;
+    
+    for (const hash of topHashes) {
+      if (hash && hash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+        pendingHTML += `<div><a href="#" onclick="showVotePayload('${hash}')">${hash.substring(0, 10)}...</a></div>`;
       }
-    } else {
+    }
+    
+    if (pendingHTML === '') {
       pendingHTML = 'No pending votes';
     }
     document.getElementById('baylPendingVotes').innerHTML = pendingHTML;
@@ -1848,42 +1885,41 @@ function showCreateVoteDialog() {
   Swal.fire({
     title: 'Create New Vote',
     html: `
-      <div style="text-align: left;">
-        <p>Create a vote by adding function calls with their payloads. Each function call will be executed if the vote passes.</p>
+      <div style="text-align: left; font-size: 0.9em;">
+        <p style="margin-bottom: 10px; font-size: 0.85em;">Create a vote with function calls to execute if it passes.</p>
         
-        <div style="margin-bottom: 15px;">
-          <label><strong>Target Contract Address:</strong></label>
-          <input type="text" id="voteTargetContract" class="swal2-input" placeholder="0x..." />
+        <div style="margin-bottom: 10px;">
+          <label style="font-size: 0.85em;"><strong>Target Contract:</strong></label>
+          <input type="text" id="voteTargetContract" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="0x..." />
         </div>
         
         <div id="voteFunctions">
           <div class="vote-function-item">
-            <label>Function Signature:</label>
-            <input type="text" id="funcSig0" class="swal2-input" placeholder="e.g., setMinDays(uint256)" />
+            <label style="font-size: 0.85em;">Function Signature:</label>
+            <input type="text" id="funcSig0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="e.g., setMinDays(uint256)" />
             
-            <label>Parameter Type:</label>
-            <select id="paramType0" class="swal2-select">
+            <label style="font-size: 0.85em;">Param Type:</label>
+            <select id="paramType0" class="swal2-select" style="padding: 5px; font-size: 0.85em;">
               <option value="uint256">uint256</option>
               <option value="string">string</option>
               <option value="bytes">bytes</option>
               <option value="address">address</option>
             </select>
             
-            <label>Parameter Value:</label>
-            <input type="text" id="paramValue0" class="swal2-input" placeholder="Enter value" />
+            <label style="font-size: 0.85em;">Param Value:</label>
+            <input type="text" id="paramValue0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="Enter value" />
           </div>
         </div>
         
-        <button onclick="addVoteFunction()" class="swal2-confirm swal2-styled" style="margin-top: 10px;">Add Another Function</button>
+        <button onclick="addVoteFunction()" class="swal2-confirm swal2-styled" style="margin-top: 8px; padding: 5px 10px; font-size: 0.85em;">+ Add Function</button>
         
-        <div style="margin-top: 20px;">
-          <label>Times to cast this vote consecutively (max 10):</label>
-          <input type="number" id="voteRepeat" class="swal2-input" value="1" min="1" max="10" />
-        </div>
+        <div style="margin-top: 10px;">
+          <label style="font-size: 0.85em;">Repeat (max 10):</label>
+          <input type="number" id="voteRepeat" class="swal2-input" style="padding: 5px; font-size: 0.85em;" value="1" min="1" max="10" />
         </div>
       </div>
     `,
-    width: '600px',
+    width: '500px',
     showCancelButton: true,
     confirmButtonText: 'Create Vote',
     cancelButtonText: 'Cancel',
@@ -1904,23 +1940,23 @@ function addVoteFunction() {
   
   const newFunction = document.createElement('div');
   newFunction.className = 'vote-function-item';
-  newFunction.style.marginTop = '20px';
+  newFunction.style.marginTop = '10px';
   newFunction.style.borderTop = '1px solid #ccc';
-  newFunction.style.paddingTop = '10px';
+  newFunction.style.paddingTop = '8px';
   newFunction.innerHTML = `
-    <label>Function Signature:</label>
-    <input type="text" id="funcSig${index}" class="swal2-input" placeholder="e.g., setMaxDays(uint256)" />
+    <label style="font-size: 0.85em;">Function Signature:</label>
+    <input type="text" id="funcSig${index}" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="e.g., setMaxDays(uint256)" />
     
-    <label>Parameter Type:</label>
-    <select id="paramType${index}" class="swal2-select">
+    <label style="font-size: 0.85em;">Param Type:</label>
+    <select id="paramType${index}" class="swal2-select" style="padding: 5px; font-size: 0.85em;">
       <option value="uint256">uint256</option>
       <option value="string">string</option>
       <option value="bytes">bytes</option>
       <option value="address">address</option>
     </select>
     
-    <label>Parameter Value:</label>
-    <input type="text" id="paramValue${index}" class="swal2-input" placeholder="Enter value" />
+    <label style="font-size: 0.85em;">Param Value:</label>
+    <input type="text" id="paramValue${index}" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="Enter value" />
   `;
   
   container.appendChild(newFunction);
