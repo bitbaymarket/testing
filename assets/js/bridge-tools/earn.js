@@ -707,26 +707,8 @@ async function loadStableVaultInfo() {
     const tickUpper = await stableContract.methods.tickUpper().call();
     document.getElementById('stableCurrentTick').textContent = `${tickLower} to ${tickUpper}`;
     
-    // Check if position is in range
-    const stateView = new earnState.polWeb3.eth.Contract(
-      [{
-        "inputs": [{"name": "poolId", "type": "bytes32"}],
-        "name": "getSlot0",
-        "outputs": [
-          {"name": "sqrtPriceX96", "type": "uint160"},
-          {"name": "tick", "type": "int24"},
-          {"name": "protocolFee", "type": "uint24"},
-          {"name": "lpFee", "type": "uint24"}
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      }],
-      TREASURY_ADDRESSES.UNISWAP_V4_STATE_VIEW
-    );
-    
-    // Get pool key to check current tick
-    const liquidity = await stableContract.methods.liquidity().call();
-    const isInRange = parseInt(liquidity) > 0;
+    // Check if position is in range using the contract's built-in function
+    const isInRange = await stableContract.methods.isInRange().call();
     document.getElementById('stableInRange').textContent = isInRange ? '✅ Yes' : '❌ No';
     
     // Get commission
@@ -757,12 +739,13 @@ async function loadUserStablePosition(stableContract, totalShares) {
   try {
     const userShares = await stableContract.methods.shares(myaccountsV2).call();
     
-    if (parseInt(userShares) > 0) {
-      const userDAI = earnState.polWeb3.utils.fromWei(userShares, 'ether');
-      const percent = (parseFloat(userShares) / parseFloat(totalShares)) * 100;
+    if (isGreaterThanZero(userShares)) {
+      const BN = BigNumber;
+      const userDAI = new BN(userShares).dividedBy('1e18').toFixed(2);
+      const percent = new BN(userShares).dividedBy(totalShares).times(100).toFixed(4);
       
-      document.getElementById('userStableDAI').textContent = parseFloat(userDAI).toFixed(2);
-      document.getElementById('userStablePercent').textContent = percent.toFixed(4);
+      document.getElementById('userStableDAI').textContent = stripZeros(userDAI);
+      document.getElementById('userStablePercent').textContent = stripZeros(percent);
       
       // Calculate anticipated weekly profit (rough estimate)
       // This would be percent of weekly rewards minus commission
@@ -773,12 +756,25 @@ async function loadUserStablePosition(stableContract, totalShares) {
       const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
       const pendingFees = await feeVaultContract.methods.pendingFees(myaccountsV2).call();
       
-      const pendingDAI = earnState.polWeb3.utils.fromWei(pendingFees[0], 'ether');
-      const pendingUSDC = earnState.polWeb3.utils.fromWei(pendingFees[1], 'mwei'); // USDC has 6 decimals
-      const totalPendingUSD = parseFloat(pendingDAI) + parseFloat(pendingUSDC);
+      const pendingDAI = new BN(pendingFees[0]).dividedBy('1e18').toFixed(2);
+      const pendingUSDC = new BN(pendingFees[1]).dividedBy('1e6').toFixed(2);
+      const totalPendingUSD = new BN(pendingDAI).plus(new BN(pendingUSDC)).toFixed(2);
       
-      document.getElementById('userStablePendingFees').textContent = totalPendingUSD.toFixed(2);
+      document.getElementById('userStablePendingFees').textContent = stripZeros(totalPendingUSD);
       document.getElementById('userStablePosition').classList.remove('hidden');
+      
+      // Check current sendTo setting and update dropdown
+      const sendTo = await feeVaultContract.methods.sendTo(myaccountsV2).call();
+      const dropdown = document.getElementById('stableProfitDestination');
+      if (dropdown) {
+        if (sendTo === '0x0000000000000000000000000000000000000000' || sendTo === myaccountsV2) {
+          dropdown.value = 'user';
+        } else if (sendTo.toLowerCase() === TREASURY_ADDRESSES.BAYL_DAI_UNISWAP.toLowerCase()) {
+          dropdown.value = 'bayl';
+        } else if (sendTo.toLowerCase() === TREASURY_ADDRESSES.BAYR_DAI_UNISWAP.toLowerCase()) {
+          dropdown.value = 'bayr';
+        }
+      }
     }
   } catch (error) {
     console.error('Error loading user StableVault position:', error);
@@ -786,8 +782,16 @@ async function loadUserStablePosition(stableContract, totalShares) {
 }
 
 async function depositStableVault() {
-  if (!earnState.polWeb3 || !myaccountsV2 || loginType !== 2) {
-    Swal.fire('Error', 'Please login with password to use StableVault', 'error');
+  if (!earnState.polWeb3 || !myaccountsV2) {
+    Swal.fire('Error', 'Please connect your wallet first', 'error');
+    return;
+  }
+  
+  const amount = document.getElementById('stableDepositAmount').value;
+  const profitDestination = document.getElementById('stableProfitDestination').value;
+  
+  if (!amount || parseFloat(amount) <= 0) {
+    Swal.fire('Error', 'Please enter a valid DAI amount', 'error');
     return;
   }
   
@@ -813,19 +817,45 @@ async function depositStableVault() {
   
   if (!result.isConfirmed) return;
   
-  const amount = document.getElementById('stableDepositAmount').value;
-  const shouldDonate = document.getElementById('stableDonateCheckbox').checked;
-  
-  if (!amount || parseFloat(amount) <= 0) {
-    Swal.fire('Error', 'Please enter a valid DAI amount', 'error');
-    return;
-  }
-  
   try {
     showSpinner();
     
+    const BN = earnState.polWeb3.utils.BN;
     const amountWei = earnState.polWeb3.utils.toWei(amount, 'ether');
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
+    const feeVault = await stableContract.methods.feeVault().call();
+    const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
+    
+    // Check current sendTo setting
+    const currentSendTo = await feeVaultContract.methods.sendTo(myaccountsV2).call();
+    let targetSendTo = myaccountsV2; // Default to user
+    
+    if (profitDestination === 'bayl') {
+      targetSendTo = TREASURY_ADDRESSES.BAYL_DAI_UNISWAP;
+    } else if (profitDestination === 'bayr') {
+      targetSendTo = TREASURY_ADDRESSES.BAYR_DAI_UNISWAP;
+    }
+    
+    // Only call changeSendTo if it's different from current setting
+    const needsUpdate = currentSendTo === '0x0000000000000000000000000000000000000000' || 
+                       currentSendTo.toLowerCase() !== targetSendTo.toLowerCase();
+    
+    if (needsUpdate && profitDestination !== 'user') {
+      Swal.fire({
+        icon: 'info',
+        title: 'Setting Profit Destination',
+        text: 'Configuring where your profits will be sent...',
+        showConfirmButton: false
+      });
+      
+      await feeVaultContract.methods.changeSendTo(targetSendTo).send({
+        from: myaccountsV2,
+        gas: 100000,
+        gasPrice: gasPrice
+      });
+    }
+    
+    // Approve DAI
     const daiContract = new earnState.polWeb3.eth.Contract(
       [{
         "constant": false,
@@ -837,37 +867,36 @@ async function depositStableVault() {
         "outputs": [{"name": "", "type": "bool"}],
         "type": "function"
       }],
-      '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063' // DAI on Polygon
+      TREASURY_ADDRESSES.DAI
     );
     
-    // Approve DAI
-    const approveTx = await daiContract.methods.approve(TREASURY_ADDRESSES.STABLE_POOL, amountWei).send({
+    Swal.fire({
+      icon: 'info',
+      title: 'Allowance',
+      text: 'Authorizing DAI allowance...',
+      showConfirmButton: false
+    });
+    
+    await daiContract.methods.approve(TREASURY_ADDRESSES.STABLE_POOL, amountWei).send({
       from: myaccountsV2,
       gas: 100000,
       gasPrice: gasPrice
     });
     
+    Swal.fire({
+      icon: 'info',
+      title: 'Depositing',
+      text: 'Depositing DAI to StableVault...',
+      showConfirmButton: false
+    });
+    
     // Deposit with 5 minute deadline
     const deadline = Math.floor(Date.now() / 1000) + 300;
-    const depositTx = await stableContract.methods.deposit(amountWei, deadline).send({
+    await stableContract.methods.deposit(amountWei, deadline).send({
       from: myaccountsV2,
       gas: 500000,
       gasPrice: gasPrice
     });
-    
-    // If user wants to donate, set sendTo address
-    if (shouldDonate) {
-      const feeVault = await stableContract.methods.feeVault().call();
-      const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
-      
-      // Choose BAYL or BAYR based on which pool
-      const donateAddress = '0x...' // TODO: Get BAYL/DAI or BAYR/DAI pair address
-      await feeVaultContract.methods.changeSendTo(donateAddress).send({
-        from: myaccountsV2,
-        gas: 100000,
-        gasPrice: gasPrice
-      });
-    }
     
     hideSpinner();
     Swal.fire('Success', 'Deposit successful!', 'success');
@@ -881,8 +910,8 @@ async function depositStableVault() {
 }
 
 async function collectStableFees() {
-  if (!earnState.polWeb3 || !myaccountsV2 || loginType !== 2) {
-    Swal.fire('Error', 'Please login with password to collect fees', 'error');
+  if (!earnState.polWeb3 || !myaccountsV2) {
+    Swal.fire('Error', 'Please connect your wallet first', 'error');
     return;
   }
   

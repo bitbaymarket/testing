@@ -751,10 +751,12 @@
                           </div>
                         </div>
                         <div class="swapField">
-                          <label>
-                            <input type="checkbox" id="stableDonateCheckbox" />
-                            Donate profits to liquidity providers
-                          </label>
+                          <label style="display: block; margin-bottom: 5px;">Where to send profits:</label>
+                          <select id="stableProfitDestination" class="form_field" style="width: 100%;">
+                            <option value="user">Send profits to my account</option>
+                            <option value="bayl">Donate to BAYL liquidity providers (UniSwap)</option>
+                            <option value="bayr">Donate to BAYR liquidity providers (UniSwap)</option>
+                          </select>
                         </div>
                         <div class="swapField">
                           <button class="swapSelector btn" onclick="depositStableVault()">Deposit</button>
@@ -912,6 +914,11 @@
                       <div class="swapFields logged-in hidden">
                         <button class="swapSelector btn" onclick="showCreateVoteDialog()">Create New Vote</button>
                         <button class="swapSelector btn" onclick="showVoteDetailsDialog()">View Vote Details</button>
+                      </div>
+                      
+                      <!-- Console History -->
+                      <div style="margin-top: 30px; text-align: center;">
+                        <button class="swapSelector btn" onclick="showConsoleHistory()">📜 Show Console History</button>
                       </div>
 
                     </div>
