@@ -92,6 +92,45 @@ function showConsoleHistory() {
 }
 
 // ============================================================================
+// HELPER FUNCTIONS FOR SAFE NUMBER HANDLING
+// ============================================================================
+
+// Helper to convert BAY token amounts (8 decimals) using BigNumber
+function formatBAYAmount(amountString) {
+  if (!amountString || amountString === '0') return '0';
+  const BN = BigNumber;
+  return new BN(amountString).dividedBy('1e8').toFixed();
+}
+
+// Helper to display BAY amounts with proper decimals
+function displayBAYAmount(amountString, decimals = 2) {
+  if (!amountString || amountString === '0') return '0';
+  const BN = BigNumber;
+  return stripZeros(new BN(amountString).dividedBy('1e8').toFixed(decimals));
+}
+
+// Helper for ETH amounts (18 decimals)
+function displayETHAmount(amountString, decimals = 4) {
+  if (!amountString || amountString === '0') return '0';
+  const BN = BigNumber;
+  return stripZeros(new BN(amountString).dividedBy('1e18').toFixed(decimals));
+}
+
+// Helper for USDC amounts (6 decimals)
+function displayUSDCAmount(amountString, decimals = 2) {
+  if (!amountString || amountString === '0') return '0';
+  const BN = BigNumber;
+  return stripZeros(new BN(amountString).dividedBy('1e6').toFixed(decimals));
+}
+
+// Helper to check if BigNumber is greater than zero
+function isGreaterThanZero(amountString) {
+  if (!amountString) return false;
+  const BN = BigNumber;
+  return new BN(amountString).gt(new BN('0'));
+}
+
+// ============================================================================
 // INITIALIZATION
 // ============================================================================
 
@@ -1009,7 +1048,7 @@ async function checkStakingConditions() {
     const currentBlock = await earnState.polWeb3.eth.getBlockNumber();
     const claimRate = await baylTreasury.methods.claimRate().call();
     const blocksSinceStake = currentBlock - userInfo.stakeBlock;
-    const targetBlocks = Math.floor(parseInt(claimRate) * 0.85) + (earnState.randomDelaySeconds / 3); // ~3 sec per block
+    const targetBlocks = Math.floor(parseInt(claimRate) * 0.85) + (earnState.randomDelaySeconds / 2); // ~2 sec per block on Polygon
     
     if (blocksSinceStake < targetBlocks) {
       console.log(`Not time to stake yet. Blocks since stake: ${blocksSinceStake}, target: ${targetBlocks}`);
@@ -1244,8 +1283,7 @@ async function loadStakingInfo() {
     const refreshRate = await baylTreasury.methods.refreshRate().call();
     const claimRate = await baylTreasury.methods.claimRate().call();
     
-    document.getElementById('baylTotalStaked').textContent = 
-      parseFloat(earnState.polWeb3.utils.fromWei(totalTokens, 'ether')).toFixed(2);
+    document.getElementById('baylTotalStaked').textContent = displayBAYAmount(totalTokens, 2);
     document.getElementById('baylTotalShares').textContent = totalShares;
     document.getElementById('baylRefreshRate').textContent = 
       Math.floor(refreshRate / 86400) + ' days';
@@ -1253,8 +1291,7 @@ async function loadStakingInfo() {
     
     // Load user staking info
     const userInfo = await baylTreasury.methods.accessPool(myaccountsV2).call();
-    document.getElementById('userShares').textContent = 
-      parseFloat(earnState.polWeb3.utils.fromWei(userInfo.shares, 'ether')).toFixed(2);
+    document.getElementById('userShares').textContent = displayBAYAmount(userInfo.shares, 2);
     
     if (userInfo.lastRefresh > 0) {
       const lastRefreshDate = new Date(userInfo.lastRefresh * 1000);
@@ -1279,15 +1316,21 @@ async function loadStakingInfo() {
       let rewardsHTML = '';
       for (const coin of userCoins) {
         const pending = await baylTreasury.methods.getPendingReward(myaccountsV2, coin).call();
-        if (parseInt(pending) > 0) {
+        if (isGreaterThanZero(pending)) {
           let coinName = coin.substring(0, 10) + '...';
-          if (coin.toLowerCase() === '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'.toLowerCase()) coinName = 'WETH';
-          if (coin.toLowerCase() === '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063'.toLowerCase()) coinName = 'DAI';
-          if (coin.toLowerCase() === TREASURY_ADDRESSES.USDC.toLowerCase()) coinName = 'USDC';
+          let pendingDisplay = '';
+          if (coin.toLowerCase() === '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'.toLowerCase()) {
+            coinName = 'WETH';
+            pendingDisplay = displayETHAmount(pending, 6);
+          } else if (coin.toLowerCase() === '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063'.toLowerCase()) {
+            coinName = 'DAI';
+            pendingDisplay = displayETHAmount(pending, 6);
+          } else if (coin.toLowerCase() === TREASURY_ADDRESSES.USDC.toLowerCase()) {
+            coinName = 'USDC';
+            pendingDisplay = displayUSDCAmount(pending, 6);
+          }
           
-          const decimals = coinName === 'USDC' ? 'mwei' : 'ether';
-          const pendingAmount = earnState.polWeb3.utils.fromWei(pending, decimals);
-          rewardsHTML += `<div>${coinName}: ${parseFloat(pendingAmount).toFixed(6)}</div>`;
+          rewardsHTML += `<div>${coinName}: ${pendingDisplay}</div>`;
         }
       }
       document.getElementById('userPendingRewards').innerHTML = rewardsHTML || 'No pending rewards';
@@ -1329,10 +1372,8 @@ async function loadStakingInfo() {
       const baylBalance = await baylContract.methods.balanceOf(earnState.userVaultAddress).call();
       const bayrBalance = await bayrContract.methods.balanceOf(earnState.userVaultAddress).call();
       
-      document.getElementById('vaultBaylBalance').textContent = 
-        parseFloat(earnState.polWeb3.utils.fromWei(baylBalance, 'ether')).toFixed(2);
-      document.getElementById('vaultBayrBalance').textContent = 
-        parseFloat(earnState.polWeb3.utils.fromWei(bayrBalance, 'ether')).toFixed(2);
+      document.getElementById('vaultBaylBalance').textContent = displayBAYAmount(baylBalance, 2);
+      document.getElementById('vaultBayrBalance').textContent = displayBAYAmount(bayrBalance, 2);
       
       document.getElementById('vaultBalances').classList.remove('hidden');
     }
@@ -1362,8 +1403,8 @@ async function loadTopStakers() {
     
     let html = '<ol>';
     for (const staker of topStakers) {
-      if (staker.shares > 0) {
-        html += `<li>${staker.user.substring(0, 10)}...: ${earnState.polWeb3.utils.fromWei(staker.shares, 'ether')} BAYL</li>`;
+      if (isGreaterThanZero(staker.shares)) {
+        html += `<li>${staker.user.substring(0, 10)}...: ${displayBAYAmount(staker.shares, 2)} BAYL</li>`;
       }
     }
     html += '</ol>';
