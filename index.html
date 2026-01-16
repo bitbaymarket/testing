@@ -173,6 +173,12 @@
     <div class="box">
       <div class="callout callout-success logged-in hidden" id="balance_network">
       </div>
+      
+      <!-- Additional balances notification for Earn tab -->
+      <div class="callout callout-info logged-in hidden" id="earn_balances_notification">
+        <p><strong>💰 Additional funds found in Earn tab:</strong> <span id="earn_balances_list"></span></p>
+        <p style="font-size: 0.9em;">Click the "Earn" tab to manage these balances.</p>
+      </div>
     </div>
 
       <!--tabs-menu !-->
@@ -739,7 +745,43 @@
                         </div>
                         <div class="swapBalance">
                           <span id="daiBalanceAmount">0.0</span> DAI
+                          <button class="btn-small" onclick="copyDepositAddress('DAI')" title="Copy deposit address" style="margin-left: 10px;">📋</button>
                         </div>
+                      </div>
+
+                      <div id="usdcBalance" class="swapField logged-in hidden">
+                        <div class="swapFirstCoin">
+                          <div class="swapSelectorText">USDC</div>
+                        </div>
+                        <div class="swapBalance">
+                          <span id="usdcBalanceAmount">0.0</span> USDC
+                          <button class="btn-small" onclick="copyDepositAddress('USDC')" title="Copy deposit address" style="margin-left: 10px;">📋</button>
+                        </div>
+                      </div>
+
+                      <div id="wethBalance" class="swapField logged-in hidden">
+                        <div class="swapFirstCoin">
+                          <div class="swapSelectorText">WETH</div>
+                        </div>
+                        <div class="swapBalance">
+                          <span id="wethBalanceAmount">0.0</span> WETH
+                          <button class="btn-small" onclick="copyDepositAddress('WETH')" title="Copy deposit address" style="margin-left: 10px;">📋</button>
+                        </div>
+                      </div>
+
+                      <div id="polBalance" class="swapField logged-in hidden">
+                        <div class="swapFirstCoin">
+                          <div class="swapSelectorText">POL</div>
+                        </div>
+                        <div class="swapBalance">
+                          <span id="polBalanceAmount">0.0</span> POL
+                          <button class="btn-small" onclick="copyDepositAddress('POL')" title="Copy deposit address" style="margin-left: 10px;">📋</button>
+                        </div>
+                      </div>
+
+                      <!-- Withdraw Coins Button -->
+                      <div class="swapField logged-in hidden" id="withdrawCoinsSection">
+                        <button class="swapSelector btn" onclick="showWithdrawDialog()">Withdraw Coins</button>
                       </div>
 
                       <!-- StableVault Actions -->
@@ -2874,6 +2916,19 @@ async function checkbalances() {
         '<span style="font-weight: bold;">⚠️ WARNING:</span> Unknown hash detected.<br>Please verify it on the BitBay network – <span style="word-break: break-all;">' + unknownHash + '</span>' +
         '</div>';
     }
+    
+    // Check for additional balances in Earn tab
+    try {
+      const earnBalances = JSON.parse(localStorage.getItem('earnTabBalances') || '{}');
+      if (Object.keys(earnBalances).length > 0) {
+        const balancesList = Object.keys(earnBalances).map(coin => `${coin} (${earnBalances[coin]})`).join(', ');
+        document.getElementById('earn_balances_list').textContent = balancesList;
+        document.getElementById('earn_balances_notification').classList.remove('hidden');
+      }
+    } catch (e) {
+      console.log('No earn tab balances found');
+    }
+    
     document.getElementById("contractinfo").innerHTML = 
       '<div style="font-family: \'Lucida Console\', Monaco, monospace; background-color: #f4f4ff; color: #004400; padding: 16px; border: 2px solid #333; border-radius: 6px; max-width: 500px; margin: auto; box-shadow: 4px 4px 0 #bbb;">' +
         '<div style="margin-bottom: 10px; font-weight: bold;">Contracts to import into MetaMask to interact with BitBay:</div>' +
