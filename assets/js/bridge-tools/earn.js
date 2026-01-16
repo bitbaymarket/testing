@@ -1010,7 +1010,7 @@ async function withdrawStableVault() {
     const deadline = Math.floor(Date.now() / 1000) + 300;
     
     // Withdraw with dust collection enabled
-    await stableContract.methods.withdraw(withdrawShares.integerValue().toString(), deadline, true).send({
+    await stableContract.methods.withdraw(withdrawShares.toString(), deadline, true).send({
       from: myaccountsV2,
       gas: 700000,
       gasPrice: gasPrice
