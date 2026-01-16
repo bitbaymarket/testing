@@ -20,6 +20,15 @@ const TREASURY_ADDRESSES = {
   UNISWAP_V4_POOL_MANAGER: '0x67366782805870060151383F4BbFF9daB53e5cD6',
   UNISWAP_V4_STATE_VIEW: '0x5eA1bD7974c8A611cBAB0bDCAFcB1D9CC9b3BA5a',
   USDC: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
+  DAI: '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063',
+  WETH: '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619',
+  
+  // LP Pairs
+  BAYL_DAI_UNISWAP: '0x37f75363c6552D47106Afb9CFdA8964610207938',
+  BAYR_DAI_UNISWAP: '0x63Ff2f545E4CbCfeBBdeE27bB5dA56fdEE076524',
+  
+  // Chainlink Price Feeds
+  ETH_USD_FEED: '0xF9680D99D6C9589e2a93a78A04A279e509205945', // ETH/USD on Polygon
   
   // Ethereum Network
   LIDO_VAULT: '0xf98eA1C9841cD1B4433cE3a1f0ad2BEa3406af7E',
@@ -42,8 +51,45 @@ var earnState = {
   lastEthCheck: 0,
   lastPolCheck: 0,
   minimumLidoCollectionTime: 7 * 24 * 60 * 60 * 1000, // 1 week in ms
-  userTotalRewards: {} // Track total rewards per coin
+  userTotalRewards: {}, // Track total rewards per coin
+  consoleLog: [] // Console log for transactions (max 100)
 };
+
+// ============================================================================
+// CONSOLE LOGGING FOR AUTOMATION
+// ============================================================================
+
+function logToConsole(message) {
+  const timestamp = new Date().toLocaleString();
+  const logEntry = `[${timestamp}] ${message}`;
+  
+  earnState.consoleLog.unshift(logEntry);
+  
+  // Keep only last 100 messages
+  if (earnState.consoleLog.length > 100) {
+    earnState.consoleLog = earnState.consoleLog.slice(0, 100);
+  }
+  
+  // Save to localStorage
+  try {
+    localStorage.setItem('earnConsoleLog', JSON.stringify(earnState.consoleLog));
+  } catch (e) {
+    console.error('Failed to save console log:', e);
+  }
+  
+  // Also log to browser console
+  console.log(logEntry);
+}
+
+function showConsoleHistory() {
+  const logs = earnState.consoleLog.join('\n');
+  Swal.fire({
+    title: 'Console History',
+    html: `<div style="text-align: left; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.85em; white-space: pre-wrap;">${logs || 'No logs yet'}</div>`,
+    width: '800px',
+    confirmButtonText: 'Close'
+  });
+}
 
 // ============================================================================
 // INITIALIZATION
@@ -77,6 +123,16 @@ function initializeEarnTab() {
       earnState.userTotalRewards = JSON.parse(savedRewards);
     } catch (e) {
       earnState.userTotalRewards = {};
+    }
+  }
+  
+  // Load console log
+  const savedLog = localStorage.getItem('earnConsoleLog');
+  if (savedLog) {
+    try {
+      earnState.consoleLog = JSON.parse(savedLog);
+    } catch (e) {
+      earnState.consoleLog = [];
     }
   }
   
@@ -259,49 +315,337 @@ async function loadETHBalances() {
 }
 
 async function depositLidoHODL() {
-  // Show UniSwap disclaimer first (for ETH deposits that will be swapped)
-  // Then show Lido-specific disclaimer
-  const result = await Swal.fire({
-    title: 'Deposit to Lido HODL Vault',
-    html: `
-      <p><strong>Important:</strong></p>
-      <ul style="text-align: left;">
-        <li>Your ETH will be automatically converted to staked ETH via Lido</li>
-        <li>Your entire principal will be locked for the duration you specify</li>
-        <li>100% of staking profits go to BAY stakers</li>
-        <li>Lido is one of the oldest and most well-audited staking contracts</li>
-        <li>The main risk is the Lido contract itself (highly unlikely)</li>
-        <li><strong>Please verify your unlock date before confirming</strong></li>
-      </ul>
-    `,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'I Understand, Continue',
-    cancelButtonText: 'Cancel'
-  });
-  
-  if (!result.isConfirmed) return;
-  
-  const amount = document.getElementById('lidoDepositAmount').value;
-  const lockDays = document.getElementById('lidoLockDays').value;
-  
-  if (!amount || parseFloat(amount) <= 0) {
-    Swal.fire('Error', 'Please enter a valid amount', 'error');
+  if (!earnState.ethWeb3 || !myaccountsV2) {
+    Swal.fire('Error', 'Please connect your wallet first', 'error');
     return;
   }
   
-  if (!lockDays || parseInt(lockDays) < 1) {
-    Swal.fire('Error', 'Please enter valid lock days', 'error');
-    return;
+  try {
+    // Get user's current position and min/max days
+    const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
+    const userDeposit = await lidoContract.methods.deposits(myaccountsV2).call();
+    const minDays = await lidoContract.methods.mindays().call();
+    const maxDays = await lidoContract.methods.maxdays().call();
+    
+    // Get ETH and stETH balances
+    const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccountsV2);
+    const stETHContract = new earnState.ethWeb3.eth.Contract(
+      [{
+        "constant": true,
+        "inputs": [{"name": "account", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "type": "function"
+      }],
+      TREASURY_ADDRESSES.LIDO_STETH
+    );
+    const stETHBalance = await stETHContract.methods.balanceOf(myaccountsV2).call();
+    
+    const hasETH = earnState.ethWeb3.utils.toBN(ethBalance).gt(earnState.ethWeb3.utils.toBN('0'));
+    const hasStETH = earnState.ethWeb3.utils.toBN(stETHBalance).gt(earnState.ethWeb3.utils.toBN('0'));
+    const hasExistingDeposit = earnState.ethWeb3.utils.toBN(userDeposit.amount).gt(earnState.ethWeb3.utils.toBN('0'));
+    
+    // Build deposit form
+    let depositOptions = '';
+    if (hasETH) {
+      depositOptions += '<option value="eth">Deposit ETH (will be swapped to stETH)</option>';
+    }
+    if (hasStETH) {
+      depositOptions += '<option value="steth">Deposit stETH</option>';
+    }
+    
+    if (!hasETH && !hasStETH) {
+      Swal.fire('Error', 'You need ETH or stETH to deposit', 'error');
+      return;
+    }
+    
+    let incrementOption = '';
+    if (hasExistingDeposit) {
+      incrementOption = `
+        <div style="margin-top: 15px;">
+          <label style="display: flex; align-items: center;">
+            <input type="checkbox" id="incrementLock" style="margin-right: 8px;" checked />
+            <span>Extend existing lock period (add to current ${earnState.ethWeb3.utils.fromWei(userDeposit.amount, 'ether')} stETH)</span>
+          </label>
+        </div>
+      `;
+    }
+    
+    const result = await Swal.fire({
+      title: 'Deposit to Lido HODL Vault',
+      html: `
+        <div style="text-align: left;">
+          <label>Deposit Type:</label>
+          <select id="depositType" class="swal2-select" style="width: 100%;">
+            ${depositOptions}
+          </select>
+          
+          <label style="margin-top: 15px; display: block;">Amount:</label>
+          <input type="number" id="depositAmount" class="swal2-input" placeholder="0.0" step="0.001" style="width: 100%;" />
+          
+          <label style="margin-top: 15px; display: block;">Lock Period (days, min: ${minDays}, max: ${maxDays}):</label>
+          <input type="number" id="lockDays" class="swal2-input" placeholder="${minDays}" min="${minDays}" max="${maxDays}" style="width: 100%;" />
+          <div id="lockEstimate" style="margin-top: 5px; font-size: 0.9em; color: #666;"></div>
+          
+          ${incrementOption}
+          
+          <div id="slippageSection" style="margin-top: 15px; display: none;">
+            <label>Slippage Tolerance (basis points, max 1000 = 10%):</label>
+            <input type="number" id="slippageInput" class="swal2-input" value="100" min="1" max="1000" style="width: 100%;" />
+            <div style="font-size: 0.85em; color: #666;">100 = 1%, 500 = 5%</div>
+          </div>
+          
+          <div style="margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 5px; font-size: 0.9em;">
+            <strong>Important:</strong>
+            <ul style="margin: 5px 0; padding-left: 20px;">
+              <li>100% of staking yields go to BAY stakers</li>
+              <li>Your principal is locked until unlock date</li>
+              <li>Lido is well-audited but carries contract risk</li>
+            </ul>
+          </div>
+        </div>
+      `,
+      width: '600px',
+      showCancelButton: true,
+      confirmButtonText: 'Deposit',
+      cancelButtonText: 'Cancel',
+      didOpen: () => {
+        const depositTypeSelect = document.getElementById('depositType');
+        const slippageSection = document.getElementById('slippageSection');
+        const lockDaysInput = document.getElementById('lockDays');
+        const lockEstimate = document.getElementById('lockEstimate');
+        
+        // Show/hide slippage based on deposit type
+        depositTypeSelect.addEventListener('change', () => {
+          if (depositTypeSelect.value === 'eth') {
+            slippageSection.style.display = 'block';
+          } else {
+            slippageSection.style.display = 'none';
+          }
+        });
+        
+        // Trigger initial check
+        if (depositTypeSelect.value === 'eth') {
+          slippageSection.style.display = 'block';
+        }
+        
+        // Update lock estimate
+        lockDaysInput.addEventListener('input', () => {
+          const days = parseInt(lockDaysInput.value) || 0;
+          const months = Math.floor(days / 30);
+          const years = Math.floor(days / 365);
+          
+          if (years > 0) {
+            lockEstimate.textContent = `≈ ${years} year(s) ${Math.floor((days % 365) / 30)} month(s)`;
+          } else if (months > 0) {
+            lockEstimate.textContent = `≈ ${months} month(s)`;
+          } else {
+            lockEstimate.textContent = `${days} day(s)`;
+          }
+          
+          if (hasExistingDeposit) {
+            const unlockDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+            lockEstimate.textContent += ` (unlock: ${unlockDate.toLocaleDateString()})`;
+          }
+        });
+      },
+      preConfirm: () => {
+        const depositType = document.getElementById('depositType').value;
+        const amount = document.getElementById('depositAmount').value;
+        const lockDays = document.getElementById('lockDays').value;
+        const increment = hasExistingDeposit ? document.getElementById('incrementLock').checked : false;
+        const slippage = depositType === 'eth' ? document.getElementById('slippageInput').value : 0;
+        
+        if (!amount || parseFloat(amount) <= 0) {
+          Swal.showValidationMessage('Please enter a valid amount');
+          return false;
+        }
+        
+        if (!lockDays || parseInt(lockDays) < minDays || parseInt(lockDays) > maxDays) {
+          Swal.showValidationMessage(`Lock days must be between ${minDays} and ${maxDays}`);
+          return false;
+        }
+        
+        return { depositType, amount, lockDays, increment, slippage };
+      }
+    });
+    
+    if (!result.isConfirmed) return;
+    
+    const { depositType, amount, lockDays, increment, slippage } = result.value;
+    
+    showSpinner();
+    
+    try {
+      const BN = earnState.ethWeb3.utils.BN;
+      const amountWei = earnState.ethWeb3.utils.toWei(amount, 'ether');
+      
+      if (depositType === 'eth') {
+        // Show UniSwap/trading disclaimer
+        const tradeDisclaimer = await Swal.fire({
+          title: 'Trading Disclaimer',
+          html: '<p>By proceeding, you acknowledge that cryptocurrency trading involves risks. Please review the transaction details carefully.</p>',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'I Understand',
+          cancelButtonText: 'Cancel'
+        });
+        
+        if (!tradeDisclaimer.isConfirmed) {
+          hideSpinner();
+          return;
+        }
+        
+        // Deposit ETH (will be swapped to stETH via Curve)
+        await lidoContract.methods.tradeAndLockStETH(slippage, lockDays, increment).send({
+          from: myaccountsV2,
+          value: amountWei,
+          gas: 500000
+        });
+        
+        Swal.fire('Success', 'ETH deposited and converted to stETH!', 'success');
+      } else {
+        // Deposit stETH
+        const stETHContract = new earnState.ethWeb3.eth.Contract(
+          [{
+            "constant": false,
+            "inputs": [
+              {"name": "spender", "type": "address"},
+              {"name": "amount", "type": "uint256"}
+            ],
+            "name": "approve",
+            "outputs": [{"name": "", "type": "bool"}],
+            "type": "function"
+          }],
+          TREASURY_ADDRESSES.LIDO_STETH
+        );
+        
+        Swal.fire({
+          icon: 'info',
+          title: 'Allowance',
+          text: 'Authorizing stETH allowance...',
+          showConfirmButton: false
+        });
+        
+        // Approve stETH
+        await stETHContract.methods.approve(TREASURY_ADDRESSES.LIDO_VAULT, amountWei).send({
+          from: myaccountsV2,
+          gas: 100000
+        });
+        
+        Swal.fire({
+          icon: 'info',
+          title: 'Depositing',
+          text: 'Depositing stETH to vault...',
+          showConfirmButton: false
+        });
+        
+        // Deposit stETH
+        await lidoContract.methods.lockStETH(amountWei, lockDays, increment).send({
+          from: myaccountsV2,
+          gas: 300000
+        });
+        
+        Swal.fire('Success', 'stETH deposited successfully!', 'success');
+      }
+      
+      hideSpinner();
+      await refreshEarnTab();
+      
+    } catch (error) {
+      hideSpinner();
+      console.error('Error depositing to Lido HODL:', error);
+      Swal.fire('Error', error.message || 'Deposit failed', 'error');
+    }
+    
+  } catch (error) {
+    console.error('Error in depositLidoHODL:', error);
+    Swal.fire('Error', 'Failed to prepare deposit', 'error');
   }
-  
-  // TODO: Implement actual deposit logic
-  Swal.fire('Coming Soon', 'Lido HODL deposits will be available soon', 'info');
 }
 
 async function withdrawLidoHODL() {
-  // TODO: Check if funds are unlocked
-  Swal.fire('Coming Soon', 'Lido HODL withdrawals will be available soon', 'info');
+  if (!earnState.ethWeb3 || !myaccountsV2) {
+    Swal.fire('Error', 'Please connect your wallet first', 'error');
+    return;
+  }
+  
+  try {
+    const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
+    const userDeposit = await lidoContract.methods.deposits(myaccountsV2).call();
+    
+    const BN = earnState.ethWeb3.utils.BN;
+    if (new BN(userDeposit.amount).lte(new BN('0'))) {
+      Swal.fire('Error', 'You have no deposits to withdraw', 'error');
+      return;
+    }
+    
+    const now = Math.floor(Date.now() / 1000);
+    const unlockTime = parseInt(userDeposit.unlockTimestamp);
+    const isLocked = now < unlockTime;
+    
+    if (isLocked) {
+      const unlockDate = new Date(unlockTime * 1000);
+      Swal.fire({
+        title: 'Funds Locked',
+        html: `Your funds are locked until <strong>${unlockDate.toLocaleString()}</strong>`,
+        icon: 'info'
+      });
+      return;
+    }
+    
+    const amountETH = earnState.ethWeb3.utils.fromWei(userDeposit.amount, 'ether');
+    
+    const result = await Swal.fire({
+      title: 'Withdraw from Lido HODL',
+      html: `
+        <div style="text-align: left;">
+          <p><strong>Available to withdraw:</strong> ${amountETH} stETH</p>
+          <label style="margin-top: 15px; display: block;">Amount to withdraw:</label>
+          <input type="number" id="withdrawAmount" class="swal2-input" placeholder="${amountETH}" max="${amountETH}" step="0.001" style="width: 100%;" />
+          <div style="margin-top: 10px; font-size: 0.9em; color: #666;">Leave empty or enter full amount to withdraw everything</div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Withdraw',
+      cancelButtonText: 'Cancel',
+      preConfirm: () => {
+        const amount = document.getElementById('withdrawAmount').value;
+        if (amount && (parseFloat(amount) <= 0 || parseFloat(amount) > parseFloat(amountETH))) {
+          Swal.showValidationMessage(`Amount must be between 0 and ${amountETH}`);
+          return false;
+        }
+        return amount || amountETH;
+      }
+    });
+    
+    if (!result.isConfirmed) return;
+    
+    const withdrawAmount = result.value;
+    const withdrawAmountWei = earnState.ethWeb3.utils.toWei(withdrawAmount, 'ether');
+    
+    showSpinner();
+    
+    try {
+      await lidoContract.methods.withdrawStETH(withdrawAmountWei).send({
+        from: myaccountsV2,
+        gas: 300000
+      });
+      
+      hideSpinner();
+      Swal.fire('Success', `Withdrew ${withdrawAmount} stETH successfully!`, 'success');
+      await refreshEarnTab();
+      
+    } catch (error) {
+      hideSpinner();
+      console.error('Error withdrawing from Lido HODL:', error);
+      Swal.fire('Error', error.message || 'Withdrawal failed', 'error');
+    }
+    
+  } catch (error) {
+    console.error('Error in withdrawLidoHODL:', error);
+    Swal.fire('Error', 'Failed to prepare withdrawal', 'error');
+  }
 }
 
 // ============================================================================
