@@ -2110,7 +2110,7 @@ async function loadTokenBalances() {
         "outputs": [{"name": "", "type": "uint256"}],
         "type": "function"
       }],
-      '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063' // DAI on Polygon
+      TREASURY_ADDRESSES.DAI // DAI on Polygon
     );
     
     const daiBalance = await daiContract.methods.balanceOf(myaccountsV2).call();
@@ -2264,7 +2264,7 @@ async function showWithdrawDialog() {
     // Check DAI balance
     const daiContract = new earnState.polWeb3.eth.Contract(
       [{"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
-      '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063'
+      TREASURY_ADDRESSES.DAI
     );
     const daiBalance = await daiContract.methods.balanceOf(myaccountsV2).call();
     const daiBalanceFormatted = new BN(daiBalance).dividedBy('1e18');
@@ -2372,7 +2372,19 @@ async function executeWithdrawal(withdrawData) {
     if (coin.coin === 'POL') {
       // Withdraw POL
       const balance = await earnState.polWeb3.eth.getBalance(myaccountsV2);
-      const amountWei = amount ? earnState.polWeb3.utils.toWei(amount, 'ether') : balance;
+      let amountWei;
+      
+      if (amount) {
+        amountWei = earnState.polWeb3.utils.toWei(amount, 'ether');
+      } else {
+        // Reserve gas for transaction when withdrawing full balance
+        const gasCost = new BN(gasPrice).times(21000);
+        amountWei = new BN(balance).minus(gasCost).toFixed(0);
+        
+        if (new BN(amountWei).lte(new BN('0'))) {
+          throw new Error('Insufficient balance to cover gas fees');
+        }
+      }
       
       await earnState.polWeb3.eth.sendTransaction({
         from: myaccountsV2,
@@ -2385,13 +2397,27 @@ async function executeWithdrawal(withdrawData) {
     } else if (coin.coin === 'ETH') {
       // Withdraw ETH
       const balance = await earnState.ethWeb3.eth.getBalance(myaccountsV2);
-      const amountWei = amount ? earnState.ethWeb3.utils.toWei(amount, 'ether') : balance;
+      const ethGasPrice = await earnState.ethWeb3.eth.getGasPrice();
+      let amountWei;
+      
+      if (amount) {
+        amountWei = earnState.ethWeb3.utils.toWei(amount, 'ether');
+      } else {
+        // Reserve gas for transaction when withdrawing full balance
+        const gasCost = new BN(ethGasPrice).times(21000);
+        amountWei = new BN(balance).minus(gasCost).toFixed(0);
+        
+        if (new BN(amountWei).lte(new BN('0'))) {
+          throw new Error('Insufficient balance to cover gas fees');
+        }
+      }
       
       await earnState.ethWeb3.eth.sendTransaction({
         from: myaccountsV2,
         to: address,
         value: amountWei,
-        gas: 21000
+        gas: 21000,
+        gasPrice: ethGasPrice
       });
       
     } else {
@@ -2403,7 +2429,7 @@ async function executeWithdrawal(withdrawData) {
         decimals = '1e6';
         web3Instance = earnState.polWeb3;
       } else if (coin.coin === 'DAI') {
-        tokenAddress = '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063';
+        tokenAddress = TREASURY_ADDRESSES.DAI;
         decimals = '1e18';
         web3Instance = earnState.polWeb3;
       } else if (coin.coin === 'WETH') {
