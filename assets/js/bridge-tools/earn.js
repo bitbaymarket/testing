@@ -1797,7 +1797,7 @@ async function loadVotingInfo() {
     document.getElementById('currentVoteEpoch').textContent = currentEpoch;
     
     // Get epoch block info
-    const epochBlocks = await voteContract.methods.epochBlocks().call();
+    const epochBlocks = await voteContract.methods.epochLength().call();
     document.getElementById('voteEpochBlocks').textContent = epochBlocks;
     
     // Load previous and pending votes
