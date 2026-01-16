@@ -130,13 +130,7 @@ function isGreaterThanZero(amountString) {
   return new BN(amountString).gt(new BN('0'));
 }
 
-// Helper to strip trailing zeros from decimal strings
-function stripZeros(numStr) {
-  if (!numStr || numStr === '0') return '0';
-  const str = String(numStr);
-  if (str.indexOf('.') === -1) return str;
-  return str.replace(/\.?0+$/, '');
-}
+// stripZeros function is already defined in index.html, no need to redefine
 
 // Helper to format ETH amounts (18 decimals) without stripping zeros
 function formatETHAmount(amountString, decimals = 4) {
@@ -2104,6 +2098,9 @@ async function loadTokenBalances() {
   if (!earnState.polWeb3 || !myaccountsV2) return;
   
   try {
+    const BN = BigNumber;
+    const balances = {}; // Store all balances for notification
+    
     // Load DAI balance
     const daiContract = new earnState.polWeb3.eth.Contract(
       [{
@@ -2117,12 +2114,12 @@ async function loadTokenBalances() {
     );
     
     const daiBalance = await daiContract.methods.balanceOf(myaccountsV2).call();
-    const BN = BigNumber;
     const daiBalanceEther = new BN(daiBalance).dividedBy('1e18');
     
     if (daiBalanceEther.gt(new BN('0'))) {
       document.getElementById('daiBalanceAmount').textContent = stripZeros(daiBalanceEther.toFixed(2));
       document.getElementById('daiBalance').classList.remove('hidden');
+      balances.DAI = stripZeros(daiBalanceEther.toFixed(2));
     }
     
     // Load USDC balance
@@ -2140,16 +2137,315 @@ async function loadTokenBalances() {
     const usdcBalance = await usdcContract.methods.balanceOf(myaccountsV2).call();
     const usdcBalanceFormatted = new BN(usdcBalance).dividedBy('1e6');
     
-    // Display USDC if balance exists and user is in loginType 2
-    if (usdcBalanceFormatted.gt(new BN('0')) && loginType === 2) {
-      // Could add USDC display similar to DAI
-      console.log('USDC Balance:', usdcBalanceFormatted.toString());
+    if (usdcBalanceFormatted.gt(new BN('0'))) {
+      document.getElementById('usdcBalanceAmount').textContent = stripZeros(usdcBalanceFormatted.toFixed(2));
+      document.getElementById('usdcBalance').classList.remove('hidden');
+      balances.USDC = stripZeros(usdcBalanceFormatted.toFixed(2));
+    }
+    
+    // Load WETH balance
+    const wethContract = new earnState.polWeb3.eth.Contract(
+      [{
+        "constant": true,
+        "inputs": [{"name": "account", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "type": "function"
+      }],
+      TREASURY_ADDRESSES.WETH
+    );
+    
+    const wethBalance = await wethContract.methods.balanceOf(myaccountsV2).call();
+    const wethBalanceFormatted = new BN(wethBalance).dividedBy('1e18');
+    
+    if (wethBalanceFormatted.gt(new BN('0'))) {
+      document.getElementById('wethBalanceAmount').textContent = stripZeros(wethBalanceFormatted.toFixed(4));
+      document.getElementById('wethBalance').classList.remove('hidden');
+      balances.WETH = stripZeros(wethBalanceFormatted.toFixed(4));
+    }
+    
+    // Load POL balance
+    const polBalance = await earnState.polWeb3.eth.getBalance(myaccountsV2);
+    const polBalanceFormatted = new BN(polBalance).dividedBy('1e18');
+    
+    if (polBalanceFormatted.gt(new BN('0'))) {
+      document.getElementById('polBalanceAmount').textContent = stripZeros(polBalanceFormatted.toFixed(2));
+      document.getElementById('polBalance').classList.remove('hidden');
+      balances.POL = stripZeros(polBalanceFormatted.toFixed(2));
+    }
+    
+    // Store balances for potential notification in main page
+    if (Object.keys(balances).length > 0) {
+      localStorage.setItem('earnTabBalances', JSON.stringify(balances));
+      // Show withdraw button if any balances exist
+      document.getElementById('withdrawCoinsSection').classList.remove('hidden');
     }
     
   } catch (error) {
     console.error('Error loading token balances:', error);
   }
 }
+
+// ============================================================================
+// DEPOSIT ADDRESS AND WITHDRAWAL FUNCTIONS
+// ============================================================================
+
+function copyDepositAddress(coinType) {
+  if (!myaccountsV2) {
+    Swal.fire('Error', 'Please connect your wallet first', 'error');
+    return;
+  }
+  
+  const address = myaccountsV2;
+  
+  // Copy to clipboard
+  navigator.clipboard.writeText(address).then(() => {
+    Swal.fire({
+      title: `${coinType} Deposit Address`,
+      html: `
+        <p>Address copied to clipboard!</p>
+        <p style="word-break: break-all; font-family: monospace; background: #f5f5f5; padding: 10px; border-radius: 5px;">
+          ${address}
+        </p>
+        <p style="margin-top: 10px; font-size: 0.9em; color: #666;">
+          ${coinType === 'ETH' || coinType === 'Lido' ? 'Network: Ethereum Mainnet' : 'Network: Polygon'}
+        </p>
+      `,
+      icon: 'success',
+      confirmButtonText: 'OK'
+    });
+  }).catch(() => {
+    Swal.fire({
+      title: `${coinType} Deposit Address`,
+      html: `
+        <p style="word-break: break-all; font-family: monospace; background: #f5f5f5; padding: 10px; border-radius: 5px;">
+          ${address}
+        </p>
+        <p style="margin-top: 10px; font-size: 0.9em; color: #666;">
+          ${coinType === 'ETH' || coinType === 'Lido' ? 'Network: Ethereum Mainnet' : 'Network: Polygon'}
+        </p>
+      `,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
+  });
+}
+
+async function showWithdrawDialog() {
+  if (!earnState.polWeb3 || !myaccountsV2) {
+    Swal.fire('Error', 'Please connect your wallet first', 'error');
+    return;
+  }
+  
+  // Get available balances
+  const balances = [];
+  
+  try {
+    const BN = BigNumber;
+    
+    // Check POL balance
+    const polBalance = await earnState.polWeb3.eth.getBalance(myaccountsV2);
+    const polBalanceFormatted = new BN(polBalance).dividedBy('1e18');
+    if (polBalanceFormatted.gt(new BN('0'))) {
+      balances.push({ coin: 'POL', balance: stripZeros(polBalanceFormatted.toFixed(4)), network: 'Polygon' });
+    }
+    
+    // Check USDC balance
+    const usdcContract = new earnState.polWeb3.eth.Contract(
+      [{"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
+      TREASURY_ADDRESSES.USDC
+    );
+    const usdcBalance = await usdcContract.methods.balanceOf(myaccountsV2).call();
+    const usdcBalanceFormatted = new BN(usdcBalance).dividedBy('1e6');
+    if (usdcBalanceFormatted.gt(new BN('0'))) {
+      balances.push({ coin: 'USDC', balance: stripZeros(usdcBalanceFormatted.toFixed(2)), network: 'Polygon' });
+    }
+    
+    // Check DAI balance
+    const daiContract = new earnState.polWeb3.eth.Contract(
+      [{"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
+      '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063'
+    );
+    const daiBalance = await daiContract.methods.balanceOf(myaccountsV2).call();
+    const daiBalanceFormatted = new BN(daiBalance).dividedBy('1e18');
+    if (daiBalanceFormatted.gt(new BN('0'))) {
+      balances.push({ coin: 'DAI', balance: stripZeros(daiBalanceFormatted.toFixed(2)), network: 'Polygon' });
+    }
+    
+    // Check WETH balance
+    const wethContract = new earnState.polWeb3.eth.Contract(
+      [{"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
+      TREASURY_ADDRESSES.WETH
+    );
+    const wethBalance = await wethContract.methods.balanceOf(myaccountsV2).call();
+    const wethBalanceFormatted = new BN(wethBalance).dividedBy('1e18');
+    if (wethBalanceFormatted.gt(new BN('0'))) {
+      balances.push({ coin: 'WETH', balance: stripZeros(wethBalanceFormatted.toFixed(4)), network: 'Polygon' });
+    }
+    
+    // Check Ethereum balances if available
+    if (earnState.ethWeb3) {
+      const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccountsV2);
+      const ethBalanceFormatted = new BN(ethBalance).dividedBy('1e18');
+      if (ethBalanceFormatted.gt(new BN('0'))) {
+        balances.push({ coin: 'ETH', balance: stripZeros(ethBalanceFormatted.toFixed(4)), network: 'Ethereum' });
+      }
+      
+      // Check Lido stETH balance
+      const stETHContract = new earnState.ethWeb3.eth.Contract(
+        [{"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
+        TREASURY_ADDRESSES.LIDO_STETH
+      );
+      const stETHBalance = await stETHContract.methods.balanceOf(myaccountsV2).call();
+      const stETHBalanceFormatted = new BN(stETHBalance).dividedBy('1e18');
+      if (stETHBalanceFormatted.gt(new BN('0'))) {
+        balances.push({ coin: 'stETH (Lido)', balance: stripZeros(stETHBalanceFormatted.toFixed(4)), network: 'Ethereum' });
+      }
+    }
+    
+    if (balances.length === 0) {
+      Swal.fire('Info', 'No available balances to withdraw', 'info');
+      return;
+    }
+    
+    // Build options HTML
+    const optionsHTML = balances.map((b, idx) => 
+      `<option value="${idx}">${b.coin} - ${b.balance} (${b.network})</option>`
+    ).join('');
+    
+    const result = await Swal.fire({
+      title: 'Withdraw Coins',
+      html: `
+        <div style="text-align: left;">
+          <label style="display: block; margin-bottom: 5px;">Select coin to withdraw:</label>
+          <select id="withdrawCoinSelect" class="swal2-select" style="width: 100%;">
+            ${optionsHTML}
+          </select>
+          
+          <label style="display: block; margin-top: 15px; margin-bottom: 5px;">Amount to withdraw:</label>
+          <input type="number" id="withdrawAmount" class="swal2-input" placeholder="Enter amount" step="0.0001" style="width: 100%;" />
+          
+          <label style="display: block; margin-top: 15px; margin-bottom: 5px;">Recipient address:</label>
+          <input type="text" id="withdrawAddress" class="swal2-input" placeholder="0x..." style="width: 100%;" />
+          
+          <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
+            Leave amount empty to withdraw full balance
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Withdraw',
+      cancelButtonText: 'Cancel',
+      preConfirm: () => {
+        const coinIdx = parseInt(document.getElementById('withdrawCoinSelect').value);
+        const amount = document.getElementById('withdrawAmount').value;
+        const address = document.getElementById('withdrawAddress').value;
+        
+        if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
+          Swal.showValidationMessage('Please enter a valid Ethereum address');
+          return false;
+        }
+        
+        return { coin: balances[coinIdx], amount, address };
+      }
+    });
+    
+    if (result.isConfirmed) {
+      await executeWithdrawal(result.value);
+    }
+    
+  } catch (error) {
+    console.error('Error in withdraw dialog:', error);
+    Swal.fire('Error', 'Failed to load balances: ' + error.message, 'error');
+  }
+}
+
+async function executeWithdrawal(withdrawData) {
+  const { coin, amount, address } = withdrawData;
+  
+  showSpinner();
+  
+  try {
+    const BN = BigNumber;
+    const gasPrice = await earnState.polWeb3.eth.getGasPrice();
+    
+    if (coin.coin === 'POL') {
+      // Withdraw POL
+      const balance = await earnState.polWeb3.eth.getBalance(myaccountsV2);
+      const amountWei = amount ? earnState.polWeb3.utils.toWei(amount, 'ether') : balance;
+      
+      await earnState.polWeb3.eth.sendTransaction({
+        from: myaccountsV2,
+        to: address,
+        value: amountWei,
+        gas: 21000,
+        gasPrice: gasPrice
+      });
+      
+    } else if (coin.coin === 'ETH') {
+      // Withdraw ETH
+      const balance = await earnState.ethWeb3.eth.getBalance(myaccountsV2);
+      const amountWei = amount ? earnState.ethWeb3.utils.toWei(amount, 'ether') : balance;
+      
+      await earnState.ethWeb3.eth.sendTransaction({
+        from: myaccountsV2,
+        to: address,
+        value: amountWei,
+        gas: 21000
+      });
+      
+    } else {
+      // Withdraw ERC20 token
+      let tokenAddress, decimals, web3Instance;
+      
+      if (coin.coin === 'USDC') {
+        tokenAddress = TREASURY_ADDRESSES.USDC;
+        decimals = '1e6';
+        web3Instance = earnState.polWeb3;
+      } else if (coin.coin === 'DAI') {
+        tokenAddress = '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063';
+        decimals = '1e18';
+        web3Instance = earnState.polWeb3;
+      } else if (coin.coin === 'WETH') {
+        tokenAddress = TREASURY_ADDRESSES.WETH;
+        decimals = '1e18';
+        web3Instance = earnState.polWeb3;
+      } else if (coin.coin === 'stETH (Lido)') {
+        tokenAddress = TREASURY_ADDRESSES.LIDO_STETH;
+        decimals = '1e18';
+        web3Instance = earnState.ethWeb3;
+      }
+      
+      const tokenContract = new web3Instance.eth.Contract(
+        [{"constant": false, "inputs": [{"name": "recipient", "type": "address"}, {"name": "amount", "type": "uint256"}], "name": "transfer", "outputs": [{"name": "", "type": "bool"}], "type": "function"},
+         {"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
+        tokenAddress
+      );
+      
+      const balance = await tokenContract.methods.balanceOf(myaccountsV2).call();
+      const amountWei = amount ? new BN(amount).times(decimals).toFixed(0) : balance;
+      
+      await tokenContract.methods.transfer(address, amountWei).send({
+        from: myaccountsV2,
+        gas: 100000,
+        gasPrice: gasPrice
+      });
+    }
+    
+    hideSpinner();
+    Swal.fire('Success', `${coin.coin} withdrawn successfully!`, 'success');
+    await refreshEarnTab();
+    
+  } catch (error) {
+    hideSpinner();
+    console.error('Error withdrawing:', error);
+    Swal.fire('Error', error.message || 'Withdrawal failed', 'error');
+  }
+}
+
+// ============================================================================
+// REFRESH AND INITIALIZATION
+// ============================================================================
 
 async function refreshEarnTab() {
   const now = Date.now();
