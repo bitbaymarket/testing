@@ -164,9 +164,7 @@ function initializeEarnTab() {
   earnState.ethWeb3 = new Web3('https://eth-mainnet.public.blastapi.io');
   
   // Use existing Polygon Web3 if available
-  if (typeof web3 !== 'undefined') {
-    earnState.polWeb3 = web3;
-  }
+  earnState.polWeb3 = new Web3('https://polygon-rpc.com');
   
   // Load saved staking state
   const stakingEnabled = localStorage.getItem('earnStakingEnabled');
@@ -212,9 +210,7 @@ async function onEarnUserLogin() {
   console.log('User logged in, initializing Earn data...');
   
   // Update polWeb3 reference
-  if (typeof web3 !== 'undefined') {
-    earnState.polWeb3 = web3;
-  }
+  earnState.polWeb3 = new Web3('https://polygon-rpc.com');
   
   // Detect login type
   earnState.isPasswordLogin = (loginType === 2);
@@ -2504,8 +2500,7 @@ async function refreshEarnTab() {
 if (typeof window !== 'undefined') {
   window.addEventListener('load', () => {
     initializeEarnTab();
-    
     // Set up periodic refresh
-    setInterval(refreshEarnTab, 60000); // Every minute
+    setInterval(refreshEarnTab, 120000); // Every two minutes
   });
 }
