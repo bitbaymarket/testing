@@ -2976,7 +2976,9 @@ async function checkbalances() {
       if (Object.keys(earnBalances).length > 0) {
         const balancesList = Object.keys(earnBalances).map(coin => `${coin} (${earnBalances[coin]})`).join(', ');
         document.getElementById('earn_balances_list').textContent = balancesList;
-        document.getElementById('earn_balances_notification').classList.remove('hidden');
+        const notification = document.getElementById('earn_balances_notification');
+        notification.classList.remove('hidden');
+        notification.style.display = 'block';
       }
     } catch (e) {
       console.log('No earn tab balances found');
