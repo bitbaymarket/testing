@@ -185,6 +185,7 @@
             <li class="tabs__nav-item">Swap</li>
             <li class="tabs__nav-item">Liquidity</li>
             <li class="tabs__nav-item">Bridge</li>
+            <li class="tabs__nav-item">Earn</li>
           </ul>
         </div>
       </div>
@@ -610,6 +611,324 @@
     </div>
 </div>
           </div>
+
+          <!--earn panel-->
+          <div class="tabs__panel">
+            <div class="swapBody">
+              
+              <!-- Yearly ROI Display (shown at top if > 5%) -->
+              <div id="earnRoiDisplay" class="callout callout-info hidden">
+                <div class="boxTitle">💰 Staking ROI</div>
+                <div id="earnRoiText">Calculating...</div>
+              </div>
+
+              <!-- Sub-tabs for Earn sections -->
+              <div class="tabs earn-subtabs">
+                <div class="tabs__nav earn-subnav">
+                  <ul class="tabs__nav-list">
+                    <li class="tabs__nav-item js-active">Savings</li>
+                    <li class="tabs__nav-item">Staking</li>
+                  </ul>
+                </div>
+
+                <div class="tabs__panels">
+                  <!-- Savings Panel (Lido HODL + StableVault) -->
+                  <div class="tabs__panel js-active">
+                    
+                    <!-- Lido HODL Vault Section -->
+                    <div class="earn-section">
+                      <div class="boxTitle">🏦 Lido HODL Vault (Ethereum)</div>
+                      <div class="callout">
+                        <details>
+                          <summary style="cursor: pointer;">ℹ️ Why HODL with Lido?</summary>
+                          <p style="margin-top: 10px;">If you're long on ETH and want to support your BAY investment, this helps the community collectively increase liquidity with almost zero risk. Your ETH is staked via Lido (one of the oldest and most well-audited staking contracts), and 100% of the staking profits go to BAY stakers while your principal remains locked for your chosen duration.</p>
+                        </details>
+                      </div>
+
+                      <!-- Lido Vault Info -->
+                      <div id="lidoVaultInfo" class="callout">
+                        <div><strong>Total Principal:</strong> <span id="lidoTotalPrincipal">Loading...</span> ETH</div>
+                        <div><strong>Estimated Yearly Yield:</strong> ~3%</div>
+                        <div><strong>Total Yield Generated:</strong> <span id="lidoTotalYield">Loading...</span> ETH</div>
+                        <div><strong>Current Epoch Unlocks:</strong> <span id="lidoCurrentEpochUnlock">Loading...</span> ETH</div>
+                        <div><strong>Next Epoch Unlocks:</strong> <span id="lidoNextEpochUnlock">Loading...</span> ETH</div>
+                      </div>
+
+                      <!-- User's Lido Position -->
+                      <div id="userLidoPosition" class="callout logged-in hidden">
+                        <div><strong>Your Locked Amount:</strong> <span id="userLidoAmount">0</span> stETH</div>
+                        <div><strong>Unlock Date:</strong> <span id="userLidoUnlockDate">N/A</span></div>
+                      </div>
+
+                      <!-- ETH and Lido Balances -->
+                      <div id="ethBalances" class="logged-in hidden">
+                        <div class="swapField">
+                          <div class="swapFirstCoin">
+                            <img class="swapSelectorLogo" src="./assets/images/eth.png">
+                            <div class="swapSelectorText">ETH</div>
+                          </div>
+                          <div class="swapBalance">
+                            <span id="ethBalance">0.0</span> ETH
+                            <span id="ethGasWarning" class="hidden" style="color: red;"> (Low gas!)</span>
+                          </div>
+                        </div>
+                        <div class="swapField" id="lidoBalanceField" class="hidden">
+                          <div class="swapFirstCoin">
+                            <div class="swapSelectorText">stETH</div>
+                          </div>
+                          <div class="swapBalance">
+                            <span id="lidoBalance">0.0</span> stETH
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Lido Actions -->
+                      <div class="swapFields logged-in hidden">
+                        <div class="swapField">
+                          <div class="input-group">
+                            <input type="number" id="lidoDepositAmount" class="form_field buttons-inside" placeholder="0.0" />
+                            <div class="btn-inside btn-inside-end">ETH/stETH</div>
+                          </div>
+                        </div>
+                        <div class="swapField">
+                          <div class="input-group">
+                            <input type="number" id="lidoLockDays" class="form_field buttons-inside" placeholder="Days to lock" />
+                            <div class="btn-inside btn-inside-end">Days (<span id="lidoLockEstimate">0m</span>)</div>
+                          </div>
+                        </div>
+                        <div class="swapField">
+                          <button class="swapSelector btn" onclick="depositLidoHODL()">Deposit & HODL</button>
+                          <button class="swapSelector btn" onclick="withdrawLidoHODL()">Withdraw</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- StableVault Section -->
+                    <div class="earn-section">
+                      <div class="boxTitle">🪙 StableVault (DAI/USDC Automated Position)</div>
+                      <div class="callout">
+                        <details>
+                          <summary style="cursor: pointer;">ℹ️ Why use StableVault?</summary>
+                          <p style="margin-top: 10px;">The pool automatically manages a very low-risk stablecoin position. Stakers watch the position and keep it within a tighter range than most traders. Profits support BitBay - you can earn fees on the pool AND stake for remaining fees while supporting the network.</p>
+                        </details>
+                      </div>
+
+                      <!-- StableVault Pool Info -->
+                      <div id="stableVaultInfo" class="callout">
+                        <div><strong>Pool Pair:</strong> DAI/USDC</div>
+                        <div><strong>Total Pool Size:</strong> <span id="stableTotalDAI">Loading...</span> DAI</div>
+                        <div><strong>Current Tick:</strong> <span id="stableCurrentTick">Loading...</span></div>
+                        <div><strong>In Range:</strong> <span id="stableInRange">Checking...</span></div>
+                        <div><strong>Fee Tier:</strong> 0.005%</div>
+                        <div><strong>Commission:</strong> <span id="stableCommission">Loading...</span>%</div>
+                        <div><strong>Weekly Rewards:</strong> $<span id="stableWeeklyRewards">Loading...</span></div>
+                        <div><strong>Sends To:</strong> <span id="stableSendsTo">Loading...</span></div>
+                      </div>
+
+                      <!-- User's StableVault Position -->
+                      <div id="userStablePosition" class="callout logged-in hidden">
+                        <div><strong>Your Position:</strong> <span id="userStableDAI">0</span> DAI (<span id="userStablePercent">0</span>%)</div>
+                        <div><strong>Anticipated Weekly Profit:</strong> $<span id="userStableWeeklyProfit">0</span></div>
+                        <div><strong>Pending Fees:</strong> $<span id="userStablePendingFees">0</span></div>
+                      </div>
+
+                      <!-- DAI Balance -->
+                      <div id="daiBalance" class="swapField logged-in hidden">
+                        <div class="swapFirstCoin">
+                          <div class="swapSelectorText">DAI</div>
+                        </div>
+                        <div class="swapBalance">
+                          <span id="daiBalanceAmount">0.0</span> DAI
+                        </div>
+                      </div>
+
+                      <!-- StableVault Actions -->
+                      <div class="swapFields logged-in hidden">
+                        <div class="swapField">
+                          <div class="input-group">
+                            <input type="number" id="stableDepositAmount" class="form_field buttons-inside" placeholder="0.0 DAI" />
+                            <div class="btn-inside btn-inside-end">DAI</div>
+                          </div>
+                        </div>
+                        <div class="swapField">
+                          <label style="display: block; margin-bottom: 5px;">Where to send profits:</label>
+                          <select id="stableProfitDestination" class="form_field" style="width: 100%;">
+                            <option value="user">Send profits to my account</option>
+                            <option value="bayl">Donate to BAYL liquidity providers (UniSwap)</option>
+                            <option value="bayr">Donate to BAYR liquidity providers (UniSwap)</option>
+                          </select>
+                        </div>
+                        <div class="swapField">
+                          <button class="swapSelector btn" onclick="depositStableVault()">Deposit</button>
+                          <button class="swapSelector btn" onclick="collectStableFees()">Collect Fees</button>
+                          <button class="swapSelector btn" onclick="withdrawStableVault()">Withdraw</button>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <!-- Staking Panel -->
+                  <div class="tabs__panel">
+                    
+                    <div class="earn-section">
+                      <!-- Staking Enable Checkbox -->
+                      <div class="callout callout-warning">
+                        <label style="font-weight: bold;">
+                          <input type="checkbox" id="stakingEnabledCheckbox" onchange="toggleStaking()" />
+                          Enable Automated Staking
+                        </label>
+                        <p style="margin-top: 5px; font-size: 0.9em;">When enabled, your account will automatically manage staking, rewards, and protocol operations.</p>
+                      </div>
+
+                      <!-- Staking Note -->
+                      <div class="callout callout-info">
+                        <p><strong>Note:</strong> Staking requires password-based login (not MetaMask). This enables browser-based automated staking and voting.</p>
+                      </div>
+
+                      <!-- Display what stakers are automating -->
+                      <div id="stakingAutomationInfo" class="callout hidden">
+                        <div class="boxTitle">🤖 Automated Tasks</div>
+                        <div>✓ AMM Position Management</div>
+                        <div>✓ Yield Payment Collection</div>
+                        <div>✓ Lido Yield Harvesting</div>
+                        <div>✓ Protocol Management & Votes</div>
+                      </div>
+
+                      <!-- Gas Warning -->
+                      <div id="stakingGasWarning" class="callout callout-warning hidden">
+                        <p>⚠️ Low POL balance: <span id="stakingPolBalance">0</span> POL. Keep above 30 POL for optimal staking. Below 10 POL staking will be paused.</p>
+                      </div>
+
+                      <div id="stakingEthGasWarning" class="callout callout-warning hidden">
+                        <p>⚠️ Insufficient ETH gas on Ethereum mainnet for Lido yield collection. Add ETH to continue collecting rewards.</p>
+                      </div>
+
+                      <!-- Treasury Staking Info -->
+                      <div class="boxTitle">💎 BAYL Treasury Staking</div>
+                      <div id="baylTreasuryInfo" class="callout">
+                        <div><strong>Total BAY Staked:</strong> <span id="baylTotalStaked">Loading...</span> BAYL</div>
+                        <div><strong>Total Shares Pending:</strong> <span id="baylTotalShares">Loading...</span></div>
+                        <div><strong>Balance Refresh Rate:</strong> <span id="baylRefreshRate">Loading...</span></div>
+                        <div><strong>Claim Rate:</strong> <span id="baylClaimRate">Loading...</span> blocks</div>
+                      </div>
+
+                      <!-- Top Stakers -->
+                      <div id="topStakersInfo" class="callout">
+                        <div class="boxTitle">🏆 Top Stakers</div>
+                        <div id="topStakersList">Loading...</div>
+                      </div>
+
+                      <!-- User Staking Info -->
+                      <div id="userStakingInfo" class="callout logged-in hidden">
+                        <div class="boxTitle">Your Staking Info</div>
+                        <div><strong>Vault Address:</strong> <span id="userVaultAddress">Loading...</span></div>
+                        <div><strong>Shares:</strong> <span id="userShares">0</span></div>
+                        <div><strong>Last Refresh:</strong> <span id="userLastRefresh">N/A</span></div>
+                        <div><strong>Tracking Coins:</strong> <span id="userTrackingCoins">None</span></div>
+                        <div><strong>Pending Rewards:</strong></div>
+                        <div id="userPendingRewards" style="margin-left: 20px;">Loading...</div>
+                        <div><strong>Total Rewards Earned (Session):</strong></div>
+                        <div id="userTotalRewards" style="margin-left: 20px;">Loading...</div>
+                      </div>
+
+                      <!-- BAYL/BAYR Balances at Vault -->
+                      <div id="vaultBalances" class="logged-in hidden">
+                        <div class="swapField">
+                          <div class="swapFirstCoin">
+                            <div class="swapSelectorText">BAYL (at Vault)</div>
+                          </div>
+                          <div class="swapBalance">
+                            <span id="vaultBaylBalance">0.0</span> BAYL
+                          </div>
+                        </div>
+                        <div class="swapField">
+                          <div class="swapFirstCoin">
+                            <div class="swapSelectorText">BAYR (at Vault)</div>
+                          </div>
+                          <div class="swapBalance">
+                            <span id="vaultBayrBalance">0.0</span> BAYR
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Staking Actions -->
+                      <div class="swapFields logged-in hidden">
+                        <div class="callout callout-info">
+                          <details>
+                            <summary style="cursor: pointer;">📋 Staking Disclaimer</summary>
+                            <p style="margin-top: 10px;">Rewards are not guaranteed and are based on users who opt-in. This system is not a security because there is no common enterprise. In exchange for protocol fees, you are doing work by securing the blockchain, managing the stablecoin position, and voting on important protocol decisions. <a href="https://bitbay.market/downloads/whitepapers/Protocol-owned-assets.pdf" target="_blank">Learn more</a></p>
+                          </details>
+                        </div>
+                        
+                        <div class="swapField">
+                          <div class="input-group">
+                            <input type="number" id="stakingDepositAmount" class="form_field buttons-inside" placeholder="0.0 BAYL" />
+                            <div class="btn-inside btn-inside-end">BAYL</div>
+                          </div>
+                        </div>
+                        <div class="swapField">
+                          <button class="swapSelector btn" onclick="depositStake()">Stake BAYL</button>
+                          <button class="swapSelector btn" onclick="unstakeBAYL()">Unstake</button>
+                          <button class="swapSelector btn" onclick="claimStakingRewards()">Claim Rewards</button>
+                        </div>
+                      </div>
+
+                      <!-- Protocol Management Info (for stakers) -->
+                      <div id="protocolManagementInfo" class="callout hidden">
+                        <div class="boxTitle">🔧 Protocol Management Status</div>
+                        <div><strong>AMM Position:</strong> <span id="ammPositionStatus">Loading...</span></div>
+                        <div><strong>AMM Weekly Yield:</strong> $<span id="ammWeeklyYield">0</span></div>
+                        <div><strong>Lido Unclaimed Fees:</strong> <span id="lidoUnclaimedFees">0</span> ETH</div>
+                        <div><strong>Stable Unclaimed Fees:</strong> $<span id="stableUnclaimedFees">0</span></div>
+                        <div><strong>Flow Contract ETH Pending:</strong> <span id="flowPendingETH">0</span> ETH</div>
+                      </div>
+
+                      <!-- Voting Section -->
+                      <div class="boxTitle">🗳️ Staking Votes</div>
+                      
+                      <div id="votingInfo" class="callout">
+                        <div><strong>Current Epoch:</strong> <span id="currentVoteEpoch">Loading...</span></div>
+                        <div><strong>Epoch Blocks:</strong> <span id="voteEpochBlocks">Loading...</span></div>
+                      </div>
+
+                      <!-- BAYL Votes -->
+                      <div id="baylVotes" class="callout">
+                        <div class="boxTitle">BAYL Votes</div>
+                        <div><strong>Previous Epoch Votes:</strong></div>
+                        <div id="baylPreviousVotes" style="margin-left: 20px;">Loading...</div>
+                        <div><strong>Current Pending Votes:</strong></div>
+                        <div id="baylPendingVotes" style="margin-left: 20px;">Loading...</div>
+                      </div>
+
+                      <!-- BAYR Votes -->
+                      <div id="bayrVotes" class="callout">
+                        <div class="boxTitle">BAYR Votes</div>
+                        <div><strong>Previous Epoch Votes:</strong></div>
+                        <div id="bayrPreviousVotes" style="margin-left: 20px;">Not Active</div>
+                        <div><strong>Current Pending Votes:</strong></div>
+                        <div id="bayrPendingVotes" style="margin-left: 20px;">Not Active</div>
+                      </div>
+
+                      <!-- Vote Creation -->
+                      <div class="swapFields logged-in hidden">
+                        <button class="swapSelector btn" onclick="showCreateVoteDialog()">Create New Vote</button>
+                        <button class="swapSelector btn" onclick="showVoteDetailsDialog()">View Vote Details</button>
+                      </div>
+                      
+                      <!-- Console History -->
+                      <div style="margin-top: 30px; text-align: center;">
+                        <button class="swapSelector btn" onclick="showConsoleHistory()">📜 Show Console History</button>
+                      </div>
+
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
         </div>
         <div class="tabs tabs_overlay logged-in logged-in-remove hidden">
           
@@ -760,6 +1079,16 @@
 <script type="text/javascript" src="./assets/js/bridge-tools/Factory.js"></script>
 <script type="text/javascript" src="./assets/js/bridge-tools/Pair.js"></script>
 <script type="text/javascript" src="./assets/js/bridge-tools/WETH.js"></script>
+
+<script type="text/javascript" src="./assets/js/bridge-tools/treasury/Treasury.js"></script>
+<script type="text/javascript" src="./assets/js/bridge-tools/treasury/Vault.js"></script>
+<script type="text/javascript" src="./assets/js/bridge-tools/treasury/LidoVault.js"></script>
+<script type="text/javascript" src="./assets/js/bridge-tools/treasury/StableVault.js"></script>
+<script type="text/javascript" src="./assets/js/bridge-tools/treasury/StableVaultFees.js"></script>
+<script type="text/javascript" src="./assets/js/bridge-tools/treasury/StakingVote.js"></script>
+<script type="text/javascript" src="./assets/js/bridge-tools/treasury/flow.js"></script>
+<script type="text/javascript" src="./assets/js/bridge-tools/treasury/autoBridge.js"></script>
+<script type="text/javascript" src="./assets/js/bridge-tools/earn.js"></script>
 
 <script type="text/javascript" src="./assets/js/bridge-tools/coin.js"></script>
 <script type="text/javascript" src="./assets/js/bridge-tools/crypto-sha256.js"></script>
@@ -1257,6 +1586,46 @@
     background-attachment: fixed;
     background-size: cover;
     pointer-events: none; /* ensures it doesn't interfere with clicks */
+  }
+
+  /* Earn Tab Styles */
+  .earn-section {
+    margin-bottom: 30px;
+    padding: 15px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .earn-subtabs .tabs__nav {
+    margin-bottom: 20px;
+  }
+
+  .earn-subnav .tabs__nav-list {
+    display: flex;
+    gap: 10px;
+  }
+
+  .earn-subnav .tabs__nav-item {
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.1);
+    transition: all 0.3s;
+  }
+
+  .earn-subnav .tabs__nav-item.js-active {
+    background: rgba(39, 120, 196, 0.5);
+    color: white;
+  }
+
+  .earn-subnav .tabs__nav-item:hover {
+    background: rgba(39, 120, 196, 0.3);
+  }
+
+  #earnRoiDisplay {
+    text-align: center;
+    font-size: 1.2em;
+    margin-bottom: 20px;
   }
 </style>
 
@@ -1946,6 +2315,12 @@ async function login2() {
         isConnected = true;
         await checkbalances();
         makeFairRatio();
+        
+        // Initialize Earn tab data if function exists
+        if (typeof onEarnUserLogin === 'function') {
+          onEarnUserLogin().catch(e => console.error('Error initializing Earn tab:', e));
+        }
+        
         hideSpinner();
     } catch (e) {
         hideSpinner()
