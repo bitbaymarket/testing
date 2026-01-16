@@ -1790,7 +1790,7 @@ async function loadVotingInfo() {
   if (!earnState.polWeb3) return;
   
   try {
-    const voteContract = new earnState.polWeb3.eth.Contract(stakingVoteABI, TREASURY_ADDRESSES.VOTE_BAYL);
+    const voteContract = new earnState.polWeb3.eth.Contract(stakingABI, TREASURY_ADDRESSES.VOTE_BAYL);
     
     // Get current epoch
     const currentEpoch = await voteContract.methods.currentEpoch().call();
