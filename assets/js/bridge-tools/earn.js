@@ -1114,17 +1114,21 @@ async function checkAndDripFlow() {
     const flowContract = new earnState.polWeb3.eth.Contract(flowABI, TREASURY_ADDRESSES.FLOW_BAYL);
     const pending = await flowContract.methods.pendingYield().call();
     
-    if (parseInt(pending) > 0) {
-      console.log('Flow has pending ETH, calling drip...');
-      await flowContract.methods.drip().send({
+    if (isGreaterThanZero(pending)) {
+      const pendingETH = displayETHAmount(pending, 6);
+      logToConsole(`Flow contract has ${pendingETH} ETH pending, calling drip...`);
+      
+      const tx = await flowContract.methods.drip().send({
         from: myaccountsV2,
         gas: 200000,
         gasPrice: gasPrice
       });
-      console.log('Flow drip successful');
+      
+      logToConsole(`Flow drip successful, tx: ${tx.transactionHash}`);
     }
   } catch (error) {
     console.error('Error checking/dripping flow:', error);
+    logToConsole(`Error with flow drip: ${error.message}`);
   }
 }
 
@@ -1134,115 +1138,171 @@ async function checkAndHarvestLido() {
     
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
     const availableYield = await lidoContract.methods.availableYield().call();
+    const BN = earnState.ethWeb3.utils.BN;
     
-    // Check if yield exceeds 0.01 ETH (10000000000000000 wei)
-    if (BigInt(availableYield) > BigInt('10000000000000000')) {
+    // Check if yield exceeds 0.01 ETH
+    if (new BN(availableYield).gt(new BN('10000000000000000'))) {
       // Check ETH balance for gas
       const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccountsV2);
-      const ethBalanceEther = parseFloat(earnState.ethWeb3.utils.fromWei(ethBalance, 'ether'));
+      const BN2 = BigNumber;
+      const ethBalanceETH = new BN2(ethBalance).dividedBy('1e18');
       
-      if (ethBalanceEther < 0.01) {
-        console.log('Not enough ETH gas to harvest Lido yield');
+      if (ethBalanceETH.lt(new BN2('0.01'))) {
+        logToConsole('Not enough ETH gas to harvest Lido yield');
         document.getElementById('stakingEthGasWarning').classList.remove('hidden');
         return;
       }
       
       // Estimate gas cost
-      const gasPrice = await earnState.ethWeb3.eth.getGasPrice();
-      const estimatedGas = 300000; // Rough estimate
-      const gasCostWei = BigInt(gasPrice) * BigInt(estimatedGas);
+      const ethGasPrice = await earnState.ethWeb3.eth.getGasPrice();
+      const estimatedGas = 300000;
+      const gasCostWei = new BN(ethGasPrice).mul(new BN(estimatedGas));
       
       // Check if gas cost is less than 25% of available yield
-      if (gasCostWei * BigInt(4) < BigInt(availableYield)) {
-        console.log('Harvesting Lido yield...');
-        
+      if (gasCostWei.mul(new BN('4')).lt(new BN(availableYield))) {
         // Check time since last collection based on balance
         const totalPrincipal = await lidoContract.methods.totalPrincipal().call();
-        const principalETH = parseFloat(earnState.ethWeb3.utils.fromWei(totalPrincipal, 'ether'));
-        const minimumTime = principalETH > 5 ? 7 * 24 * 60 * 60 : 30 * 24 * 60 * 60; // Weekly if > 5 ETH, else monthly
+        const principalETH = new BN2(totalPrincipal).dividedBy('1e18');
+        const minimumTime = principalETH.gt(new BN2('5')) ? 7 * 24 * 60 * 60 : 30 * 24 * 60 * 60;
         
-        // TODO: Track last collection time in localStorage
         const lastCollection = parseInt(localStorage.getItem('lidoLastCollection') || '0');
         const now = Math.floor(Date.now() / 1000);
         
         if (now - lastCollection > minimumTime) {
-          await lidoContract.methods.harvestAndSwapToETH(100, 0).send({
+          const yieldETH = new BN2(availableYield).dividedBy('1e18').toFixed(4);
+          logToConsole(`Harvesting ${yieldETH} ETH from Lido vault...`);
+          
+          const tx = await lidoContract.methods.harvestAndSwapToETH(100, 0).send({
             from: myaccountsV2,
             gas: estimatedGas,
-            gasPrice: gasPrice
+            gasPrice: ethGasPrice
           });
           
           localStorage.setItem('lidoLastCollection', now.toString());
-          console.log('Lido harvest successful');
+          logToConsole(`Lido harvest successful, tx: ${tx.transactionHash}`);
         }
       }
     }
   } catch (error) {
     console.error('Error checking/harvesting Lido:', error);
+    logToConsole(`Error with Lido harvest: ${error.message}`);
   }
 }
 
 async function checkAndManageStableVault() {
   try {
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
-    
-    // Check if user has donated to fee vault (if so, collect their pending fees daily)
     const feeVault = await stableContract.methods.feeVault().call();
     const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
+    
+    // Part 1: Check if user is donating and has pending fees > $1
     const userShares = await feeVaultContract.methods.shares(myaccountsV2).call();
     
-    if (parseInt(userShares) > 0) {
-      const lastFeeCollection = parseInt(localStorage.getItem('stableFeeLastCollection') || '0');
-      const now = Math.floor(Date.now() / 1000);
+    if (isGreaterThanZero(userShares)) {
+      const sendTo = await feeVaultContract.methods.sendTo(myaccountsV2).call();
+      const isDonating = sendTo !== '0x0000000000000000000000000000000000000000' && 
+                        sendTo.toLowerCase() !== myaccountsV2.toLowerCase();
       
-      if (now - lastFeeCollection > 86400) { // Once per day
-        console.log('Collecting stable vault fees...');
+      if (isDonating) {
+        const pendingFees = await feeVaultContract.methods.pendingFees(myaccountsV2).call();
+        const BN = BigNumber;
+        const pendingDAI = new BN(pendingFees[0]).dividedBy('1e18');
+        const pendingUSDC = new BN(pendingFees[1]).dividedBy('1e6');
+        const totalPendingUSD = pendingDAI.plus(pendingUSDC);
+        
+        // Only collect if > $1
+        if (totalPendingUSD.gt(new BN('1'))) {
+          const lastFeeCollection = parseInt(localStorage.getItem('stableFeeLastCollection') || '0');
+          const now = Math.floor(Date.now() / 1000);
+          
+          // Collect once per day
+          if (now - lastFeeCollection > 86400) {
+            logToConsole('Collecting personal fees from StableVault (donating user)');
+            const deadline = now + 300;
+            
+            await stableContract.methods.collectFees(deadline).send({
+              from: myaccountsV2,
+              gas: 500000,
+              gasPrice: gasPrice
+            });
+            
+            localStorage.setItem('stableFeeLastCollection', now.toString());
+            logToConsole(`Personal fees collected: $${totalPendingUSD.toFixed(2)}`);
+          }
+        }
+      }
+    }
+    
+    // Part 2: Check global unclaimed fees for the pool position (collective check)
+    const liquidity = await stableContract.methods.liquidity().call();
+    
+    if (isGreaterThanZero(liquidity)) {
+      const unclaimedFees = await stableContract.methods.getUnclaimedFees().call();
+      const BN = BigNumber;
+      const fee0 = new BN(unclaimedFees.fee0).dividedBy('1e18'); // DAI
+      const fee1 = new BN(unclaimedFees.fee1).dividedBy('1e6'); // USDC
+      const totalUnclaimedUSD = fee0.plus(fee1);
+      
+      // Only proceed if > $5 for the collective pool
+      if (totalUnclaimedUSD.gt(new BN('5'))) {
+        const now = Math.floor(Date.now() / 1000);
         const deadline = now + 300;
+        
+        logToConsole(`StableVault unclaimed fees: $${totalUnclaimedUSD.toFixed(2)}, collecting...`);
+        
         await stableContract.methods.collectFees(deadline).send({
           from: myaccountsV2,
           gas: 500000,
           gasPrice: gasPrice
         });
-        localStorage.setItem('stableFeeLastCollection', now.toString());
+        
+        logToConsole('StableVault pool fees collected successfully');
       }
-    }
-    
-    // Check if position needs repositioning
-    const liquidity = await stableContract.methods.liquidity().call();
-    if (parseInt(liquidity) > 0) {
-      // Check if out of range
-      const tickLower = await stableContract.methods.tickLower().call();
-      const tickUpper = await stableContract.methods.tickUpper().call();
       
-      // This would require checking current tick vs position ticks
-      // For now, just check if reposition timelock has passed
-      const lastReposition = await stableContract.methods.lastReposition().call();
-      const positionTimelock = await stableContract.methods.POSITION_TIMELOCK().call();
-      const now = Math.floor(Date.now() / 1000);
+      // Check if position needs repositioning (if out of range)
+      const isInRange = await stableContract.methods.isInRange().call();
       
-      if (now - lastReposition > positionTimelock) {
-        // Check if actually out of range before repositioning
-        console.log('Checking if stable vault needs repositioning...');
-        // TODO: Implement range check logic
+      if (!isInRange) {
+        const lastReposition = await stableContract.methods.lastReposition().call();
+        const positionTimelock = await stableContract.methods.POSITION_TIMELOCK().call();
+        const now = Math.floor(Date.now() / 1000);
+        
+        if (now - lastReposition > positionTimelock) {
+          logToConsole('StableVault is out of range, repositioning...');
+          const deadline = now + 300;
+          
+          await stableContract.methods.reposition(deadline).send({
+            from: myaccountsV2,
+            gas: 700000,
+            gasPrice: gasPrice
+          });
+          
+          logToConsole('StableVault repositioned successfully');
+        }
       }
       
       // Check if dust needs cleaning
       const lastDustClean = await stableContract.methods.lastDustClean().call();
       const cleanTimelock = await stableContract.methods.CLEAN_TIMELOCK().call();
+      const now = Math.floor(Date.now() / 1000);
       
       if (now - lastDustClean > cleanTimelock) {
-        console.log('Cleaning stable vault dust...');
+        logToConsole('Cleaning StableVault dust...');
         const deadline = now + 300;
+        
         await stableContract.methods.cleanDust(deadline).send({
           from: myaccountsV2,
           gas: 500000,
           gasPrice: gasPrice
         });
+        
+        logToConsole('StableVault dust cleaned successfully');
       }
     }
     
   } catch (error) {
     console.error('Error managing stable vault:', error);
+    logToConsole(`Error managing StableVault: ${error.message}`);
   }
 }
 
@@ -1272,22 +1332,27 @@ async function checkAndUpdateInactiveUsers() {
       
       // Check if user is inactive (more than 10x claim rate)
       if (blocksSinceStake > parseInt(claimRate) * 10) {
-        console.log(`Updating inactive user: ${staker.user}`);
-        await baylTreasury.methods.updateUser(staker.user).send({
+        logToConsole(`Updating inactive user: ${staker.user.substring(0, 10)}...`);
+        
+        const tx = await baylTreasury.methods.updateUser(staker.user).send({
           from: myaccountsV2,
           gas: 300000,
           gasPrice: gasPrice
         });
+        
+        logToConsole(`Inactive user updated, tx: ${tx.transactionHash}`);
         updated++;
       }
     }
     
     if (updated > 0) {
       localStorage.setItem('inactiveUserLastCheck', now.toString());
+      logToConsole(`Updated ${updated} inactive user(s)`);
     }
     
   } catch (error) {
     console.error('Error updating inactive users:', error);
+    logToConsole(`Error updating inactive users: ${error.message}`);
   }
 }
 
