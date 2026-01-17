@@ -789,7 +789,7 @@ async function loadStableVaultInfo() {
     document.getElementById('stableCurrentTick').textContent = `${tickLower} to ${tickUpper}`;
     
     // Check if position is in range using the contract's built-in function
-    const isInRange = DOMPurify.sanitize(await stableContract.methods.isInRange().call());
+    const isInRange = DOMPurify.sanitize(await stableContract.methods.isInRange().call()) === 'true';
     document.getElementById('stableInRange').textContent = isInRange ? '✅ Yes' : '❌ No';
     
     // Get commission
@@ -1346,7 +1346,7 @@ async function checkAndManageStableVault() {
       }
       
       // Check if position needs repositioning (if out of range)
-      const isInRange = DOMPurify.sanitize(await stableContract.methods.isInRange().call());
+      const isInRange = DOMPurify.sanitize(await stableContract.methods.isInRange().call()) === 'true';
       
       if (!isInRange) {
         const lastReposition = DOMPurify.sanitize(await stableContract.methods.lastReposition().call());
