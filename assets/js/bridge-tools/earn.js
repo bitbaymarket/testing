@@ -1046,7 +1046,7 @@ async function withdrawStableVault() {
     showSpinner();
     
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
-    const userShares = JSON.parse(DOMPurify.sanitize(JSON.stringify(await stableContract.methods.shares(myaccounts).call())));
+    const userShares = DOMPurify.sanitize(await stableContract.methods.shares(myaccounts).call());
     
     const BN = BigNumber;
     const withdrawPercent = new BN(result.value);
@@ -1282,7 +1282,7 @@ async function checkAndManageStableVault() {
     const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
     
     // Part 1: Check if user is donating and has pending fees > $1
-    const userShares = JSON.parse(DOMPurify.sanitize(JSON.stringify(await feeVaultContract.methods.shares(myaccounts).call())));
+    const userShares = DOMPurify.sanitize(await feeVaultContract.methods.shares(myaccounts).call());
     
     if (isGreaterThanZero(userShares)) {
       const sendTo = DOMPurify.sanitize(await feeVaultContract.methods.sendTo(myaccounts).call());
