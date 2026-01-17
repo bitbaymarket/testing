@@ -1240,7 +1240,7 @@ async function checkAndHarvestLido() {
       }
       
       // Estimate gas cost
-      const ethGasPrice = await earnState.ethWeb3.eth.getGasPrice();
+      const ethGasPrice = DOMPurify.sanitize(await earnState.ethWeb3.eth.getGasPrice());
       const estimatedGas = 300000;
       const gasCostWei = new BN(ethGasPrice).mul(new BN(estimatedGas));
       
@@ -2453,7 +2453,7 @@ async function executeWithdrawal(withdrawData) {
     } else if (coin.coin === 'ETH') {
       // Withdraw ETH
       const balance = DOMPurify.sanitize(await earnState.ethWeb3.eth.getBalance(myaccounts));
-      const ethGasPrice = await earnState.ethWeb3.eth.getGasPrice();
+      const ethGasPrice = DOMPurify.sanitize(await earnState.ethWeb3.eth.getGasPrice());
       let amountWei;
       
       if (amount) {
