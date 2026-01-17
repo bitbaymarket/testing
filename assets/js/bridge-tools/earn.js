@@ -325,8 +325,8 @@ async function loadLidoVaultInfo() {
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
     
     // Get total principal and yield
-    const totalPrincipal = await lidoContract.methods.totalPrincipal().call();
-    const totalYield = await lidoContract.methods.totalYield().call();
+    const totalPrincipal = DOMPurify.sanitize(await lidoContract.methods.totalPrincipal().call());
+    const totalYield = DOMPurify.sanitize(await lidoContract.methods.totalYield().call());
     
     // Convert from wei to ETH using BigNumber
     const principalETH = formatETHAmount(totalPrincipal, 4);
@@ -336,13 +336,13 @@ async function loadLidoVaultInfo() {
     document.getElementById('lidoTotalYield').textContent = yieldETH;
     
     // Get current and next epoch unlock amounts
-    const epochLength = await lidoContract.methods.EPOCH_LENGTH().call();
+    const epochLength = DOMPurify.sanitize(await lidoContract.methods.EPOCH_LENGTH().call());
     const currentTime = Math.floor(Date.now() / 1000);
     const currentEpoch = Math.floor(currentTime / epochLength);
     const nextEpoch = currentEpoch + 1;
     
-    const currentEpochUnlock = await lidoContract.methods.unlockAmountByEpoch(currentEpoch).call();
-    const nextEpochUnlock = await lidoContract.methods.unlockAmountByEpoch(nextEpoch).call();
+    const currentEpochUnlock = DOMPurify.sanitize(await lidoContract.methods.unlockAmountByEpoch(currentEpoch).call());
+    const nextEpochUnlock = DOMPurify.sanitize(await lidoContract.methods.unlockAmountByEpoch(nextEpoch).call());
     
     document.getElementById('lidoCurrentEpochUnlock').textContent = formatETHAmount(currentEpochUnlock, 4);
     document.getElementById('lidoNextEpochUnlock').textContent = formatETHAmount(nextEpochUnlock, 4);
@@ -357,7 +357,7 @@ async function loadUserLidoPosition() {
   
   try {
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
-    const userDeposit = await lidoContract.methods.deposits(myaccounts).call();
+    const userDeposit = JSON.parse(DOMPurify.sanitize(JSON.stringify(await lidoContract.methods.deposits(myaccounts).call())));
     
     if (userDeposit.amount > 0) {
       const amountETH = formatETHAmount(userDeposit.amount, 4);
@@ -380,7 +380,7 @@ async function loadETHBalances() {
     const balances = {};
     
     // Get ETH balance
-    const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccounts);
+    const ethBalance = DOMPurify.sanitize(await earnState.ethWeb3.eth.getBalance(myaccounts));
     const ethBalanceETH = formatETHAmount(ethBalance, 4);
     document.getElementById('ethBalance').textContent = ethBalanceETH;
 
@@ -408,7 +408,7 @@ async function loadETHBalances() {
       TREASURY_ADDRESSES.LIDO_STETH
     );
     
-    const stETHBalance = await stETHContract.methods.balanceOf(myaccounts).call();
+    const stETHBalance = DOMPurify.sanitize(await stETHContract.methods.balanceOf(myaccounts).call());
     
     if (new BN(stETHBalance).gt(new BN('0'))) {
       const stETHBalanceETH = formatETHAmount(stETHBalance, 4);
@@ -437,12 +437,12 @@ async function depositLidoHODL() {
   try {
     // Get user's current position and min/max days
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
-    const userDeposit = await lidoContract.methods.deposits(myaccounts).call();
-    const minDays = await lidoContract.methods.mindays().call();
-    const maxDays = await lidoContract.methods.maxdays().call();
+    const userDeposit = JSON.parse(DOMPurify.sanitize(JSON.stringify(await lidoContract.methods.deposits(myaccounts).call())));
+    const minDays = DOMPurify.sanitize(await lidoContract.methods.mindays().call());
+    const maxDays = DOMPurify.sanitize(await lidoContract.methods.maxdays().call());
     
     // Get ETH and stETH balances
-    const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccounts);
+    const ethBalance = DOMPurify.sanitize(await earnState.ethWeb3.eth.getBalance(myaccounts));
     const stETHContract = new earnState.ethWeb3.eth.Contract(
       [{
         "constant": true,
@@ -453,7 +453,7 @@ async function depositLidoHODL() {
       }],
       TREASURY_ADDRESSES.LIDO_STETH
     );
-    const stETHBalance = await stETHContract.methods.balanceOf(myaccounts).call();
+    const stETHBalance = DOMPurify.sanitize(await stETHContract.methods.balanceOf(myaccounts).call());
     
     const hasETH = earnState.ethWeb3.utils.toBN(ethBalance).gt(earnState.ethWeb3.utils.toBN('0'));
     const hasStETH = earnState.ethWeb3.utils.toBN(stETHBalance).gt(earnState.ethWeb3.utils.toBN('0'));
@@ -686,7 +686,7 @@ async function withdrawLidoHODL() {
   
   try {
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
-    const userDeposit = await lidoContract.methods.deposits(myaccounts).call();
+    const userDeposit = JSON.parse(DOMPurify.sanitize(JSON.stringify(await lidoContract.methods.deposits(myaccounts).call())));
     
     const BN = earnState.ethWeb3.utils.BN;
     if (new BN(userDeposit.amount).lte(new BN('0'))) {
@@ -779,25 +779,25 @@ async function loadStableVaultInfo() {
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
     
     // Get total shares (represents total DAI in pool)
-    const totalShares = await stableContract.methods.totalShares().call();
+    const totalShares = DOMPurify.sanitize(await stableContract.methods.totalShares().call());
     const totalDAI = formatETHAmount(totalShares, 2);  // DAI has 18 decimals like ETH
     document.getElementById('stableTotalDAI').textContent = totalDAI;
     
     // Get current tick position
-    const tickLower = await stableContract.methods.tickLower().call();
-    const tickUpper = await stableContract.methods.tickUpper().call();
+    const tickLower = DOMPurify.sanitize(await stableContract.methods.tickLower().call());
+    const tickUpper = DOMPurify.sanitize(await stableContract.methods.tickUpper().call());
     document.getElementById('stableCurrentTick').textContent = `${tickLower} to ${tickUpper}`;
     
     // Check if position is in range using the contract's built-in function
-    const isInRange = await stableContract.methods.isInRange().call();
+    const isInRange = DOMPurify.sanitize(await stableContract.methods.isInRange().call()) === 'true';
     document.getElementById('stableInRange').textContent = isInRange ? '✅ Yes' : '❌ No';
     
     // Get commission
-    const commission = await stableContract.methods.commission().call();
+    const commission = DOMPurify.sanitize(await stableContract.methods.commission().call());
     document.getElementById('stableCommission').textContent = commission;
     
     // Check which treasury it sends to
-    const treasury = await stableContract.methods.treasury().call();
+    const treasury = DOMPurify.sanitize(await stableContract.methods.treasury().call());
     const isBaylTreasury = treasury.toLowerCase() === TREASURY_ADDRESSES.BAYL_TREASURY.toLowerCase();
     document.getElementById('stableSendsTo').textContent = isBaylTreasury ? 'BAYL Liquid' : 'BAYR Reserve';
     
@@ -818,7 +818,7 @@ async function loadStableVaultInfo() {
 
 async function loadUserStablePosition(stableContract, totalShares) {
   try {
-    const userShares = await stableContract.methods.shares(myaccounts).call();
+    const userShares = DOMPurify.sanitize(await stableContract.methods.shares(myaccounts).call());
     
     if (isGreaterThanZero(userShares)) {
       const BN = BigNumber;
@@ -833,9 +833,9 @@ async function loadUserStablePosition(stableContract, totalShares) {
       document.getElementById('userStableWeeklyProfit').textContent = '0.00';
       
       // Get pending fees
-      const feeVault = await stableContract.methods.feeVault().call();
+      const feeVault = DOMPurify.sanitize(await stableContract.methods.feeVault().call());
       const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
-      const pendingFees = await feeVaultContract.methods.pendingFees(myaccounts).call();
+      const pendingFees = JSON.parse(DOMPurify.sanitize(JSON.stringify(await feeVaultContract.methods.pendingFees(myaccounts).call())));
       
       const pendingDAI = new BN(pendingFees[0]).dividedBy('1e18').toFixed(2);
       const pendingUSDC = new BN(pendingFees[1]).dividedBy('1e6').toFixed(2);
@@ -845,7 +845,7 @@ async function loadUserStablePosition(stableContract, totalShares) {
       document.getElementById('userStablePosition').classList.remove('hidden');
       
       // Check current sendTo setting and update dropdown
-      const sendTo = await feeVaultContract.methods.sendTo(myaccounts).call();
+      const sendTo = DOMPurify.sanitize(await feeVaultContract.methods.sendTo(myaccounts).call());
       const dropdown = document.getElementById('stableProfitDestination');
       if (dropdown) {
         if (sendTo === '0x0000000000000000000000000000000000000000' || sendTo === myaccounts) {
@@ -905,11 +905,11 @@ async function depositStableVault() {
     const BN = earnState.polWeb3.utils.BN;
     const amountWei = earnState.polWeb3.utils.toWei(amount, 'ether');
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
-    const feeVault = await stableContract.methods.feeVault().call();
+    const feeVault = DOMPurify.sanitize(await stableContract.methods.feeVault().call());
     const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
     
     // Check current sendTo setting
-    const currentSendTo = await feeVaultContract.methods.sendTo(myaccounts).call();
+    const currentSendTo = DOMPurify.sanitize(await feeVaultContract.methods.sendTo(myaccounts).call());
     let targetSendTo = myaccounts; // Default to user
     
     if (profitDestination === 'bayl') {
@@ -1046,7 +1046,7 @@ async function withdrawStableVault() {
     showSpinner();
     
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
-    const userShares = await stableContract.methods.shares(myaccounts).call();
+    const userShares = DOMPurify.sanitize(await stableContract.methods.shares(myaccounts).call());
     
     const BN = BigNumber;
     const withdrawPercent = new BN(result.value);
@@ -1126,7 +1126,7 @@ async function checkStakingConditions() {
   
   try {
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
-    const userInfo = await baylTreasury.methods.accessPool(myaccounts).call();
+    const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call())));
     
     // Check if user has any stake
     if (parseInt(userInfo.shares) === 0) {
@@ -1135,7 +1135,7 @@ async function checkStakingConditions() {
     }
     
     // Check POL balance
-    const polBalance = await earnState.polWeb3.eth.getBalance(myaccounts);
+    const polBalance = DOMPurify.sanitize(await earnState.polWeb3.eth.getBalance(myaccounts));
     const BN = BigNumber;
     const polBalanceEther = new BN(polBalance).dividedBy('1e18');
     
@@ -1160,8 +1160,8 @@ async function checkStakingConditions() {
     }
     
     // Calculate if we're 85% into the staking interval
-    const currentBlock = await earnState.polWeb3.eth.getBlockNumber();
-    const claimRate = await baylTreasury.methods.claimRate().call();
+    const currentBlock = DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber());
+    const claimRate = DOMPurify.sanitize(await baylTreasury.methods.claimRate().call());
     const blocksSinceStake = currentBlock - userInfo.stakeBlock;
     const targetBlocks = Math.floor(parseInt(claimRate) * 0.85) + (earnState.randomDelaySeconds / 2); // ~2 sec per block on Polygon
     
@@ -1198,7 +1198,7 @@ async function checkStakingConditions() {
 async function checkAndDripFlow() {
   try {
     const flowContract = new earnState.polWeb3.eth.Contract(flowABI, TREASURY_ADDRESSES.FLOW_BAYL);
-    const pending = await flowContract.methods.pendingYield().call();
+    const pending = DOMPurify.sanitize(await flowContract.methods.pendingYield().call());
     
     if (isGreaterThanZero(pending)) {
       const pendingETH = displayETHAmount(pending, 6);
@@ -1223,13 +1223,13 @@ async function checkAndHarvestLido() {
     if (!earnState.ethWeb3) return;
     
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
-    const availableYield = await lidoContract.methods.availableYield().call();
+    const availableYield = DOMPurify.sanitize(await lidoContract.methods.availableYield().call());
     const BN = earnState.ethWeb3.utils.BN;
     
     // Check if yield exceeds 0.01 ETH
     if (new BN(availableYield).gt(new BN('10000000000000000'))) {
       // Check ETH balance for gas
-      const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccounts);
+      const ethBalance = DOMPurify.sanitize(await earnState.ethWeb3.eth.getBalance(myaccounts));
       const BN2 = BigNumber;
       const ethBalanceETH = new BN2(ethBalance).dividedBy('1e18');
       
@@ -1240,14 +1240,14 @@ async function checkAndHarvestLido() {
       }
       
       // Estimate gas cost
-      const ethGasPrice = await earnState.ethWeb3.eth.getGasPrice();
+      const ethGasPrice = DOMPurify.sanitize(await earnState.ethWeb3.eth.getGasPrice());
       const estimatedGas = 300000;
       const gasCostWei = new BN(ethGasPrice).mul(new BN(estimatedGas));
       
       // Check if gas cost is less than 25% of available yield
       if (gasCostWei.mul(new BN('4')).lt(new BN(availableYield))) {
         // Check time since last collection based on balance
-        const totalPrincipal = await lidoContract.methods.totalPrincipal().call();
+        const totalPrincipal = DOMPurify.sanitize(await lidoContract.methods.totalPrincipal().call());
         const principalETH = new BN2(totalPrincipal).dividedBy('1e18');
         const minimumTime = principalETH.gt(new BN2('5')) ? 7 * 24 * 60 * 60 : 30 * 24 * 60 * 60;
         
@@ -1278,19 +1278,19 @@ async function checkAndHarvestLido() {
 async function checkAndManageStableVault() {
   try {
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
-    const feeVault = await stableContract.methods.feeVault().call();
+    const feeVault = DOMPurify.sanitize(await stableContract.methods.feeVault().call());
     const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
     
     // Part 1: Check if user is donating and has pending fees > $1
-    const userShares = await feeVaultContract.methods.shares(myaccounts).call();
+    const userShares = DOMPurify.sanitize(await feeVaultContract.methods.shares(myaccounts).call());
     
     if (isGreaterThanZero(userShares)) {
-      const sendTo = await feeVaultContract.methods.sendTo(myaccounts).call();
+      const sendTo = DOMPurify.sanitize(await feeVaultContract.methods.sendTo(myaccounts).call());
       const isDonating = sendTo !== '0x0000000000000000000000000000000000000000' && 
                         sendTo.toLowerCase() !== myaccounts.toLowerCase();
       
       if (isDonating) {
-        const pendingFees = await feeVaultContract.methods.pendingFees(myaccounts).call();
+        const pendingFees = JSON.parse(DOMPurify.sanitize(JSON.stringify(await feeVaultContract.methods.pendingFees(myaccounts).call())));
         const BN = BigNumber;
         const pendingDAI = new BN(pendingFees[0]).dividedBy('1e18');
         const pendingUSDC = new BN(pendingFees[1]).dividedBy('1e6');
@@ -1320,10 +1320,10 @@ async function checkAndManageStableVault() {
     }
     
     // Part 2: Check global unclaimed fees for the pool position (collective check)
-    const liquidity = await stableContract.methods.liquidity().call();
+    const liquidity = DOMPurify.sanitize(await stableContract.methods.liquidity().call());
     
     if (isGreaterThanZero(liquidity)) {
-      const unclaimedFees = await stableContract.methods.getUnclaimedFees().call();
+      const unclaimedFees = JSON.parse(DOMPurify.sanitize(JSON.stringify(await stableContract.methods.getUnclaimedFees().call())));
       const BN = BigNumber;
       const fee0 = new BN(unclaimedFees.fee0).dividedBy('1e18'); // DAI
       const fee1 = new BN(unclaimedFees.fee1).dividedBy('1e6'); // USDC
@@ -1346,11 +1346,11 @@ async function checkAndManageStableVault() {
       }
       
       // Check if position needs repositioning (if out of range)
-      const isInRange = await stableContract.methods.isInRange().call();
+      const isInRange = DOMPurify.sanitize(await stableContract.methods.isInRange().call()) === 'true';
       
       if (!isInRange) {
-        const lastReposition = await stableContract.methods.lastReposition().call();
-        const positionTimelock = await stableContract.methods.POSITION_TIMELOCK().call();
+        const lastReposition = DOMPurify.sanitize(await stableContract.methods.lastReposition().call());
+        const positionTimelock = DOMPurify.sanitize(await stableContract.methods.POSITION_TIMELOCK().call());
         const now = Math.floor(Date.now() / 1000);
         
         if (now - lastReposition > positionTimelock) {
@@ -1368,8 +1368,8 @@ async function checkAndManageStableVault() {
       }
       
       // Check if dust needs cleaning
-      const lastDustClean = await stableContract.methods.lastDustClean().call();
-      const cleanTimelock = await stableContract.methods.CLEAN_TIMELOCK().call();
+      const lastDustClean = DOMPurify.sanitize(await stableContract.methods.lastDustClean().call());
+      const cleanTimelock = DOMPurify.sanitize(await stableContract.methods.CLEAN_TIMELOCK().call());
       const now = Math.floor(Date.now() / 1000);
       
       if (now - lastDustClean > cleanTimelock) {
@@ -1403,9 +1403,9 @@ async function checkAndUpdateInactiveUsers() {
     }
     
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
-    const topStakers = await baylTreasury.methods.getTopStakers().call();
-    const claimRate = await baylTreasury.methods.claimRate().call();
-    const currentBlock = await earnState.polWeb3.eth.getBlockNumber();
+    const topStakers = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getTopStakers().call())));
+    const claimRate = DOMPurify.sanitize(await baylTreasury.methods.claimRate().call());
+    const currentBlock = DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber());
     
     let updated = 0;
     for (const staker of topStakers) {
@@ -1413,7 +1413,7 @@ async function checkAndUpdateInactiveUsers() {
       
       if (staker.user === myaccounts) continue; // Skip self
       
-      const userInfo = await baylTreasury.methods.accessPool(staker.user).call();
+      const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(staker.user).call())));
       const blocksSinceStake = currentBlock - userInfo.stakeBlock;
       
       // Check if user is inactive (more than 10x claim rate)
@@ -1448,7 +1448,7 @@ async function loadStakingInfo() {
   try {
     // Get user's vault address
     const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
-    earnState.userVaultAddress = await vaultContract.methods.getVaultAddress(myaccounts).call();
+    earnState.userVaultAddress = DOMPurify.sanitize(await vaultContract.methods.getVaultAddress(myaccounts).call());
     
     if (earnState.userVaultAddress) {
       document.getElementById('userVaultAddress').textContent = 
@@ -1458,10 +1458,10 @@ async function loadStakingInfo() {
     // Load BAYL treasury info
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
     
-    const totalTokens = await baylTreasury.methods.totalTokens().call();
-    const totalShares = await baylTreasury.methods.totalShares().call();
-    const refreshRate = await baylTreasury.methods.refreshRate().call();
-    const claimRate = await baylTreasury.methods.claimRate().call();
+    const totalTokens = DOMPurify.sanitize(await baylTreasury.methods.totalTokens().call());
+    const totalShares = DOMPurify.sanitize(await baylTreasury.methods.totalShares().call());
+    const refreshRate = DOMPurify.sanitize(await baylTreasury.methods.refreshRate().call());
+    const claimRate = DOMPurify.sanitize(await baylTreasury.methods.claimRate().call());
     
     document.getElementById('baylTotalStaked').textContent = displayBAYAmount(totalTokens, 2);
     document.getElementById('baylTotalShares').textContent = totalShares;
@@ -1470,7 +1470,7 @@ async function loadStakingInfo() {
     document.getElementById('baylClaimRate').textContent = claimRate + ' blocks';
     
     // Load user staking info
-    const userInfo = await baylTreasury.methods.accessPool(myaccounts).call();
+    const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call())));
     document.getElementById('userShares').textContent = displayBAYAmount(userInfo.shares, 2);
     
     if (userInfo.lastRefresh > 0) {
@@ -1484,7 +1484,7 @@ async function loadStakingInfo() {
     }
     
     // Get user's tracked coins
-    const userCoins = await baylTreasury.methods.getUserCoins(myaccounts).call();
+    const userCoins = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getUserCoins(myaccounts).call())));
     if (userCoins && userCoins.length > 0) {
       const coinNames = [];
       if (userCoins.includes('0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619')) coinNames.push('WETH');
@@ -1495,7 +1495,7 @@ async function loadStakingInfo() {
       // Get pending rewards for each coin
       let rewardsHTML = '';
       for (const coin of userCoins) {
-        const pending = await baylTreasury.methods.getPendingReward(myaccounts, coin).call();
+        const pending = DOMPurify.sanitize(await baylTreasury.methods.getPendingReward(myaccounts, coin).call());
         if (isGreaterThanZero(pending)) {
           let coinName = coin.substring(0, 10) + '...';
           let pendingDisplay = '';
@@ -1535,7 +1535,7 @@ async function loadStakingInfo() {
           "outputs": [{"name": "", "type": "uint256"}],
           "type": "function"
         }],
-        await vaultContract.methods.BAYL().call()
+        DOMPurify.sanitize(await vaultContract.methods.BAYL().call())
       );
       
       const bayrContract = new earnState.polWeb3.eth.Contract(
@@ -1546,11 +1546,11 @@ async function loadStakingInfo() {
           "outputs": [{"name": "", "type": "uint256"}],
           "type": "function"
         }],
-        await vaultContract.methods.BAYR().call()
+        DOMPurify.sanitize(await vaultContract.methods.BAYR().call())
       );
       
-      const baylBalance = await baylContract.methods.balanceOf(earnState.userVaultAddress).call();
-      const bayrBalance = await bayrContract.methods.balanceOf(earnState.userVaultAddress).call();
+      const baylBalance = DOMPurify.sanitize(await baylContract.methods.balanceOf(earnState.userVaultAddress).call());
+      const bayrBalance = DOMPurify.sanitize(await bayrContract.methods.balanceOf(earnState.userVaultAddress).call());
       
       document.getElementById('vaultBaylBalance').textContent = displayBAYAmount(baylBalance, 2);
       document.getElementById('vaultBayrBalance').textContent = displayBAYAmount(bayrBalance, 2);
@@ -1561,7 +1561,7 @@ async function loadStakingInfo() {
     document.getElementById('userStakingInfo').classList.remove('hidden');
     
     // Check POL balance for gas warning
-    const polBalance = await earnState.polWeb3.eth.getBalance(myaccounts);
+    const polBalance = DOMPurify.sanitize(await earnState.polWeb3.eth.getBalance(myaccounts));
     const BN = BigNumber;
     const polBalanceEther = new BN(polBalance).dividedBy('1e18');
     
@@ -1580,7 +1580,7 @@ async function loadTopStakers() {
   
   try {
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
-    const topStakers = await baylTreasury.methods.getTopStakers().call();
+    const topStakers = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getTopStakers().call())));
     
     let html = '<ol>';
     for (const staker of topStakers) {
@@ -1633,8 +1633,8 @@ async function depositStake() {
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
     
     // Check if this is first deposit - if so, set coins first
-    const userInfo = await baylTreasury.methods.accessPool(myaccounts).call();
-    const userCoins = await baylTreasury.methods.getUserCoins(myaccounts).call();
+    const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call())));
+    const userCoins = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getUserCoins(myaccounts).call())));
     
     if (!userCoins || userCoins.length === 0) {
       // Set default coins: WETH, DAI, USDC
@@ -1652,7 +1652,7 @@ async function depositStake() {
     }
     
     // Get BAYL address
-    const baylAddress = await vaultContract.methods.BAYL().call();
+    const baylAddress = DOMPurify.sanitize(await vaultContract.methods.BAYL().call());
     const baylContract = new earnState.polWeb3.eth.Contract(
       [{
         "constant": false,
@@ -1798,14 +1798,14 @@ async function claimStakingRewards() {
     });
     
     // Update total rewards in localStorage
-    const userCoins = await baylTreasury.methods.getUserCoins(myaccounts).call();
+    const userCoins = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getUserCoins(myaccounts).call())));
     for (const coin of userCoins) {
       let coinName = 'Unknown';
       if (coin.toLowerCase() === '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'.toLowerCase()) coinName = 'WETH';
       if (coin.toLowerCase() === '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063'.toLowerCase()) coinName = 'DAI';
       if (coin.toLowerCase() === TREASURY_ADDRESSES.USDC.toLowerCase()) coinName = 'USDC';
       
-      const pending = await baylTreasury.methods.getPendingReward(myaccounts, coin).call();
+      const pending = DOMPurify.sanitize(await baylTreasury.methods.getPendingReward(myaccounts, coin).call());
       if (parseInt(pending) > 0) {
         const BN = BigNumber;
         let amount;
@@ -1848,11 +1848,11 @@ async function loadVotingInfo() {
     const voteContract = new earnState.polWeb3.eth.Contract(stakingABI, TREASURY_ADDRESSES.VOTE_BAYL);
     
     // Get current epoch
-    const currentEpoch = await voteContract.methods.currentEpoch().call();
+    const currentEpoch = DOMPurify.sanitize(await voteContract.methods.currentEpoch().call());
     document.getElementById('currentVoteEpoch').textContent = currentEpoch;
     
     // Get epoch block info
-    const epochBlocks = await voteContract.methods.epochLength().call();
+    const epochBlocks = DOMPurify.sanitize(await voteContract.methods.epochLength().call());
     document.getElementById('voteEpochBlocks').textContent = epochBlocks;
     
     // Load previous and pending votes
@@ -1868,12 +1868,12 @@ async function loadVotes(voteContract, currentEpoch) {
     // For previous epoch: Only show winner and its votes
     if (currentEpoch > 0) {
       const prevEpoch = currentEpoch - 1;
-      const winningHash = await voteContract.methods.winningHash(prevEpoch).call();
+      const winningHash = DOMPurify.sanitize(await voteContract.methods.winningHash(prevEpoch).call());
       let prevHTML = '';
       
       if (winningHash && winningHash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
-        const weight = await voteContract.methods.winningWeight(prevEpoch).call();
-        const payload = await voteContract.methods.getProposalPayload(winningHash).call();
+        const weight = DOMPurify.sanitize(await voteContract.methods.winningWeight(prevEpoch).call());
+        const payload = DOMPurify.sanitize(await voteContract.methods.getProposalPayload(winningHash).call());
         prevHTML += `<div><strong>Winner:</strong> <a href="#" onclick="showVotePayload('${winningHash}')">${winningHash.substring(0, 10)}...</a> (${weight} votes)</div>`;
       } else {
         prevHTML = 'No votes in last epoch';
@@ -1882,7 +1882,7 @@ async function loadVotes(voteContract, currentEpoch) {
     }
     
     // For current epoch: Show top 5 hashes (getEpochHashes)
-    const topHashes = await voteContract.methods.getEpochHashes(currentEpoch).call();
+    const topHashes = DOMPurify.sanitize(await voteContract.methods.getEpochHashes(currentEpoch).call());
     let pendingHTML = '';
     
     for (const hash of topHashes) {
@@ -2083,7 +2083,7 @@ async function calculateAndDisplayROI() {
   
   try {
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
-    const totalTokens = await baylTreasury.methods.totalTokens().call();
+    const totalTokens = DOMPurify.sanitize(await baylTreasury.methods.totalTokens().call());
     
     // Only calculate if there's actual stake
     if (parseInt(totalTokens) === 0 && false) {
@@ -2109,9 +2109,9 @@ async function calculateAndDisplayROI() {
     const daiAddress = '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063';
     const usdcAddress = TREASURY_ADDRESSES.USDC;
     
-    const wethRewards = await baylTreasury.methods.weeklyRewards(currentWeek, wethAddress).call();
-    const daiRewards = await baylTreasury.methods.weeklyRewards(currentWeek, daiAddress).call();
-    const usdcRewards = await baylTreasury.methods.weeklyRewards(currentWeek, usdcAddress).call();
+    const wethRewards = DOMPurify.sanitize(await baylTreasury.methods.weeklyRewards(currentWeek, wethAddress).call());
+    const daiRewards = DOMPurify.sanitize(await baylTreasury.methods.weeklyRewards(currentWeek, daiAddress).call());
+    const usdcRewards = DOMPurify.sanitize(await baylTreasury.methods.weeklyRewards(currentWeek, usdcAddress).call());
     
     const BN = BigNumber;
     const wethRewardsEther = new BN(wethRewards).dividedBy('1e18').toNumber();
@@ -2169,7 +2169,7 @@ async function loadTokenBalances() {
       TREASURY_ADDRESSES.DAI // DAI on Polygon
     );
     
-    const daiBalance = await daiContract.methods.balanceOf(myaccounts).call();
+    const daiBalance = DOMPurify.sanitize(await daiContract.methods.balanceOf(myaccounts).call());
     const daiBalanceEther = new BN(daiBalance).dividedBy('1e18');
     
     if (daiBalanceEther.gt(new BN('0'))) {
@@ -2190,7 +2190,7 @@ async function loadTokenBalances() {
       TREASURY_ADDRESSES.USDC
     );
     
-    const usdcBalance = await usdcContract.methods.balanceOf(myaccounts).call();
+    const usdcBalance = DOMPurify.sanitize(await usdcContract.methods.balanceOf(myaccounts).call());
     const usdcBalanceFormatted = new BN(usdcBalance).dividedBy('1e6');
     
     if (usdcBalanceFormatted.gt(new BN('0'))) {
@@ -2211,7 +2211,7 @@ async function loadTokenBalances() {
       TREASURY_ADDRESSES.WETH
     );
     
-    const wethBalance = await wethContract.methods.balanceOf(myaccounts).call();
+    const wethBalance = DOMPurify.sanitize(await wethContract.methods.balanceOf(myaccounts).call());
     const wethBalanceFormatted = new BN(wethBalance).dividedBy('1e18');
     
     if (wethBalanceFormatted.gt(new BN('0'))) {
@@ -2221,7 +2221,7 @@ async function loadTokenBalances() {
     }
     
     // Load POL balance
-    const polBalance = await earnState.polWeb3.eth.getBalance(myaccounts);
+    const polBalance = DOMPurify.sanitize(await earnState.polWeb3.eth.getBalance(myaccounts));
     const polBalanceFormatted = new BN(polBalance).dividedBy('1e18');
     
     if (polBalanceFormatted.gt(new BN('0'))) {
@@ -2300,7 +2300,7 @@ async function showWithdrawDialog() {
     const BN = BigNumber;
     
     // Check POL balance
-    const polBalance = await earnState.polWeb3.eth.getBalance(myaccounts);
+    const polBalance = DOMPurify.sanitize(await earnState.polWeb3.eth.getBalance(myaccounts));
     const polBalanceFormatted = new BN(polBalance).dividedBy('1e18');
     if (polBalanceFormatted.gt(new BN('0'))) {
       balances.push({ coin: 'POL', balance: stripZeros(polBalanceFormatted.toFixed(4)), network: 'Polygon' });
@@ -2311,7 +2311,7 @@ async function showWithdrawDialog() {
       [{"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
       TREASURY_ADDRESSES.USDC
     );
-    const usdcBalance = await usdcContract.methods.balanceOf(myaccounts).call();
+    const usdcBalance = DOMPurify.sanitize(await usdcContract.methods.balanceOf(myaccounts).call());
     const usdcBalanceFormatted = new BN(usdcBalance).dividedBy('1e6');
     if (usdcBalanceFormatted.gt(new BN('0'))) {
       balances.push({ coin: 'USDC', balance: stripZeros(usdcBalanceFormatted.toFixed(2)), network: 'Polygon' });
@@ -2322,7 +2322,7 @@ async function showWithdrawDialog() {
       [{"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
       TREASURY_ADDRESSES.DAI
     );
-    const daiBalance = await daiContract.methods.balanceOf(myaccounts).call();
+    const daiBalance = DOMPurify.sanitize(await daiContract.methods.balanceOf(myaccounts).call());
     const daiBalanceFormatted = new BN(daiBalance).dividedBy('1e18');
     if (daiBalanceFormatted.gt(new BN('0'))) {
       balances.push({ coin: 'DAI', balance: stripZeros(daiBalanceFormatted.toFixed(2)), network: 'Polygon' });
@@ -2333,7 +2333,7 @@ async function showWithdrawDialog() {
       [{"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
       TREASURY_ADDRESSES.WETH
     );
-    const wethBalance = await wethContract.methods.balanceOf(myaccounts).call();
+    const wethBalance = DOMPurify.sanitize(await wethContract.methods.balanceOf(myaccounts).call());
     const wethBalanceFormatted = new BN(wethBalance).dividedBy('1e18');
     if (wethBalanceFormatted.gt(new BN('0'))) {
       balances.push({ coin: 'WETH', balance: stripZeros(wethBalanceFormatted.toFixed(4)), network: 'Polygon' });
@@ -2341,7 +2341,7 @@ async function showWithdrawDialog() {
     
     // Check Ethereum balances if available
     if (earnState.ethWeb3) {
-      const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccounts);
+      const ethBalance = DOMPurify.sanitize(await earnState.ethWeb3.eth.getBalance(myaccounts));
       const ethBalanceFormatted = new BN(ethBalance).dividedBy('1e18');
       if (ethBalanceFormatted.gt(new BN('0'))) {
         balances.push({ coin: 'ETH', balance: stripZeros(ethBalanceFormatted.toFixed(4)), network: 'Ethereum' });
@@ -2352,7 +2352,7 @@ async function showWithdrawDialog() {
         [{"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
         TREASURY_ADDRESSES.LIDO_STETH
       );
-      const stETHBalance = await stETHContract.methods.balanceOf(myaccounts).call();
+      const stETHBalance = DOMPurify.sanitize(await stETHContract.methods.balanceOf(myaccounts).call());
       const stETHBalanceFormatted = new BN(stETHBalance).dividedBy('1e18');
       if (stETHBalanceFormatted.gt(new BN('0'))) {
         balances.push({ coin: 'stETH (Lido)', balance: stripZeros(stETHBalanceFormatted.toFixed(4)), network: 'Ethereum' });
@@ -2423,11 +2423,11 @@ async function executeWithdrawal(withdrawData) {
   
   try {
     const BN = BigNumber;
-    const gasPrice = await earnState.polWeb3.eth.getGasPrice();
+    const gasPrice = DOMPurify.sanitize(await earnState.polWeb3.eth.getGasPrice());
     
     if (coin.coin === 'POL') {
       // Withdraw POL
-      const balance = await earnState.polWeb3.eth.getBalance(myaccounts);
+      const balance = DOMPurify.sanitize(await earnState.polWeb3.eth.getBalance(myaccounts));
       let amountWei;
       
       if (amount) {
@@ -2452,8 +2452,8 @@ async function executeWithdrawal(withdrawData) {
       
     } else if (coin.coin === 'ETH') {
       // Withdraw ETH
-      const balance = await earnState.ethWeb3.eth.getBalance(myaccounts);
-      const ethGasPrice = await earnState.ethWeb3.eth.getGasPrice();
+      const balance = DOMPurify.sanitize(await earnState.ethWeb3.eth.getBalance(myaccounts));
+      const ethGasPrice = DOMPurify.sanitize(await earnState.ethWeb3.eth.getGasPrice());
       let amountWei;
       
       if (amount) {
@@ -2504,7 +2504,7 @@ async function executeWithdrawal(withdrawData) {
         tokenAddress
       );
       
-      const balance = await tokenContract.methods.balanceOf(myaccounts).call();
+      const balance = DOMPurify.sanitize(await tokenContract.methods.balanceOf(myaccounts).call());
       const amountWei = amount ? new BN(amount).times(decimals).toFixed(0) : balance;
       
       await tokenContract.methods.transfer(address, amountWei).send({
