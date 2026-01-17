@@ -632,7 +632,7 @@
               <div class="tabs earn-subtabs">
                 <div class="tabs__nav earn-subnav">
                   <ul class="tabs__nav-list" style="display: flex; justify-content: space-between; align-items: center;">
-                    <li class="tabs__nav-item js-active">Treasury Profits</li>
+                    <li class="tabs__nav-item js-active" id="treasury-tab">Treasury Profits</li>
                     <li class="tabs__nav-item">Staking Yield</li>
                   </ul>
                 </div>
@@ -1697,15 +1697,18 @@
 
   .earn-subnav .tabs__nav-list {
     display: flex;
-    gap: 10px;
+    justify-content: space-between;
+    align-items: stretch;
   }
 
   .earn-subnav .tabs__nav-item {
-    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    border-radius: 12px;
+    justify-content: center;
+    height: 44px;
+    padding: 0 20px;
     cursor: pointer;
-    border-radius: 5px;
-    background: rgba(255, 255, 255, 0.1);
-    transition: all 0.3s;
   }
 
   .earn-subnav .tabs__nav-item.js-active {
@@ -2408,12 +2411,13 @@ async function login2() {
         });
         lastitem = 10000000;
         isConnected = true;
-        await checkbalances();
+        await checkbalances();        
         makeFairRatio();
         
         // Initialize Earn tab data if function exists
         if (typeof onEarnUserLogin === 'function') {
           onEarnUserLogin().catch(e => console.error('Error initializing Earn tab:', e));
+          document.getElementById("treasury-tab").click();
         }
         
         hideSpinner();

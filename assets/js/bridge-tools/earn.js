@@ -278,6 +278,7 @@ function setupEarnSubTabs() {
       }
     }
   });
+  document.getElementById("treasury-tab").click();
 }
 
 function setupLockDaysEstimator() {
