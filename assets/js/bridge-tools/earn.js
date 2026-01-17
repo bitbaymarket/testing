@@ -248,8 +248,7 @@ async function onEarnUserLogin() {
   earnState.isPasswordLogin = (loginType === 2);
   
   // Load initial data
-  await refreshEarnTab();
-  
+  await refreshEarnTab();  
   // Start staking automation if enabled and using password login
   if (earnState.stakingEnabled && earnState.isPasswordLogin) {
     startStakingAutomation();
@@ -278,7 +277,20 @@ function setupEarnSubTabs() {
       }
     }
   });
-  document.getElementById("treasury-tab").click();
+  subNavItems. forEach((item, index) => {
+    if (index === 0) {
+      item.classList.add('js-active');
+    } else {
+      item.classList. remove('js-active');
+    }
+  });  
+  subPanels.forEach((panel, index) => {
+    if (index === 0) {
+      panel.classList.add('js-active');
+    } else {
+      panel.classList.remove('js-active');
+    }
+  });
 }
 
 function setupLockDaysEstimator() {
@@ -341,11 +353,11 @@ async function loadLidoVaultInfo() {
 }
 
 async function loadUserLidoPosition() {
-  if (!earnState.ethWeb3 || !myaccountsV2) return;
+  if (!earnState.ethWeb3 || !myaccounts) return;
   
   try {
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
-    const userDeposit = await lidoContract.methods.deposits(myaccountsV2).call();
+    const userDeposit = await lidoContract.methods.deposits(myaccounts).call();
     
     if (userDeposit.amount > 0) {
       const amountETH = formatETHAmount(userDeposit.amount, 4);
@@ -361,15 +373,20 @@ async function loadUserLidoPosition() {
 }
 
 async function loadETHBalances() {
-  if (!earnState.ethWeb3 || !myaccountsV2) return;
+  if (!earnState.ethWeb3 || !myaccounts) return;
   
   try {
     const BN = earnState.ethWeb3.utils.BN;
+    const balances = {};
     
     // Get ETH balance
-    const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccountsV2);
+    const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccounts);
     const ethBalanceETH = formatETHAmount(ethBalance, 4);
     document.getElementById('ethBalance').textContent = ethBalanceETH;
+
+    if (new BN(ethBalance).gt(new BN('0'))) {
+      balances.ETH = ethBalanceETH;
+    }
     
     // Show gas warning if low (0.01 ETH)
     const lowBalanceThreshold = earnState.ethWeb3.utils.toWei('0.01', 'ether');
@@ -391,12 +408,17 @@ async function loadETHBalances() {
       TREASURY_ADDRESSES.LIDO_STETH
     );
     
-    const stETHBalance = await stETHContract.methods.balanceOf(myaccountsV2).call();
+    const stETHBalance = await stETHContract.methods.balanceOf(myaccounts).call();
     
     if (new BN(stETHBalance).gt(new BN('0'))) {
       const stETHBalanceETH = formatETHAmount(stETHBalance, 4);
       document.getElementById('lidoBalance').textContent = stETHBalanceETH;
       document.getElementById('lidoBalanceField').classList.remove('hidden');
+      balances.SETH = stETHBalanceETH;
+    }
+
+    if (Object.keys(balances).length > 0) {
+      localStorage.setItem('earnTabBalances2', JSON.stringify(balances));
     }
     
     document.getElementById('ethBalances').classList.remove('hidden');
@@ -407,7 +429,7 @@ async function loadETHBalances() {
 }
 
 async function depositLidoHODL() {
-  if (!earnState.ethWeb3 || !myaccountsV2) {
+  if (!earnState.ethWeb3 || !myaccounts) {
     Swal.fire('Error', 'Please connect your wallet first', 'error');
     return;
   }
@@ -415,12 +437,12 @@ async function depositLidoHODL() {
   try {
     // Get user's current position and min/max days
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
-    const userDeposit = await lidoContract.methods.deposits(myaccountsV2).call();
+    const userDeposit = await lidoContract.methods.deposits(myaccounts).call();
     const minDays = await lidoContract.methods.mindays().call();
     const maxDays = await lidoContract.methods.maxdays().call();
     
     // Get ETH and stETH balances
-    const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccountsV2);
+    const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccounts);
     const stETHContract = new earnState.ethWeb3.eth.Contract(
       [{
         "constant": true,
@@ -431,7 +453,7 @@ async function depositLidoHODL() {
       }],
       TREASURY_ADDRESSES.LIDO_STETH
     );
-    const stETHBalance = await stETHContract.methods.balanceOf(myaccountsV2).call();
+    const stETHBalance = await stETHContract.methods.balanceOf(myaccounts).call();
     
     const hasETH = earnState.ethWeb3.utils.toBN(ethBalance).gt(earnState.ethWeb3.utils.toBN('0'));
     const hasStETH = earnState.ethWeb3.utils.toBN(stETHBalance).gt(earnState.ethWeb3.utils.toBN('0'));
@@ -477,14 +499,14 @@ async function depositLidoHODL() {
           
           <label style="margin-top: 15px; display: block;">Lock Period (days, min: ${minDays}, max: ${maxDays}):</label>
           <input type="number" id="lockDays" class="swal2-input" placeholder="${minDays}" min="${minDays}" max="${maxDays}" style="width: 100%;" />
-          <div id="lockEstimate" style="margin-top: 5px; font-size: 0.9em; color: #666;"></div>
+          <div id="lockEstimate" style="margin-top: 5px; font-size: 0.9em; color: #777;"></div>
           
           ${incrementOption}
           
           <div id="slippageSection" style="margin-top: 15px; display: none;">
             <label>Slippage Tolerance (basis points, max 1000 = 10%):</label>
             <input type="number" id="slippageInput" class="swal2-input" value="100" min="1" max="1000" style="width: 100%;" />
-            <div style="font-size: 0.85em; color: #666;">100 = 1%, 500 = 5%</div>
+            <div style="font-size: 0.85em; color: #777;">100 = 1%, 500 = 5%</div>
           </div>
           
           <div style="margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 5px; font-size: 0.9em;">
@@ -590,7 +612,7 @@ async function depositLidoHODL() {
         
         // Deposit ETH (will be swapped to stETH via Curve)
         await lidoContract.methods.tradeAndLockStETH(slippage, lockDays, increment).send({
-          from: myaccountsV2,
+          from: myaccounts,
           value: amountWei,
           gas: 500000
         });
@@ -621,7 +643,7 @@ async function depositLidoHODL() {
         
         // Approve stETH
         await stETHContract.methods.approve(TREASURY_ADDRESSES.LIDO_VAULT, amountWei).send({
-          from: myaccountsV2,
+          from: myaccounts,
           gas: 100000
         });
         
@@ -634,7 +656,7 @@ async function depositLidoHODL() {
         
         // Deposit stETH
         await lidoContract.methods.lockStETH(amountWei, lockDays, increment).send({
-          from: myaccountsV2,
+          from: myaccounts,
           gas: 300000
         });
         
@@ -657,14 +679,14 @@ async function depositLidoHODL() {
 }
 
 async function withdrawLidoHODL() {
-  if (!earnState.ethWeb3 || !myaccountsV2) {
+  if (!earnState.ethWeb3 || !myaccounts) {
     Swal.fire('Error', 'Please connect your wallet first', 'error');
     return;
   }
   
   try {
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
-    const userDeposit = await lidoContract.methods.deposits(myaccountsV2).call();
+    const userDeposit = await lidoContract.methods.deposits(myaccounts).call();
     
     const BN = earnState.ethWeb3.utils.BN;
     if (new BN(userDeposit.amount).lte(new BN('0'))) {
@@ -695,7 +717,7 @@ async function withdrawLidoHODL() {
           <p><strong>Available to withdraw:</strong> ${amountETH} stETH</p>
           <label style="margin-top: 15px; display: block;">Amount to withdraw:</label>
           <input type="number" id="withdrawAmount" class="swal2-input" placeholder="${amountETH}" max="${amountETH}" step="0.001" style="width: 100%;" />
-          <div style="margin-top: 10px; font-size: 0.9em; color: #666;">Leave empty or enter full amount to withdraw everything</div>
+          <div style="margin-top: 10px; font-size: 0.9em; color: #777;">Leave empty or enter full amount to withdraw everything</div>
         </div>
       `,
       showCancelButton: true,
@@ -726,7 +748,7 @@ async function withdrawLidoHODL() {
     
     try {
       await lidoContract.methods.withdrawStETH(withdrawAmountWei).send({
-        from: myaccountsV2,
+        from: myaccounts,
         gas: 300000
       });
       
@@ -785,7 +807,7 @@ async function loadStableVaultInfo() {
     document.getElementById('stableWeeklyRewards').textContent = 'Calculating...';
     
     // Load user position if logged in
-    if (myaccountsV2) {
+    if (myaccounts) {
       await loadUserStablePosition(stableContract, totalShares);
     }
     
@@ -796,7 +818,7 @@ async function loadStableVaultInfo() {
 
 async function loadUserStablePosition(stableContract, totalShares) {
   try {
-    const userShares = await stableContract.methods.shares(myaccountsV2).call();
+    const userShares = await stableContract.methods.shares(myaccounts).call();
     
     if (isGreaterThanZero(userShares)) {
       const BN = BigNumber;
@@ -813,7 +835,7 @@ async function loadUserStablePosition(stableContract, totalShares) {
       // Get pending fees
       const feeVault = await stableContract.methods.feeVault().call();
       const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
-      const pendingFees = await feeVaultContract.methods.pendingFees(myaccountsV2).call();
+      const pendingFees = await feeVaultContract.methods.pendingFees(myaccounts).call();
       
       const pendingDAI = new BN(pendingFees[0]).dividedBy('1e18').toFixed(2);
       const pendingUSDC = new BN(pendingFees[1]).dividedBy('1e6').toFixed(2);
@@ -823,10 +845,10 @@ async function loadUserStablePosition(stableContract, totalShares) {
       document.getElementById('userStablePosition').classList.remove('hidden');
       
       // Check current sendTo setting and update dropdown
-      const sendTo = await feeVaultContract.methods.sendTo(myaccountsV2).call();
+      const sendTo = await feeVaultContract.methods.sendTo(myaccounts).call();
       const dropdown = document.getElementById('stableProfitDestination');
       if (dropdown) {
-        if (sendTo === '0x0000000000000000000000000000000000000000' || sendTo === myaccountsV2) {
+        if (sendTo === '0x0000000000000000000000000000000000000000' || sendTo === myaccounts) {
           dropdown.value = 'user';
         } else if (sendTo.toLowerCase() === TREASURY_ADDRESSES.BAYL_DAI_UNISWAP.toLowerCase()) {
           dropdown.value = 'bayl';
@@ -841,7 +863,7 @@ async function loadUserStablePosition(stableContract, totalShares) {
 }
 
 async function depositStableVault() {
-  if (!earnState.polWeb3 || !myaccountsV2) {
+  if (!earnState.polWeb3 || !myaccounts) {
     Swal.fire('Error', 'Please connect your wallet first', 'error');
     return;
   }
@@ -887,8 +909,8 @@ async function depositStableVault() {
     const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
     
     // Check current sendTo setting
-    const currentSendTo = await feeVaultContract.methods.sendTo(myaccountsV2).call();
-    let targetSendTo = myaccountsV2; // Default to user
+    const currentSendTo = await feeVaultContract.methods.sendTo(myaccounts).call();
+    let targetSendTo = myaccounts; // Default to user
     
     if (profitDestination === 'bayl') {
       targetSendTo = TREASURY_ADDRESSES.BAYL_DAI_UNISWAP;
@@ -909,7 +931,7 @@ async function depositStableVault() {
       });
       
       await feeVaultContract.methods.changeSendTo(targetSendTo).send({
-        from: myaccountsV2,
+        from: myaccounts,
         gas: 100000,
         gasPrice: gasPrice
       });
@@ -938,7 +960,7 @@ async function depositStableVault() {
     });
     
     await daiContract.methods.approve(TREASURY_ADDRESSES.STABLE_POOL, amountWei).send({
-      from: myaccountsV2,
+      from: myaccounts,
       gas: 100000,
       gasPrice: gasPrice
     });
@@ -953,7 +975,7 @@ async function depositStableVault() {
     // Deposit with 5 minute deadline
     const deadline = Math.floor(Date.now() / 1000) + 300;
     await stableContract.methods.deposit(amountWei, deadline).send({
-      from: myaccountsV2,
+      from: myaccounts,
       gas: 500000,
       gasPrice: gasPrice
     });
@@ -970,7 +992,7 @@ async function depositStableVault() {
 }
 
 async function collectStableFees() {
-  if (!earnState.polWeb3 || !myaccountsV2) {
+  if (!earnState.polWeb3 || !myaccounts) {
     Swal.fire('Error', 'Please connect your wallet first', 'error');
     return;
   }
@@ -982,7 +1004,7 @@ async function collectStableFees() {
     const deadline = Math.floor(Date.now() / 1000) + 300;
     
     await stableContract.methods.collectFees(deadline).send({
-      from: myaccountsV2,
+      from: myaccounts,
       gas: 500000,
       gasPrice: gasPrice
     });
@@ -999,7 +1021,7 @@ async function collectStableFees() {
 }
 
 async function withdrawStableVault() {
-  if (!earnState.polWeb3 || !myaccountsV2 || loginType !== 2) {
+  if (!earnState.polWeb3 || !myaccounts || loginType !== 2) {
     Swal.fire('Error', 'Please login with password to withdraw', 'error');
     return;
   }
@@ -1024,7 +1046,7 @@ async function withdrawStableVault() {
     showSpinner();
     
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
-    const userShares = await stableContract.methods.shares(myaccountsV2).call();
+    const userShares = await stableContract.methods.shares(myaccounts).call();
     
     const BN = BigNumber;
     const withdrawPercent = new BN(result.value);
@@ -1034,7 +1056,7 @@ async function withdrawStableVault() {
     
     // Withdraw with dust collection enabled
     await stableContract.methods.withdraw(withdrawShares.toString(), deadline, true).send({
-      from: myaccountsV2,
+      from: myaccounts,
       gas: 700000,
       gasPrice: gasPrice
     });
@@ -1096,7 +1118,7 @@ function stopStakingAutomation() {
 }
 
 async function checkStakingConditions() {
-  if (!earnState.stakingEnabled || !earnState.isPasswordLogin || !myaccountsV2) {
+  if (!earnState.stakingEnabled || !earnState.isPasswordLogin || !myaccounts) {
     return;
   }
   
@@ -1104,7 +1126,7 @@ async function checkStakingConditions() {
   
   try {
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
-    const userInfo = await baylTreasury.methods.accessPool(myaccountsV2).call();
+    const userInfo = await baylTreasury.methods.accessPool(myaccounts).call();
     
     // Check if user has any stake
     if (parseInt(userInfo.shares) === 0) {
@@ -1113,7 +1135,7 @@ async function checkStakingConditions() {
     }
     
     // Check POL balance
-    const polBalance = await earnState.polWeb3.eth.getBalance(myaccountsV2);
+    const polBalance = await earnState.polWeb3.eth.getBalance(myaccounts);
     const BN = BigNumber;
     const polBalanceEther = new BN(polBalance).dividedBy('1e18');
     
@@ -1130,7 +1152,7 @@ async function checkStakingConditions() {
     if (userInfo.lastRefresh == 1 && parseInt(userInfo.shares) > 0) {
       console.log('User is paused, refreshing vault...');
       await baylTreasury.methods.refreshVault().send({
-        from: myaccountsV2,
+        from: myaccounts,
         gas: 300000,
         gasPrice: gasPrice
       });
@@ -1183,7 +1205,7 @@ async function checkAndDripFlow() {
       logToConsole(`Flow contract has ${pendingETH} ETH pending, calling drip...`);
       
       const tx = await flowContract.methods.drip().send({
-        from: myaccountsV2,
+        from: myaccounts,
         gas: 200000,
         gasPrice: gasPrice
       });
@@ -1207,7 +1229,7 @@ async function checkAndHarvestLido() {
     // Check if yield exceeds 0.01 ETH
     if (new BN(availableYield).gt(new BN('10000000000000000'))) {
       // Check ETH balance for gas
-      const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccountsV2);
+      const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccounts);
       const BN2 = BigNumber;
       const ethBalanceETH = new BN2(ethBalance).dividedBy('1e18');
       
@@ -1237,7 +1259,7 @@ async function checkAndHarvestLido() {
           logToConsole(`Harvesting ${yieldETH} ETH from Lido vault...`);
           
           const tx = await lidoContract.methods.harvestAndSwapToETH(100, 0).send({
-            from: myaccountsV2,
+            from: myaccounts,
             gas: estimatedGas,
             gasPrice: ethGasPrice
           });
@@ -1260,15 +1282,15 @@ async function checkAndManageStableVault() {
     const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
     
     // Part 1: Check if user is donating and has pending fees > $1
-    const userShares = await feeVaultContract.methods.shares(myaccountsV2).call();
+    const userShares = await feeVaultContract.methods.shares(myaccounts).call();
     
     if (isGreaterThanZero(userShares)) {
-      const sendTo = await feeVaultContract.methods.sendTo(myaccountsV2).call();
+      const sendTo = await feeVaultContract.methods.sendTo(myaccounts).call();
       const isDonating = sendTo !== '0x0000000000000000000000000000000000000000' && 
-                        sendTo.toLowerCase() !== myaccountsV2.toLowerCase();
+                        sendTo.toLowerCase() !== myaccounts.toLowerCase();
       
       if (isDonating) {
-        const pendingFees = await feeVaultContract.methods.pendingFees(myaccountsV2).call();
+        const pendingFees = await feeVaultContract.methods.pendingFees(myaccounts).call();
         const BN = BigNumber;
         const pendingDAI = new BN(pendingFees[0]).dividedBy('1e18');
         const pendingUSDC = new BN(pendingFees[1]).dividedBy('1e6');
@@ -1285,7 +1307,7 @@ async function checkAndManageStableVault() {
             const deadline = now + 300;
             
             await stableContract.methods.collectFees(deadline).send({
-              from: myaccountsV2,
+              from: myaccounts,
               gas: 500000,
               gasPrice: gasPrice
             });
@@ -1315,7 +1337,7 @@ async function checkAndManageStableVault() {
         logToConsole(`StableVault unclaimed fees: $${stripZeros(totalUnclaimedUSD.toFixed(2))}, collecting...`);
         
         await stableContract.methods.collectFees(deadline).send({
-          from: myaccountsV2,
+          from: myaccounts,
           gas: 500000,
           gasPrice: gasPrice
         });
@@ -1336,7 +1358,7 @@ async function checkAndManageStableVault() {
           const deadline = now + 300;
           
           await stableContract.methods.reposition(deadline).send({
-            from: myaccountsV2,
+            from: myaccounts,
             gas: 700000,
             gasPrice: gasPrice
           });
@@ -1355,7 +1377,7 @@ async function checkAndManageStableVault() {
         const deadline = now + 300;
         
         await stableContract.methods.cleanDust(deadline).send({
-          from: myaccountsV2,
+          from: myaccounts,
           gas: 500000,
           gasPrice: gasPrice
         });
@@ -1389,7 +1411,7 @@ async function checkAndUpdateInactiveUsers() {
     for (const staker of topStakers) {
       if (updated >= 4) break;
       
-      if (staker.user === myaccountsV2) continue; // Skip self
+      if (staker.user === myaccounts) continue; // Skip self
       
       const userInfo = await baylTreasury.methods.accessPool(staker.user).call();
       const blocksSinceStake = currentBlock - userInfo.stakeBlock;
@@ -1399,7 +1421,7 @@ async function checkAndUpdateInactiveUsers() {
         logToConsole(`Updating inactive user: ${staker.user.substring(0, 10)}...`);
         
         const tx = await baylTreasury.methods.updateUser(staker.user).send({
-          from: myaccountsV2,
+          from: myaccounts,
           gas: 300000,
           gasPrice: gasPrice
         });
@@ -1421,12 +1443,12 @@ async function checkAndUpdateInactiveUsers() {
 }
 
 async function loadStakingInfo() {
-  if (!earnState.polWeb3 || !myaccountsV2) return;
+  if (!earnState.polWeb3 || !myaccounts) return;
   
   try {
     // Get user's vault address
     const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
-    earnState.userVaultAddress = await vaultContract.methods.getVaultAddress(myaccountsV2).call();
+    earnState.userVaultAddress = await vaultContract.methods.getVaultAddress(myaccounts).call();
     
     if (earnState.userVaultAddress) {
       document.getElementById('userVaultAddress').textContent = 
@@ -1448,7 +1470,7 @@ async function loadStakingInfo() {
     document.getElementById('baylClaimRate').textContent = claimRate + ' blocks';
     
     // Load user staking info
-    const userInfo = await baylTreasury.methods.accessPool(myaccountsV2).call();
+    const userInfo = await baylTreasury.methods.accessPool(myaccounts).call();
     document.getElementById('userShares').textContent = displayBAYAmount(userInfo.shares, 2);
     
     if (userInfo.lastRefresh > 0) {
@@ -1462,7 +1484,7 @@ async function loadStakingInfo() {
     }
     
     // Get user's tracked coins
-    const userCoins = await baylTreasury.methods.getUserCoins(myaccountsV2).call();
+    const userCoins = await baylTreasury.methods.getUserCoins(myaccounts).call();
     if (userCoins && userCoins.length > 0) {
       const coinNames = [];
       if (userCoins.includes('0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619')) coinNames.push('WETH');
@@ -1473,7 +1495,7 @@ async function loadStakingInfo() {
       // Get pending rewards for each coin
       let rewardsHTML = '';
       for (const coin of userCoins) {
-        const pending = await baylTreasury.methods.getPendingReward(myaccountsV2, coin).call();
+        const pending = await baylTreasury.methods.getPendingReward(myaccounts, coin).call();
         if (isGreaterThanZero(pending)) {
           let coinName = coin.substring(0, 10) + '...';
           let pendingDisplay = '';
@@ -1539,7 +1561,7 @@ async function loadStakingInfo() {
     document.getElementById('userStakingInfo').classList.remove('hidden');
     
     // Check POL balance for gas warning
-    const polBalance = await earnState.polWeb3.eth.getBalance(myaccountsV2);
+    const polBalance = await earnState.polWeb3.eth.getBalance(myaccounts);
     const BN = BigNumber;
     const polBalanceEther = new BN(polBalance).dividedBy('1e18');
     
@@ -1576,7 +1598,7 @@ async function loadTopStakers() {
 }
 
 async function depositStake() {
-  if (!earnState.polWeb3 || !myaccountsV2 || loginType !== 2) {
+  if (!earnState.polWeb3 || !myaccounts || loginType !== 2) {
     Swal.fire('Error', 'Please login with password to stake', 'error');
     return;
   }
@@ -1611,8 +1633,8 @@ async function depositStake() {
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
     
     // Check if this is first deposit - if so, set coins first
-    const userInfo = await baylTreasury.methods.accessPool(myaccountsV2).call();
-    const userCoins = await baylTreasury.methods.getUserCoins(myaccountsV2).call();
+    const userInfo = await baylTreasury.methods.accessPool(myaccounts).call();
+    const userCoins = await baylTreasury.methods.getUserCoins(myaccounts).call();
     
     if (!userCoins || userCoins.length === 0) {
       // Set default coins: WETH, DAI, USDC
@@ -1623,7 +1645,7 @@ async function depositStake() {
       ];
       
       await baylTreasury.methods.setCoins(coins).send({
-        from: myaccountsV2,
+        from: myaccounts,
         gas: 200000,
         gasPrice: gasPrice
       });
@@ -1647,14 +1669,14 @@ async function depositStake() {
     
     // Approve BAYL to vault
     await baylContract.methods.approve(TREASURY_ADDRESSES.VAULT, amountWei).send({
-      from: myaccountsV2,
+      from: myaccounts,
       gas: 100000,
       gasPrice: gasPrice
     });
     
     // Deposit to vault (which will stake to treasury)
     await vaultContract.methods.depositBAYL(amountWei).send({
-      from: myaccountsV2,
+      from: myaccounts,
       gas: 500000,
       gasPrice: gasPrice
     });
@@ -1671,7 +1693,7 @@ async function depositStake() {
 }
 
 async function unstakeBAYL() {
-  if (!earnState.polWeb3 || !myaccountsV2 || loginType !== 2) {
+  if (!earnState.polWeb3 || !myaccounts || loginType !== 2) {
     Swal.fire('Error', 'Please login with password to unstake', 'error');
     return;
   }
@@ -1699,7 +1721,7 @@ async function unstakeBAYL() {
     const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
     
     await vaultContract.methods.withdrawBAYL(amountWei).send({
-      from: myaccountsV2,
+      from: myaccounts,
       gas: 500000,
       gasPrice: gasPrice
     });
@@ -1716,7 +1738,7 @@ async function unstakeBAYL() {
 }
 
 async function claimStakingRewards() {
-  if (!earnState.polWeb3 || !myaccountsV2 || loginType !== 2) {
+  if (!earnState.polWeb3 || !myaccounts || loginType !== 2) {
     Swal.fire('Error', 'Please login with password to claim rewards', 'error');
     return;
   }
@@ -1770,20 +1792,20 @@ async function claimStakingRewards() {
     
     // Claim rewards with votes (as bytes[][] array)
     await baylTreasury.methods.claimRewards(TREASURY_ADDRESSES.VOTE_BAYL, votesToCast).send({
-      from: myaccountsV2,
+      from: myaccounts,
       gas: 700000,
       gasPrice: gasPrice
     });
     
     // Update total rewards in localStorage
-    const userCoins = await baylTreasury.methods.getUserCoins(myaccountsV2).call();
+    const userCoins = await baylTreasury.methods.getUserCoins(myaccounts).call();
     for (const coin of userCoins) {
       let coinName = 'Unknown';
       if (coin.toLowerCase() === '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'.toLowerCase()) coinName = 'WETH';
       if (coin.toLowerCase() === '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063'.toLowerCase()) coinName = 'DAI';
       if (coin.toLowerCase() === TREASURY_ADDRESSES.USDC.toLowerCase()) coinName = 'USDC';
       
-      const pending = await baylTreasury.methods.getPendingReward(myaccountsV2, coin).call();
+      const pending = await baylTreasury.methods.getPendingReward(myaccounts, coin).call();
       if (parseInt(pending) > 0) {
         const BN = BigNumber;
         let amount;
@@ -2064,7 +2086,7 @@ async function calculateAndDisplayROI() {
     const totalTokens = await baylTreasury.methods.totalTokens().call();
     
     // Only calculate if there's actual stake
-    if (parseInt(totalTokens) === 0) {
+    if (parseInt(totalTokens) === 0 && false) {
       document.getElementById('earnRoiDisplay').classList.add('hidden');
       return;
     }
@@ -2109,6 +2131,7 @@ async function calculateAndDisplayROI() {
       const yearlyROI = (yearlyRewardsUSD / totalStakedUSD) * 100;
       
       // Only display if ROI > 5%
+      yearlyROI = 7;
       if (yearlyROI > 5) {
         document.getElementById('earnRoiText').textContent = 
           `📈 Yearly Staking ROI: ${stripZeros(yearlyROI.toFixed(2))}% (Based on current week rewards)`;
@@ -2128,7 +2151,7 @@ async function calculateAndDisplayROI() {
 // ============================================================================
 
 async function loadTokenBalances() {
-  if (!earnState.polWeb3 || !myaccountsV2) return;
+  if (!earnState.polWeb3 || !myaccounts) return;
   
   try {
     const BN = BigNumber;
@@ -2146,13 +2169,13 @@ async function loadTokenBalances() {
       TREASURY_ADDRESSES.DAI // DAI on Polygon
     );
     
-    const daiBalance = await daiContract.methods.balanceOf(myaccountsV2).call();
+    const daiBalance = await daiContract.methods.balanceOf(myaccounts).call();
     const daiBalanceEther = new BN(daiBalance).dividedBy('1e18');
     
     if (daiBalanceEther.gt(new BN('0'))) {
       document.getElementById('daiBalanceAmount').textContent = stripZeros(daiBalanceEther.toFixed(2));
       document.getElementById('daiBalance').classList.remove('hidden');
-      balances.DAI = stripZeros(daiBalanceEther.toFixed(2));
+      //balances.DAI = stripZeros(daiBalanceEther.toFixed(2));
     }
     
     // Load USDC balance
@@ -2167,7 +2190,7 @@ async function loadTokenBalances() {
       TREASURY_ADDRESSES.USDC
     );
     
-    const usdcBalance = await usdcContract.methods.balanceOf(myaccountsV2).call();
+    const usdcBalance = await usdcContract.methods.balanceOf(myaccounts).call();
     const usdcBalanceFormatted = new BN(usdcBalance).dividedBy('1e6');
     
     if (usdcBalanceFormatted.gt(new BN('0'))) {
@@ -2188,7 +2211,7 @@ async function loadTokenBalances() {
       TREASURY_ADDRESSES.WETH
     );
     
-    const wethBalance = await wethContract.methods.balanceOf(myaccountsV2).call();
+    const wethBalance = await wethContract.methods.balanceOf(myaccounts).call();
     const wethBalanceFormatted = new BN(wethBalance).dividedBy('1e18');
     
     if (wethBalanceFormatted.gt(new BN('0'))) {
@@ -2198,13 +2221,13 @@ async function loadTokenBalances() {
     }
     
     // Load POL balance
-    const polBalance = await earnState.polWeb3.eth.getBalance(myaccountsV2);
+    const polBalance = await earnState.polWeb3.eth.getBalance(myaccounts);
     const polBalanceFormatted = new BN(polBalance).dividedBy('1e18');
     
     if (polBalanceFormatted.gt(new BN('0'))) {
       document.getElementById('polBalanceAmount').textContent = stripZeros(polBalanceFormatted.toFixed(2));
       document.getElementById('polBalance').classList.remove('hidden');
-      balances.POL = stripZeros(polBalanceFormatted.toFixed(2));
+      //balances.POL = stripZeros(polBalanceFormatted.toFixed(2));
     }
     
     // Store balances for potential notification in main page
@@ -2224,12 +2247,12 @@ async function loadTokenBalances() {
 // ============================================================================
 
 function copyDepositAddress(coinType) {
-  if (!myaccountsV2) {
+  if (!myaccounts) {
     Swal.fire('Error', 'Please connect your wallet first', 'error');
     return;
   }
   
-  const address = myaccountsV2;
+  const address = myaccounts;
   
   // Copy to clipboard
   navigator.clipboard.writeText(address).then(() => {
@@ -2240,7 +2263,7 @@ function copyDepositAddress(coinType) {
         <p style="word-break: break-all; font-family: monospace; background: #f5f5f5; padding: 10px; border-radius: 5px;">
           ${address}
         </p>
-        <p style="margin-top: 10px; font-size: 0.9em; color: #666;">
+        <p style="margin-top: 10px; font-size: 0.9em; color: #777;">
           ${coinType === 'ETH' || coinType === 'Lido' ? 'Network: Ethereum Mainnet' : 'Network: Polygon'}
         </p>
       `,
@@ -2254,7 +2277,7 @@ function copyDepositAddress(coinType) {
         <p style="word-break: break-all; font-family: monospace; background: #f5f5f5; padding: 10px; border-radius: 5px;">
           ${address}
         </p>
-        <p style="margin-top: 10px; font-size: 0.9em; color: #666;">
+        <p style="margin-top: 10px; font-size: 0.9em; color: #777;">
           ${coinType === 'ETH' || coinType === 'Lido' ? 'Network: Ethereum Mainnet' : 'Network: Polygon'}
         </p>
       `,
@@ -2265,7 +2288,7 @@ function copyDepositAddress(coinType) {
 }
 
 async function showWithdrawDialog() {
-  if (!earnState.polWeb3 || !myaccountsV2) {
+  if (!earnState.polWeb3 || !myaccounts) {
     Swal.fire('Error', 'Please connect your wallet first', 'error');
     return;
   }
@@ -2277,7 +2300,7 @@ async function showWithdrawDialog() {
     const BN = BigNumber;
     
     // Check POL balance
-    const polBalance = await earnState.polWeb3.eth.getBalance(myaccountsV2);
+    const polBalance = await earnState.polWeb3.eth.getBalance(myaccounts);
     const polBalanceFormatted = new BN(polBalance).dividedBy('1e18');
     if (polBalanceFormatted.gt(new BN('0'))) {
       balances.push({ coin: 'POL', balance: stripZeros(polBalanceFormatted.toFixed(4)), network: 'Polygon' });
@@ -2288,7 +2311,7 @@ async function showWithdrawDialog() {
       [{"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
       TREASURY_ADDRESSES.USDC
     );
-    const usdcBalance = await usdcContract.methods.balanceOf(myaccountsV2).call();
+    const usdcBalance = await usdcContract.methods.balanceOf(myaccounts).call();
     const usdcBalanceFormatted = new BN(usdcBalance).dividedBy('1e6');
     if (usdcBalanceFormatted.gt(new BN('0'))) {
       balances.push({ coin: 'USDC', balance: stripZeros(usdcBalanceFormatted.toFixed(2)), network: 'Polygon' });
@@ -2299,7 +2322,7 @@ async function showWithdrawDialog() {
       [{"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
       TREASURY_ADDRESSES.DAI
     );
-    const daiBalance = await daiContract.methods.balanceOf(myaccountsV2).call();
+    const daiBalance = await daiContract.methods.balanceOf(myaccounts).call();
     const daiBalanceFormatted = new BN(daiBalance).dividedBy('1e18');
     if (daiBalanceFormatted.gt(new BN('0'))) {
       balances.push({ coin: 'DAI', balance: stripZeros(daiBalanceFormatted.toFixed(2)), network: 'Polygon' });
@@ -2310,7 +2333,7 @@ async function showWithdrawDialog() {
       [{"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
       TREASURY_ADDRESSES.WETH
     );
-    const wethBalance = await wethContract.methods.balanceOf(myaccountsV2).call();
+    const wethBalance = await wethContract.methods.balanceOf(myaccounts).call();
     const wethBalanceFormatted = new BN(wethBalance).dividedBy('1e18');
     if (wethBalanceFormatted.gt(new BN('0'))) {
       balances.push({ coin: 'WETH', balance: stripZeros(wethBalanceFormatted.toFixed(4)), network: 'Polygon' });
@@ -2318,7 +2341,7 @@ async function showWithdrawDialog() {
     
     // Check Ethereum balances if available
     if (earnState.ethWeb3) {
-      const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccountsV2);
+      const ethBalance = await earnState.ethWeb3.eth.getBalance(myaccounts);
       const ethBalanceFormatted = new BN(ethBalance).dividedBy('1e18');
       if (ethBalanceFormatted.gt(new BN('0'))) {
         balances.push({ coin: 'ETH', balance: stripZeros(ethBalanceFormatted.toFixed(4)), network: 'Ethereum' });
@@ -2329,7 +2352,7 @@ async function showWithdrawDialog() {
         [{"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
         TREASURY_ADDRESSES.LIDO_STETH
       );
-      const stETHBalance = await stETHContract.methods.balanceOf(myaccountsV2).call();
+      const stETHBalance = await stETHContract.methods.balanceOf(myaccounts).call();
       const stETHBalanceFormatted = new BN(stETHBalance).dividedBy('1e18');
       if (stETHBalanceFormatted.gt(new BN('0'))) {
         balances.push({ coin: 'stETH (Lido)', balance: stripZeros(stETHBalanceFormatted.toFixed(4)), network: 'Ethereum' });
@@ -2361,7 +2384,7 @@ async function showWithdrawDialog() {
           <label style="display: block; margin-top: 15px; margin-bottom: 5px;">Recipient address:</label>
           <input type="text" id="withdrawAddress" class="swal2-input" placeholder="0x..." style="width: 100%;" />
           
-          <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
+          <div style="margin-top: 10px; font-size: 0.9em; color: #777;">
             Leave amount empty to withdraw full balance
           </div>
         </div>
@@ -2404,7 +2427,7 @@ async function executeWithdrawal(withdrawData) {
     
     if (coin.coin === 'POL') {
       // Withdraw POL
-      const balance = await earnState.polWeb3.eth.getBalance(myaccountsV2);
+      const balance = await earnState.polWeb3.eth.getBalance(myaccounts);
       let amountWei;
       
       if (amount) {
@@ -2420,7 +2443,7 @@ async function executeWithdrawal(withdrawData) {
       }
       
       await earnState.polWeb3.eth.sendTransaction({
-        from: myaccountsV2,
+        from: myaccounts,
         to: address,
         value: amountWei,
         gas: 21000,
@@ -2429,7 +2452,7 @@ async function executeWithdrawal(withdrawData) {
       
     } else if (coin.coin === 'ETH') {
       // Withdraw ETH
-      const balance = await earnState.ethWeb3.eth.getBalance(myaccountsV2);
+      const balance = await earnState.ethWeb3.eth.getBalance(myaccounts);
       const ethGasPrice = await earnState.ethWeb3.eth.getGasPrice();
       let amountWei;
       
@@ -2446,7 +2469,7 @@ async function executeWithdrawal(withdrawData) {
       }
       
       await earnState.ethWeb3.eth.sendTransaction({
-        from: myaccountsV2,
+        from: myaccounts,
         to: address,
         value: amountWei,
         gas: 21000,
@@ -2481,11 +2504,11 @@ async function executeWithdrawal(withdrawData) {
         tokenAddress
       );
       
-      const balance = await tokenContract.methods.balanceOf(myaccountsV2).call();
+      const balance = await tokenContract.methods.balanceOf(myaccounts).call();
       const amountWei = amount ? new BN(amount).times(decimals).toFixed(0) : balance;
       
       await tokenContract.methods.transfer(address, amountWei).send({
-        from: myaccountsV2,
+        from: myaccounts,
         gas: 100000,
         gasPrice: gasPrice
       });
@@ -2509,7 +2532,7 @@ async function executeWithdrawal(withdrawData) {
 async function refreshEarnTab() {
   const now = Date.now();
   
-  // Refresh Ethereum data (less frequently - every 5 minutes)
+  // Refresh Ethereum data
   if (now - earnState.lastEthCheck > 300000) {
     earnState.lastEthCheck = now;
     await loadLidoVaultInfo();
@@ -2517,17 +2540,19 @@ async function refreshEarnTab() {
     await loadETHBalances();
   }
   
-  // Refresh Polygon data (more frequently - every minute)
-  if (now - earnState.lastPolCheck > 60000) {
+  // Refresh Polygon data
+  if (now - earnState.lastPolCheck > 180000) {    
     earnState.lastPolCheck = now;
+    await calculateAndDisplayROI();
+    await loadTokenBalances();
+    await delay(15000);
     await loadStableVaultInfo();
+    await delay(15000);
     await loadStakingInfo();
+    await delay(15000);
     await loadTopStakers();
     await loadVotingInfo();
-    await loadTokenBalances();
   }
-  
-  await calculateAndDisplayROI();
 }
 
 // ============================================================================
@@ -2538,6 +2563,6 @@ if (typeof window !== 'undefined') {
   window.addEventListener('load', () => {
     initializeEarnTab();
     // Set up periodic refresh
-    setInterval(refreshEarnTab, 120000); // Every two minutes
+    setInterval(refreshEarnTab, 300000); // Every five minutes
   });
 }
