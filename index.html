@@ -109,8 +109,7 @@
                     <span class="option-text logged-in hidden" onclick="disconnect()">⏻ Disconnect</span>
                 </li>
             </ul>
-      </div>
-
+        </div>
       </div>
       <div class="top_menu_content_right">
         <div class="sec-center" style="display:flex; justify-content:center; align-items:center; height:100%;">
@@ -1729,15 +1728,28 @@
 
 <script type="text/javascript">
 
+function updateSwapButton() {
+  const el = document.getElementById("swap_network");
+  if (window.innerWidth <= 600) {
+    el.style.transform = "translateX(-125px)";
+  } else {
+    el.style.transform = "";
+  }
+}
+
+window.addEventListener("resize", updateSwapButton);
+updateSwapButton();
+
+async function disconnect() {
+    location.reload();
+}
+
 //For further security improvements to these tools it's possible to add a
 //section which allows a custom approval where users can set manually or
 //possibly have a dialog box move into focus when asked for the authorization
 //which lets them specify the amount. Also in the security tab advise users
 //on how to run the page locally.
 
-async function disconnect() {
-    location.reload();
-}
 function moonpayBtnClicked() {
     buyMoonPay();
 }
@@ -2571,15 +2583,13 @@ function defaultvars() {
     document.getElementById("LPdetails1").innerHTML = '';
     document.getElementById("LPdetails2").innerHTML = '';
     document.getElementById("WithdrawAmount").value = '';
-    localStorage.setItem('earnTabBalances', '{}');
-    localStorage.setItem('earnTabBalances2', '{}');    
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('input[name="b-swap-group"][value="0"]').checked = true;
 });
 
-async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", confirmBox = false) {
+async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", confirmBox = false, switchNetworks = false) {
   if(loginType == 1) {
     txPromise = await contract.methods[method](...args).send({
       from: myaccounts,
@@ -2962,8 +2972,8 @@ async function checkbalances() {
     
     // Check for additional balances in Earn tab
     try {
-      var earnBalances = JSON.parse(localStorage.getItem('earnTabBalances') || '{}');
-      const earnBalances2= JSON.parse(localStorage.getItem('earnTabBalances2') || '{}');
+      var earnBalances = JSON.parse(localStorage.getItem(myaccounts+'earnTabBalances') || '{}');
+      const earnBalances2= JSON.parse(localStorage.getItem(myaccounts+'earnTabBalances2') || '{}');
       Object.assign(earnBalances, earnBalances2);
       if (Object.keys(earnBalances).length > 0) {
         const balancesList = Object.keys(earnBalances).map(coin => `${coin} (${earnBalances[coin]})`).join(', ');
@@ -5208,7 +5218,7 @@ async function showDisclaimer() {
     await Swal.fire({
       title: ('Notice'),
       html: `<div id="swal-scroll-container" style="max-height: 200px; overflow-y: auto; text-align: left;">
-               ${('Before proceeding to swap or deposit liquidity please read this message. This website is not an exchange and does not take custody of user funds or charge any fees. It is designed to maximize your security by keeping all actions client-side. If you trade or provide liquidity, be aware of the terms and conditions of the decentralized exchanges you interact with. Although Uniswap is generally considered safe, we recommend reviewing the source code of any DEX and understanding the associated risks. This website is open source and has been audited, but for maximum security we encourage users to download the code from GitHub and run it locally. Always double-check the domain you are visiting, verify any addresses you interact with, and if you have questions, join the community for more information.')}
+               ${('Before proceeding to swap or deposit liquidity please read this message. This website is not an exchange and does not take custody of user funds or charge any fees. It is designed to maximize your security by keeping all actions client-side. If you trade or provide liquidity, be aware of the terms and conditions of the decentralized exchanges you interact with. Although Uniswap/Curve/etc are generally considered safe, we recommend reviewing the source code of any DEX and understanding the associated risks. This website is open source and has been audited, but for maximum security we encourage users to download the code from GitHub and run it locally. Always double-check the domain you are visiting, verify any addresses you interact with, and if you have questions, join the community for more information.')}
              </div>`,
       icon: 'question',
       showCancelButton: true,

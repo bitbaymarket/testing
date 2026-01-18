@@ -72,7 +72,7 @@ function logToConsole(message) {
   
   // Save to localStorage
   try {
-    localStorage.setItem('earnConsoleLog', JSON.stringify(earnState.consoleLog));
+    localStorage.setItem(myaccounts+'earnConsoleLog', JSON.stringify(earnState.consoleLog));
   } catch (e) {
     console.error('Failed to save console log:', e);
   }
@@ -91,7 +91,7 @@ function showVotePayload(hash) {
     let html = `<div style="text-align: left; font-family: monospace; font-size: 0.85em;">`;
     html += `<p><strong>Hash:</strong> ${hash}</p>`;
     html += `<p><strong>Payload:</strong></p>`;
-    html += `<pre style="background: #f5f5f5; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto;">${JSON.stringify(payload, null, 2)}</pre>`;
+    html += `<pre style="background: #f5f5f5; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto;">${DOMPurify.sanitize(JSON.stringify(payload))}</pre>`;
     html += `</div>`;
     
     Swal.fire({
@@ -101,7 +101,7 @@ function showVotePayload(hash) {
       confirmButtonText: 'Close'
     });
   }).catch(error => {
-    Swal.fire('Error', 'Failed to load vote details', 'error');
+    Swal.fire('Error', translateThis('Failed to load vote details'), 'error');
   });
 }
 
@@ -113,7 +113,7 @@ function showConsoleHistory() {
       consoleDiv.classList.remove('hidden');
       const consoleContent = document.getElementById('stakingConsoleContent');
       if (consoleContent) {
-        consoleContent.textContent = earnState.consoleLog.join('\n') || 'No logs yet';
+        consoleContent.textContent = earnState.consoleLog.join('\n') || translateThis('No logs yet');
         // Scroll to bottom
         consoleContent.scrollTop = consoleContent.scrollHeight;
       }
@@ -126,13 +126,6 @@ function showConsoleHistory() {
 // ============================================================================
 // HELPER FUNCTIONS FOR SAFE NUMBER HANDLING
 // ============================================================================
-
-// Helper to convert BAY token amounts (8 decimals) using BigNumber
-function formatBAYAmount(amountString) {
-  if (!amountString || amountString === '0') return '0';
-  const BN = BigNumber;
-  return new BN(amountString).dividedBy('1e8').toFixed();
-}
 
 // Helper to display BAY amounts with proper decimals
 function displayBAYAmount(amountString, decimals = 2) {
@@ -161,8 +154,6 @@ function isGreaterThanZero(amountString) {
   const BN = BigNumber;
   return new BN(amountString).gt(new BN('0'));
 }
-
-// stripZeros function is already defined in index.html, no need to redefine
 
 // Helper to format ETH amounts (18 decimals) without stripping zeros
 function formatETHAmount(amountString, decimals = 4) {
@@ -199,7 +190,7 @@ function initializeEarnTab() {
   earnState.polWeb3 = new Web3('https://polygon-rpc.com');
   
   // Load saved staking state
-  const stakingEnabled = localStorage.getItem('earnStakingEnabled');
+  const stakingEnabled = localStorage.getItem(myaccounts+'earnStakingEnabled');
   if (stakingEnabled === 'true') {
     const checkbox = document.getElementById('stakingEnabledCheckbox');
     if (checkbox) {
@@ -209,7 +200,7 @@ function initializeEarnTab() {
   }
   
   // Load saved total rewards
-  const savedRewards = localStorage.getItem('earnTotalRewards');
+  const savedRewards = localStorage.getItem(myaccounts+'earnTotalRewards');
   if (savedRewards) {
     try {
       earnState.userTotalRewards = JSON.parse(savedRewards);
@@ -219,7 +210,7 @@ function initializeEarnTab() {
   }
   
   // Load console log
-  const savedLog = localStorage.getItem('earnConsoleLog');
+  const savedLog = localStorage.getItem(myaccounts+'earnConsoleLog');
   if (savedLog) {
     try {
       earnState.consoleLog = JSON.parse(savedLog);
@@ -418,7 +409,7 @@ async function loadETHBalances() {
     }
 
     if (Object.keys(balances).length > 0) {
-      localStorage.setItem('earnTabBalances2', JSON.stringify(balances));
+      localStorage.setItem(myaccounts+'earnTabBalances2', JSON.stringify(balances));
     }
     
     document.getElementById('ethBalances').classList.remove('hidden');
@@ -430,7 +421,7 @@ async function loadETHBalances() {
 
 async function depositLidoHODL() {
   if (!earnState.ethWeb3 || !myaccounts) {
-    Swal.fire('Error', 'Please connect your wallet first', 'error');
+    Swal.fire('Error', translateThis('Please connect your wallet first'), 'error');
     return;
   }
   
@@ -462,24 +453,25 @@ async function depositLidoHODL() {
     // Build deposit form
     let depositOptions = '';
     if (hasETH) {
-      depositOptions += '<option value="eth">Deposit ETH (will be swapped to stETH)</option>';
+      depositOptions += '<option value="eth">' + translateThis('Deposit') + 'ETH (' + translateThis('will be swapped to stETH')+')</option>';
     }
     if (hasStETH) {
-      depositOptions += '<option value="steth">Deposit stETH</option>';
+      depositOptions += '<option value="steth">' + translateThis('Deposit') + ' stETH</option>';
     }
     
     if (!hasETH && !hasStETH) {
-      Swal.fire('Error', 'You need ETH or stETH to deposit', 'error');
+      Swal.fire('Error', translateThis('You need ETH or stETH on the Ethereum network to deposit'), 'error');
       return;
     }
     
     let incrementOption = '';
     if (hasExistingDeposit) {
       incrementOption = `
-        <div style="margin-top: 15px;">
+        <div style="margin-top: 5px;">
           <label style="display: flex; align-items: center;">
-            <input type="checkbox" id="incrementLock" style="margin-right: 8px;" checked />
-            <span>Extend existing lock period (add to current ${earnState.ethWeb3.utils.fromWei(userDeposit.amount, 'ether')} stETH)</span>
+            <input type="checkbox" id="incrementLock" style="all: unset; font-size: 8px; display: inline-block; cursor: pointer; appearance: auto;
+                  -webkit-appearance: checkbox; -moz-appearance: checkbox;"/>
+            <span>`+translateThis(`Increase the lock time for all locked funds by the number of days specified. This will overwrite the previous unlock time.`)+`</span>
           </label>
         </div>
       `;
@@ -494,40 +486,56 @@ async function depositLidoHODL() {
             ${depositOptions}
           </select>
           
-          <label style="margin-top: 15px; display: block;">Amount:</label>
-          <input type="number" id="depositAmount" class="swal2-input" placeholder="0.0" step="0.001" style="width: 100%;" />
+          <label style="margin-top: 5px; display: block;">Amount:</label>
+          <input type="number" id="depositAmountL" class="swal2-input" placeholder="0.0" step="0.001" style="width: 100%;" />
           
-          <label style="margin-top: 15px; display: block;">Lock Period (days, min: ${minDays}, max: ${maxDays}):</label>
-          <input type="number" id="lockDays" class="swal2-input" placeholder="${minDays}" min="${minDays}" max="${maxDays}" style="width: 100%;" />
-          <div id="lockEstimate" style="margin-top: 5px; font-size: 0.9em; color: #777;"></div>
+          <div id="timeSection" style="margin-top: 5px; display: block;">
+            <label style="margin-top: 5px; display: block;">`+translateThis(`Lock Period`)+` (days, min: ${minDays}, max: ${maxDays}):</label>
+            <input type="number" id="lockDays" class="swal2-input" placeholder="${minDays}" min="${minDays}" max="${maxDays}" style="width: 100%;" />
+            <div id="lockEstimate" style="margin-top: 5px; font-size: 0.9em; color: #777;"></div>
+          </div>
           
           ${incrementOption}
           
-          <div id="slippageSection" style="margin-top: 15px; display: none;">
-            <label>Slippage Tolerance (basis points, max 1000 = 10%):</label>
+          <div id="slippageSection" style="margin-top: 5px; display: none;">
+            <label>`+translateThis(`Slippage Tolerance`)+` (basis points, max 1000 = 10%):</label>
             <input type="number" id="slippageInput" class="swal2-input" value="100" min="1" max="1000" style="width: 100%;" />
             <div style="font-size: 0.85em; color: #777;">100 = 1%, 500 = 5%</div>
           </div>
           
-          <div style="margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 5px; font-size: 0.9em;">
-            <strong>Important:</strong>
+          <div style="margin-top: 5px; padding: 10px; background: #f0f0f0; border-radius: 5px; font-size: 0.9em;">
+            <strong>`+translateThis(`Important:`)+`</strong>
             <ul style="margin: 5px 0; padding-left: 20px;">
-              <li>100% of staking yields go to BAY stakers</li>
-              <li>Your principal is locked until unlock date</li>
-              <li>Lido is well-audited but carries contract risk</li>
+              <li>`+translateThis(`100% of staking yields go to BAY stakers`)+`</li>
+              <li>`+translateThis(`Your principal is locked until unlock date`)+`</li>
+              <li>`+translateThis(`Lido is well-audited but carries contract risk`)+`</li>
             </ul>
           </div>
         </div>
       `,
-      width: '600px',
+      width: '450px',
       showCancelButton: true,
       confirmButtonText: 'Deposit',
       cancelButtonText: 'Cancel',
-      didOpen: () => {
+      didOpen: () => {        
+        const incLock = document.getElementById('incrementLock');
         const depositTypeSelect = document.getElementById('depositType');
         const slippageSection = document.getElementById('slippageSection');
         const lockDaysInput = document.getElementById('lockDays');
         const lockEstimate = document.getElementById('lockEstimate');
+        document.getElementById('depositAmountL').value = document.getElementById('lidoDepositAmount').value;        
+        if(hasExistingDeposit) {
+          incLock.checked = false;
+          incLock.addEventListener('change', (e) => {
+            document.getElementById('lockDays').value = minDays;
+            if (e.target.checked) {
+              document.getElementById('timeSection').style.display = 'block';
+            } else {
+              document.getElementById('timeSection').style.display = 'none';
+            }
+          });
+          document.getElementById('timeSection').style.display = 'none';
+        }
         
         // Show/hide slippage based on deposit type
         depositTypeSelect.addEventListener('change', () => {
@@ -542,10 +550,10 @@ async function depositLidoHODL() {
         if (depositTypeSelect.value === 'eth') {
           slippageSection.style.display = 'block';
         }
-        
+
         // Update lock estimate
-        lockDaysInput.addEventListener('input', () => {
-          const days = parseInt(lockDaysInput.value) || 0;
+        function updateEstimate() {
+          const days = parseInt(lockDaysInput.value) || minDays;
           const months = Math.floor(days / 30);
           const years = Math.floor(days / 365);
           
@@ -556,27 +564,37 @@ async function depositLidoHODL() {
           } else {
             lockEstimate.textContent = `${days} day(s)`;
           }
-          
+          var unlockDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
           if (hasExistingDeposit) {
-            const unlockDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-            lockEstimate.textContent += ` (unlock: ${unlockDate.toLocaleDateString()})`;
+            if (incLock.checked ==  false) {
+               unlockDate = new Date(userDeposit.unlockTimestamp * 1000);
+            }
           }
+          lockEstimate.textContent += "  \n" + translateThis("Unlock date:") + ` ${unlockDate.toLocaleDateString()}`;
+        }
+        lockDaysInput.addEventListener('change', () => {
+          updateEstimate();
         });
+        lockDaysInput.addEventListener('input', () => {
+          updateEstimate();
+        });
+        document.getElementById('lockDays').value = document.getElementById('lidoLockDays').value;
+        updateEstimate();
       },
       preConfirm: () => {
         const depositType = document.getElementById('depositType').value;
-        const amount = document.getElementById('depositAmount').value;
+        const amount = document.getElementById('depositAmountL').value;
         const lockDays = document.getElementById('lockDays').value;
         const increment = hasExistingDeposit ? document.getElementById('incrementLock').checked : false;
         const slippage = depositType === 'eth' ? document.getElementById('slippageInput').value : 0;
         
         if (!amount || amount === '' || amount === '0') {
-          Swal.showValidationMessage('Please enter a valid amount');
+          Swal.showValidationMessage(translateThis('Please enter a valid amount'));
           return false;
         }
         
         if (!lockDays || parseInt(lockDays) < minDays || parseInt(lockDays) > maxDays) {
-          Swal.showValidationMessage(`Lock days must be between ${minDays} and ${maxDays}`);
+          Swal.showValidationMessage(translateThis("Lock days must be between") + ` ${minDays} and ${maxDays}`);
           return false;
         }
         
@@ -595,15 +613,17 @@ async function depositLidoHODL() {
       const amountWei = earnState.ethWeb3.utils.toWei(amount, 'ether');
       
       if (depositType === 'eth') {
-        // Show UniSwap/trading disclaimer
+        // Show Curve trading disclaimer
+        showDisclaimer();
         const tradeDisclaimer = await Swal.fire({
-          title: 'Trading Disclaimer',
-          html: '<p>By proceeding, you acknowledge that cryptocurrency trading involves risks. Please review the transaction details carefully.</p>',
+          title: translateThis('Trading Disclaimer'),
+          html: '<p>' + translateThis('By proceeding, you acknowledge that the desired ETH will be traded into Lido Staked ETH through the decentralized exchange Curve. This implies you understand their terms and conditions and understand the implications of using cryptocurrency services.') + '</p>',
           icon: 'warning',
           showCancelButton: true,
-          confirmButtonText: 'I Understand',
-          cancelButtonText: 'Cancel'
+          confirmButtonText: translateThis('I Understand'),
+          cancelButtonText: translateThis('Cancel')
         });
+
         
         if (!tradeDisclaimer.isConfirmed) {
           hideSpinner();
@@ -617,7 +637,7 @@ async function depositLidoHODL() {
           gas: 500000
         });
         
-        Swal.fire('Success', 'ETH deposited and converted to stETH!', 'success');
+        Swal.fire(translateThis('Success'), translateThis('ETH deposited and converted to stETH!'), 'success');
       } else {
         // Deposit stETH
         const stETHContract = new earnState.ethWeb3.eth.Contract(
@@ -636,8 +656,8 @@ async function depositLidoHODL() {
         
         Swal.fire({
           icon: 'info',
-          title: 'Allowance',
-          text: 'Authorizing stETH allowance...',
+          title: translateThis('Allowance'),
+          text: translateThis('Authorizing stETH allowance...'),
           showConfirmButton: false
         });
         
@@ -649,8 +669,8 @@ async function depositLidoHODL() {
         
         Swal.fire({
           icon: 'info',
-          title: 'Depositing',
-          text: 'Depositing stETH to vault...',
+          title: translateThis('Depositing'),
+          text: translateThis('Depositing stETH to vault...'),
           showConfirmButton: false
         });
         
@@ -660,7 +680,7 @@ async function depositLidoHODL() {
           gas: 300000
         });
         
-        Swal.fire('Success', 'stETH deposited successfully!', 'success');
+        Swal.fire(translateThis('Success'), translateThis('stETH deposited successfully!'), 'success');
       }
       
       hideSpinner();
@@ -669,12 +689,12 @@ async function depositLidoHODL() {
     } catch (error) {
       hideSpinner();
       console.error('Error depositing to Lido HODL:', error);
-      Swal.fire('Error', error.message || 'Deposit failed', 'error');
+      Swal.fire(translateThis('Error'), error.message || 'Deposit failed', 'error');
     }
     
   } catch (error) {
     console.error('Error in depositLidoHODL:', error);
-    Swal.fire('Error', 'Failed to prepare deposit', 'error');
+    Swal.fire(translateThis('Error'), translateThis('Failed to prepare deposit'), 'error');
   }
 }
 
@@ -1080,7 +1100,7 @@ function toggleStaking() {
   const checkbox = document.getElementById('stakingEnabledCheckbox');
   earnState.stakingEnabled = checkbox.checked;
   
-  localStorage.setItem('earnStakingEnabled', earnState.stakingEnabled ? 'true' : 'false');
+  localStorage.setItem(myaccounts+'earnStakingEnabled', earnState.stakingEnabled ? 'true' : 'false');
   
   if (earnState.stakingEnabled) {
     startStakingAutomation();
@@ -1143,7 +1163,7 @@ async function checkStakingConditions() {
       console.log('POL balance too low, pausing staking');
       earnState.stakingEnabled = false;
       document.getElementById('stakingEnabledCheckbox').checked = false;
-      localStorage.setItem('earnStakingEnabled', 'false');
+      localStorage.setItem(myaccounts+'earnStakingEnabled', 'false');
       Swal.fire('Warning', 'Staking paused due to low POL balance (< 10)', 'warning');
       return;
     }
@@ -1251,7 +1271,7 @@ async function checkAndHarvestLido() {
         const principalETH = new BN2(totalPrincipal).dividedBy('1e18');
         const minimumTime = principalETH.gt(new BN2('5')) ? 7 * 24 * 60 * 60 : 30 * 24 * 60 * 60;
         
-        const lastCollection = parseInt(localStorage.getItem('lidoLastCollection') || '0');
+        const lastCollection = parseInt(localStorage.getItem(myaccounts+'lidoLastCollection') || '0');
         const now = Math.floor(Date.now() / 1000);
         
         if (now - lastCollection > minimumTime) {
@@ -1264,7 +1284,7 @@ async function checkAndHarvestLido() {
             gasPrice: ethGasPrice
           });
           
-          localStorage.setItem('lidoLastCollection', now.toString());
+          localStorage.setItem(myaccounts+'lidoLastCollection', now.toString());
           logToConsole(`Lido harvest successful, tx: ${tx.transactionHash}`);
         }
       }
@@ -1298,7 +1318,7 @@ async function checkAndManageStableVault() {
         
         // Only collect if > $1
         if (totalPendingUSD.gt(new BN('1'))) {
-          const lastFeeCollection = parseInt(localStorage.getItem('stableFeeLastCollection') || '0');
+          const lastFeeCollection = parseInt(localStorage.getItem(myaccounts+'stableFeeLastCollection') || '0');
           const now = Math.floor(Date.now() / 1000);
           
           // Collect once per day
@@ -1312,7 +1332,7 @@ async function checkAndManageStableVault() {
               gasPrice: gasPrice
             });
             
-            localStorage.setItem('stableFeeLastCollection', now.toString());
+            localStorage.setItem(myaccounts+'stableFeeLastCollection', now.toString());
             logToConsole(`Personal fees collected: $${stripZeros(totalPendingUSD.toFixed(2))}`);
           }
         }
@@ -1395,7 +1415,7 @@ async function checkAndManageStableVault() {
 async function checkAndUpdateInactiveUsers() {
   try {
     // Only check once per week
-    const lastCheck = parseInt(localStorage.getItem('inactiveUserLastCheck') || '0');
+    const lastCheck = parseInt(localStorage.getItem(myaccounts+'inactiveUserLastCheck') || '0');
     const now = Math.floor(Date.now() / 1000);
     
     if (now - lastCheck < 7 * 24 * 60 * 60) {
@@ -1432,7 +1452,7 @@ async function checkAndUpdateInactiveUsers() {
     }
     
     if (updated > 0) {
-      localStorage.setItem('inactiveUserLastCheck', now.toString());
+      localStorage.setItem(myaccounts+'inactiveUserLastCheck', now.toString());
       logToConsole(`Updated ${updated} inactive user(s)`);
     }
     
@@ -1749,7 +1769,7 @@ async function claimStakingRewards() {
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
     
     // Get user's saved votes
-    const savedVotes = JSON.parse(localStorage.getItem('earnUserVotes') || '[]');
+    const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
     const votesToCast = [];
     
     for (const vote of savedVotes) {
@@ -1788,7 +1808,7 @@ async function claimStakingRewards() {
     }
     
     // Save updated vote counts
-    localStorage.setItem('earnUserVotes', JSON.stringify(savedVotes));
+    localStorage.setItem(myaccounts+'earnUserVotes', JSON.stringify(savedVotes));
     
     // Claim rewards with votes (as bytes[][] array)
     await baylTreasury.methods.claimRewards(TREASURY_ADDRESSES.VOTE_BAYL, votesToCast).send({
@@ -1818,7 +1838,7 @@ async function claimStakingRewards() {
       }
     }
     
-    localStorage.setItem('earnTotalRewards', JSON.stringify(earnState.userTotalRewards));
+    localStorage.setItem(myaccounts+'earnTotalRewards', JSON.stringify(earnState.userTotalRewards));
     
     hideSpinner();
     
@@ -1873,7 +1893,7 @@ async function loadVotes(voteContract, currentEpoch) {
       
       if (winningHash && winningHash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
         const weight = DOMPurify.sanitize(await voteContract.methods.winningWeight(prevEpoch).call());
-        const payload = DOMPurify.sanitize(await voteContract.methods.getProposalPayload(winningHash).call());
+        //const payload = DOMPurify.sanitize(JSON.stringify(await voteContract.methods.getProposalPayload(winningHash).call()));
         prevHTML += `<div><strong>Winner:</strong> <a href="#" onclick="showVotePayload('${winningHash}')">${winningHash.substring(0, 10)}...</a> (${weight} votes)</div>`;
       } else {
         prevHTML = 'No votes in last epoch';
@@ -1903,7 +1923,7 @@ async function loadVotes(voteContract, currentEpoch) {
 
 function showCreateVoteDialog() {
   // Load any saved votes from localStorage
-  const savedVotes = JSON.parse(localStorage.getItem('earnUserVotes') || '[]');
+  const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
   
   Swal.fire({
     title: 'Create New Vote',
@@ -2017,7 +2037,7 @@ function createVoteFromDialog() {
   }
   
   // Save to localStorage with target contract
-  const savedVotes = JSON.parse(localStorage.getItem('earnUserVotes') || '[]');
+  const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
   const newVote = {
     id: Date.now(),
     targetContract: targetContract,
@@ -2026,14 +2046,14 @@ function createVoteFromDialog() {
     timesCast: 0
   };
   savedVotes.push(newVote);
-  localStorage.setItem('earnUserVotes', JSON.stringify(savedVotes));
+  localStorage.setItem(myaccounts+'earnUserVotes', JSON.stringify(savedVotes));
   
   Swal.fire('Success', 'Vote created! It will be cast during your next reward claim.', 'success');
   return true;
 }
 
 function showVoteDetailsDialog() {
-  const savedVotes = JSON.parse(localStorage.getItem('earnUserVotes') || '[]');
+  const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
   
   let html = '<div style="text-align: left;">';
   
@@ -2061,15 +2081,15 @@ function showVoteDetailsDialog() {
   Swal.fire({
     title: 'Your Votes',
     html: html,
-    width: '600px',
+    width: '500px',
     confirmButtonText: 'Close'
   });
 }
 
 function deleteVote(voteId) {
-  const savedVotes = JSON.parse(localStorage.getItem('earnUserVotes') || '[]');
+  const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
   const filtered = savedVotes.filter(v => v.id !== voteId);
-  localStorage.setItem('earnUserVotes', JSON.stringify(filtered));
+  localStorage.setItem(myaccounts+'earnUserVotes', JSON.stringify(filtered));
   Swal.close();
   showVoteDetailsDialog();
 }
@@ -2232,7 +2252,7 @@ async function loadTokenBalances() {
     
     // Store balances for potential notification in main page
     if (Object.keys(balances).length > 0) {
-      localStorage.setItem('earnTabBalances', JSON.stringify(balances));
+      localStorage.setItem(myaccounts+'earnTabBalances', JSON.stringify(balances));
       // Show withdraw button if any balances exist
       document.getElementById('withdrawCoinsSection').classList.remove('hidden');
     }
