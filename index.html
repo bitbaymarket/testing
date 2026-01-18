@@ -3385,8 +3385,13 @@ async function checkAutomaticTradingAccount() {
     const BN2 = web3.utils.BN;
     const decimals = new BN2("1000000000000000000");
     const minBalance = new BN2("5").mul(decimals);
-    // Check base token balance
-    const balance = new BN2(DOMPurify.sanitize(await web3.eth.getBalance(myaccountsV2)));
+    var balance;
+    try { // Check base token balance
+      balance = new BN2(DOMPurify.sanitize(await web3.eth.getBalance(myaccountsV2)));
+    } catch (e) {
+      console.log(e); //In case of rate limit errors we should catch this here
+      return;
+    }
     if(balance.lt(new BN2("100000000000000000"))) {
       return;
     }    

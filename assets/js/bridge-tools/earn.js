@@ -187,7 +187,7 @@ function initializeEarnTab() {
   earnState.ethWeb3 = new Web3('https://eth-mainnet.public.blastapi.io');
   
   // Use existing Polygon Web3 if available
-  earnState.polWeb3 = new Web3('https://polygon-rpc.com');
+  earnState.polWeb3 = new Web3('https://1rpc.io/matic');
   
   // Load saved staking state
   const stakingEnabled = localStorage.getItem(myaccounts+'earnStakingEnabled');
@@ -1902,7 +1902,7 @@ async function loadVotes(voteContract, currentEpoch) {
     }
     
     // For current epoch: Show top 5 hashes (getEpochHashes)
-    const topHashes = DOMPurify.sanitize(await voteContract.methods.getEpochHashes(currentEpoch).call());
+    const topHashes = JSON.parse(DOMPurify.sanitize(JSON.stringify(await voteContract.methods.getEpochHashes(currentEpoch).call())));
     let pendingHTML = '';
     
     for (const hash of topHashes) {
