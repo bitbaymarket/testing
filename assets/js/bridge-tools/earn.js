@@ -714,11 +714,7 @@ async function depositLidoHODL() {
         }
         
         // Deposit ETH (will be swapped to stETH via Curve)
-        await lidoContract.methods.tradeAndLockStETH(slippage, lockDays, increment).send({
-          from: myaccounts,
-          value: amountWei,
-          gas: 500000
-        });
+        await sendEarnTx(lidoContract, "tradeAndLockStETH", [slippage, lockDays, increment], 500000, amountWei, false, true, false);
         
         Swal.fire(translateThis('Success'), translateThis('ETH deposited and converted to stETH!'), 'success');
       } else {
@@ -745,10 +741,7 @@ async function depositLidoHODL() {
         });
         
         // Approve stETH
-        await stETHContract.methods.approve(TREASURY_ADDRESSES.LIDO_VAULT, amountWei).send({
-          from: myaccounts,
-          gas: 100000
-        });
+        await sendEarnTx(stETHContract, "approve", [TREASURY_ADDRESSES.LIDO_VAULT, amountWei], 100000, "0", false, true, false);
         
         Swal.fire({
           icon: 'info',
@@ -758,10 +751,7 @@ async function depositLidoHODL() {
         });
         
         // Deposit stETH
-        await lidoContract.methods.lockStETH(amountWei, lockDays, increment).send({
-          from: myaccounts,
-          gas: 300000
-        });
+        await sendEarnTx(lidoContract, "lockStETH", [amountWei, lockDays, increment], 300000, "0", false, true, false);
         
         Swal.fire(translateThis('Success'), translateThis('stETH deposited successfully!'), 'success');
       }
@@ -850,10 +840,7 @@ async function withdrawLidoHODL() {
     showSpinner();
     
     try {
-      await lidoContract.methods.withdrawStETH(withdrawAmountWei).send({
-        from: myaccounts,
-        gas: 300000
-      });
+      await sendEarnTx(lidoContract, "withdrawStETH", [withdrawAmountWei], 300000, "0", false, true, false);
       
       hideSpinner();
       Swal.fire('Success', `Withdrew ${withdrawAmount} stETH successfully!`, 'success');
@@ -1062,11 +1049,7 @@ async function depositStableVault() {
       showConfirmButton: false
     });
     
-    await daiContract.methods.approve(TREASURY_ADDRESSES.STABLE_POOL, amountWei).send({
-      from: myaccounts,
-      gas: 100000,
-      gasPrice: gasPrice
-    });
+    await sendEarnTx(daiContract, "approve", [TREASURY_ADDRESSES.STABLE_POOL, amountWei], 100000, "0", false, false, true);
     
     Swal.fire({
       icon: 'info',
@@ -1077,11 +1060,7 @@ async function depositStableVault() {
     
     // Deposit with 5 minute deadline
     const deadline = Math.floor(Date.now() / 1000) + 300;
-    await stableContract.methods.deposit(amountWei, deadline).send({
-      from: myaccounts,
-      gas: 500000,
-      gasPrice: gasPrice
-    });
+    await sendEarnTx(stableContract, "deposit", [amountWei, deadline], 500000, "0", false, false, true);
     
     hideSpinner();
     Swal.fire('Success', 'Deposit successful!', 'success');
@@ -1106,11 +1085,7 @@ async function collectStableFees() {
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
     const deadline = Math.floor(Date.now() / 1000) + 300;
     
-    await stableContract.methods.collectFees(deadline).send({
-      from: myaccounts,
-      gas: 500000,
-      gasPrice: gasPrice
-    });
+    await sendEarnTx(stableContract, "collectFees", [deadline], 500000, "0", false, false, true);
     
     hideSpinner();
     Swal.fire('Success', 'Fees collected!', 'success');
@@ -1158,11 +1133,7 @@ async function withdrawStableVault() {
     const deadline = Math.floor(Date.now() / 1000) + 300;
     
     // Withdraw with dust collection enabled
-    await stableContract.methods.withdraw(withdrawShares.toString(), deadline, true).send({
-      from: myaccounts,
-      gas: 700000,
-      gasPrice: gasPrice
-    });
+    await sendEarnTx(stableContract, "withdraw", [withdrawShares.toString(), deadline, true], 700000, "0", false, false, true);
     
     hideSpinner();
     Swal.fire('Success', 'Withdrawal successful!', 'success');
