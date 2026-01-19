@@ -2821,7 +2821,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('input[name="b-swap-group"][value="0"]').checked = true;
 });
 
-async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", confirmBox = false, switchNetworks = false) {
+async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", confirmBox = false, switchNetworks = false, web3Instance = null) {
+  // If a specific web3 instance is provided, rebuild contract with it
+  if (web3Instance && contract !== "ETH") {
+    contract = new web3Instance.eth.Contract(contract.options.jsonInterface, contract.options.address);
+  }
+  
   if(loginType == 1) {
     var myaccounts2 = await mmweb3.eth.getAccounts();
     if (myaccounts2.length == 0) {
@@ -2883,6 +2888,12 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
     }
     return;
   }
+  
+  // For loginType 2 (password login), disable confirmBox for staking operations
+  if (loginType == 2) {
+    confirmBox = false;
+  }
+  
   try {
     if (confirmBox) {
       // Format base token value if not zero
@@ -2942,8 +2953,11 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
         throw new Error("User has rejected the transaction");
       }
     }
-    const balance = await web3.eth.getBalance(myaccounts);
-    const BN2 = web3.utils.BN;
+    // Use provided web3Instance or default to global web3
+    const activeWeb3 = web3Instance || web3;
+    
+    const balance = await activeWeb3.eth.getBalance(myaccounts);
+    const BN2 = activeWeb3.utils.BN;
     if (new BN2(balance).lt(new BN2(glimit).mul(new BN2(gasPrice)))) {
       await Swal.fire({
         icon: "warning",
@@ -2964,7 +2978,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
         // Base/native token transfer: method contains value, first arg is `to`
         const value = method;       // value in wei
         const to = args[0];         // recipient
-        txPromise = web3.eth.sendTransaction({
+        txPromise = activeWeb3.eth.sendTransaction({
           from: myaccounts,
           to,
           value,
@@ -2999,7 +3013,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
     // Poll for confirmation
     const startTime = Date.now();
     while (true) {
-      const receipt = await web3.eth.getTransactionReceipt(txHash);
+      const receipt = await activeWeb3.eth.getTransactionReceipt(txHash);
       if (receipt) {
         Swal.close();
         return receipt;
