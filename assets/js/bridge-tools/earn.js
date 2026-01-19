@@ -39,6 +39,11 @@ const TREASURY_ADDRESSES = {
 // GLOBAL STATE
 // ============================================================================
 
+// Set RPC index for load splitting (different from main interface)
+if (typeof currentRpcIndex !== 'undefined') {
+  currentRpcIndex = 0;
+}
+
 var earnState = {
   stakingEnabled: false,
   stakingInterval: null,
@@ -664,7 +669,7 @@ async function depositLidoHODL() {
         }
         
         // Deposit ETH (will be swapped to stETH via Curve)
-        await sendTx(lidoContract, "tradeAndLockStETH", [slippage, lockDays, increment], 500000, amountWei, false, true, earnState.ethWeb3);
+        await sendTx(lidoContract, "tradeAndLockStETH", [slippage, lockDays, increment], 500000, amountWei, false, true);
         
         Swal.fire(translateThis('Success'), translateThis('ETH deposited and converted to stETH!'), 'success');
       } else {
@@ -691,7 +696,7 @@ async function depositLidoHODL() {
         });
         
         // Approve stETH
-        await sendTx(stETHContract, "approve", [TREASURY_ADDRESSES.LIDO_VAULT, amountWei], 100000, "0", false, true, earnState.ethWeb3);
+        await sendTx(stETHContract, "approve", [TREASURY_ADDRESSES.LIDO_VAULT, amountWei], 100000, "0", false, true);
         
         Swal.fire({
           icon: 'info',
@@ -701,7 +706,7 @@ async function depositLidoHODL() {
         });
         
         // Deposit stETH
-        await sendTx(lidoContract, "lockStETH", [amountWei, lockDays, increment], 300000, "0", false, true, earnState.ethWeb3);
+        await sendTx(lidoContract, "lockStETH", [amountWei, lockDays, increment], 300000, "0", false, true);
         
         Swal.fire(translateThis('Success'), translateThis('stETH deposited successfully!'), 'success');
       }
@@ -790,7 +795,7 @@ async function withdrawLidoHODL() {
     showSpinner();
     
     try {
-      await sendTx(lidoContract, "withdrawStETH", [withdrawAmountWei], 300000, "0", false, true, earnState.ethWeb3);
+      await sendTx(lidoContract, "withdrawStETH", [withdrawAmountWei], 300000, "0", false, true);
       
       hideSpinner();
       Swal.fire('Success', `Withdrew ${withdrawAmount} stETH successfully!`, 'success');
@@ -999,7 +1004,7 @@ async function depositStableVault() {
       showConfirmButton: false
     });
     
-    await sendTx(daiContract, "approve", [TREASURY_ADDRESSES.STABLE_POOL, amountWei], 100000, "0", false, false, earnState.polWeb3);
+    await sendTx(daiContract, "approve", [TREASURY_ADDRESSES.STABLE_POOL, amountWei], 100000, "0", false, false);
     
     Swal.fire({
       icon: 'info',
@@ -1010,7 +1015,7 @@ async function depositStableVault() {
     
     // Deposit with 5 minute deadline
     const deadline = Math.floor(Date.now() / 1000) + 300;
-    await sendTx(stableContract, "deposit", [amountWei, deadline], 500000, "0", false, false, earnState.polWeb3);
+    await sendTx(stableContract, "deposit", [amountWei, deadline], 500000, "0", false, false);
     
     hideSpinner();
     Swal.fire('Success', 'Deposit successful!', 'success');
@@ -1035,7 +1040,7 @@ async function collectStableFees() {
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
     const deadline = Math.floor(Date.now() / 1000) + 300;
     
-    await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false, earnState.polWeb3);
+    await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false);
     
     hideSpinner();
     Swal.fire('Success', 'Fees collected!', 'success');
@@ -1083,7 +1088,7 @@ async function withdrawStableVault() {
     const deadline = Math.floor(Date.now() / 1000) + 300;
     
     // Withdraw with dust collection enabled
-    await sendTx(stableContract, "withdraw", [withdrawShares.toString(), deadline, true], 700000, "0", false, false, earnState.polWeb3);
+    await sendTx(stableContract, "withdraw", [withdrawShares.toString(), deadline, true], 700000, "0", false, false);
     
     hideSpinner();
     Swal.fire('Success', 'Withdrawal successful!', 'success');
@@ -1175,7 +1180,7 @@ async function checkStakingConditions() {
     // Check if user needs to refresh (if lastRefresh == 1, they are paused)
     if (userInfo.lastRefresh == 1 && parseInt(userInfo.shares) > 0) {
       console.log('User is paused, refreshing vault...');
-      await sendTx(baylTreasury, "refreshVault", [], 300000, "0", false, false, earnState.polWeb3);
+      await sendTx(baylTreasury, "refreshVault", [], 300000, "0", false, false);
       return;
     }
     
@@ -1224,7 +1229,7 @@ async function checkAndDripFlow() {
       const pendingETH = displayETHAmount(pending, 6);
       logToConsole(`Flow contract has ${pendingETH} ETH pending, calling drip...`);
       
-      const tx = await sendTx(flowContract, "drip", [], 200000, "0", false, false, earnState.polWeb3);
+      const tx = await sendTx(flowContract, "drip", [], 200000, "0", false, false);
       
       logToConsole(`Flow drip successful, tx: ${tx.transactionHash}`);
     }
@@ -1274,7 +1279,7 @@ async function checkAndHarvestLido() {
           const yieldETH = stripZeros(new BN2(availableYield).dividedBy('1e18').toFixed(4));
           logToConsole(`Harvesting ${yieldETH} ETH from Lido vault...`);
           
-          const tx = await sendTx(lidoContract, "harvestAndSwapToETH", [100, 0], estimatedGas, "0", false, true, earnState.ethWeb3);
+          const tx = await sendTx(lidoContract, "harvestAndSwapToETH", [100, 0], estimatedGas, "0", false, true);
           
           localStorage.setItem(myaccounts+'lidoLastCollection', now.toString());
           logToConsole(`Lido harvest successful, tx: ${tx.transactionHash}`);
@@ -1318,7 +1323,7 @@ async function checkAndManageStableVault() {
             logToConsole('Collecting personal fees from StableVault (donating user)');
             const deadline = now + 300;
             
-            await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false, earnState.polWeb3);
+            await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false);
             
             localStorage.setItem(myaccounts+'stableFeeLastCollection', now.toString());
             logToConsole(`Personal fees collected: $${stripZeros(totalPendingUSD.toFixed(2))}`);
@@ -1344,7 +1349,7 @@ async function checkAndManageStableVault() {
         
         logToConsole(`StableVault unclaimed fees: $${stripZeros(totalUnclaimedUSD.toFixed(2))}, collecting...`);
         
-        await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false, earnState.polWeb3);
+        await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false);
         
         logToConsole('StableVault pool fees collected successfully');
       }
@@ -1361,7 +1366,7 @@ async function checkAndManageStableVault() {
           logToConsole('StableVault is out of range, repositioning...');
           const deadline = now + 300;
           
-          await sendTx(stableContract, "reposition", [deadline], 700000, "0", false, false, earnState.polWeb3);
+          await sendTx(stableContract, "reposition", [deadline], 700000, "0", false, false);
           
           logToConsole('StableVault repositioned successfully');
         }
@@ -1420,7 +1425,7 @@ async function checkAndUpdateInactiveUsers() {
       if (blocksSinceStake > parseInt(claimRate) * 10) {
         logToConsole(`Updating inactive user: ${staker.user.substring(0, 10)}...`);
         
-        const tx = await sendTx(baylTreasury, "updateUser", [staker.user], 300000, "0", false, false, earnState.polWeb3);
+        const tx = await sendTx(baylTreasury, "updateUser", [staker.user], 300000, "0", false, false);
         
         logToConsole(`Inactive user updated, tx: ${tx.transactionHash}`);
         updated++;
@@ -1640,7 +1645,7 @@ async function depositStake() {
         TREASURY_ADDRESSES.USDC
       ];
       
-      await sendTx(baylTreasury, "setCoins", [coins], 200000, "0", false, false, earnState.polWeb3);
+      await sendTx(baylTreasury, "setCoins", [coins], 200000, "0", false, false);
     }
     
     // Get BAYL address
@@ -1660,10 +1665,10 @@ async function depositStake() {
     );
     
     // Approve BAYL to vault
-    await sendTx(baylContract, "approve", [TREASURY_ADDRESSES.VAULT, amountWei], 100000, "0", false, false, earnState.polWeb3);
+    await sendTx(baylContract, "approve", [TREASURY_ADDRESSES.VAULT, amountWei], 100000, "0", false, false);
     
     // Deposit to vault (which will stake to treasury)
-    await sendTx(vaultContract, "depositBAYL", [amountWei], 500000, "0", false, false, earnState.polWeb3);
+    await sendTx(vaultContract, "depositBAYL", [amountWei], 500000, "0", false, false);
     
     hideSpinner();
     Swal.fire('Success', 'BAYL staked successfully!', 'success');
@@ -1704,7 +1709,7 @@ async function unstakeBAYL() {
     const amountWei = earnState.polWeb3.utils.toWei(result.value, 'ether');
     const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
     
-    await sendTx(vaultContract, "withdrawBAYL", [amountWei], 500000, "0", false, false, earnState.polWeb3);
+    await sendTx(vaultContract, "withdrawBAYL", [amountWei], 500000, "0", false, false);
     
     hideSpinner();
     Swal.fire('Success', 'BAYL unstaked successfully!', 'success');

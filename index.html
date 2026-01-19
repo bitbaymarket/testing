@@ -2732,7 +2732,7 @@ document.getElementById("CoinPercent").value = '10';
 document.getElementById('SwapCoin').value = "0";
 document.getElementById('SwapCoin2').value = "0";
 var updates = "";
-let currentRpcIndex = 999;
+let currentRpcIndex = 1;
 var loggingIn = false;
 var netSwitch = false;
 
@@ -2821,10 +2821,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('input[name="b-swap-group"][value="0"]').checked = true;
 });
 
-async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", confirmBox = false, switchNetworks = false, web3Instance = null) {
-  // If a specific web3 instance is provided, rebuild contract with it
-  if (web3Instance && contract !== "ETH") {
-    contract = new web3Instance.eth.Contract(contract.options.jsonInterface, contract.options.address);
+async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", confirmBox = false, switchNetworks = false) {
+  // If a contract object is passed (not "ETH"), rebuild it with main web3 (which has private keys)
+  if (contract !== "ETH" && contract.options && contract.options.jsonInterface) {
+    contract = new web3.eth.Contract(contract.options.jsonInterface, contract.options.address);
   }
   
   if(loginType == 1) {
@@ -2889,9 +2889,19 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
     return;
   }
   
-  // For loginType 2 (password login), disable confirmBox for staking operations
-  if (loginType == 2) {
-    confirmBox = false;
+  // For loginType 2 (password login), handle network switching for Ethereum operations
+  let switchedProvider = false;
+  let originalProvider = null;
+  if (loginType == 2 && switchNetworks) {
+    // Save original provider
+    originalProvider = web3.currentProvider;
+    // Switch to Ethereum RPC
+    web3.setProvider(new Web3.providers.HttpProvider(getEthereumRpc()));
+    switchedProvider = true;
+    // Rebuild contract with new provider
+    if (contract !== "ETH" && contract.options && contract.options.jsonInterface) {
+      contract = new web3.eth.Contract(contract.options.jsonInterface, contract.options.address);
+    }
   }
   
   try {
@@ -2953,11 +2963,9 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
         throw new Error("User has rejected the transaction");
       }
     }
-    // Use provided web3Instance or default to global web3
-    const activeWeb3 = web3Instance || web3;
     
-    const balance = await activeWeb3.eth.getBalance(myaccounts);
-    const BN2 = activeWeb3.utils.BN;
+    const balance = await web3.eth.getBalance(myaccounts);
+    const BN2 = web3.utils.BN;
     if (new BN2(balance).lt(new BN2(glimit).mul(new BN2(gasPrice)))) {
       await Swal.fire({
         icon: "warning",
@@ -2978,7 +2986,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
         // Base/native token transfer: method contains value, first arg is `to`
         const value = method;       // value in wei
         const to = args[0];         // recipient
-        txPromise = activeWeb3.eth.sendTransaction({
+        txPromise = web3.eth.sendTransaction({
           from: myaccounts,
           to,
           value,
@@ -3013,9 +3021,13 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
     // Poll for confirmation
     const startTime = Date.now();
     while (true) {
-      const receipt = await activeWeb3.eth.getTransactionReceipt(txHash);
+      const receipt = await web3.eth.getTransactionReceipt(txHash);
       if (receipt) {
         Swal.close();
+        // Switch back provider if we switched for loginType 2
+        if (switchedProvider && originalProvider) {
+          web3.setProvider(originalProvider);
+        }
         return receipt;
       }
       if (Date.now() - startTime > 120_000) { // 2 minutes
@@ -3061,6 +3073,17 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
     }
   } catch (e) {
     await Swal.close();
+    // Switch back provider if we switched for loginType 2
+    if (switchedProvider && originalProvider) {
+      try {
+        web3.setProvider(originalProvider);
+      } catch (switchBackErr) {
+        // If we can't switch back, reload the page
+        await Swal.fire('Provider Switch Error','Unable to switch back to Polygon RPC. Page will reload.');
+        location.reload();
+        return;
+      }
+    }
     throw new Error(e.message || e);
   }
 }
