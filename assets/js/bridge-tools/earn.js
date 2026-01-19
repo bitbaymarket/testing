@@ -1225,11 +1225,7 @@ async function checkStakingConditions() {
     // Check if user needs to refresh (if lastRefresh == 1, they are paused)
     if (userInfo.lastRefresh == 1 && parseInt(userInfo.shares) > 0) {
       console.log('User is paused, refreshing vault...');
-      await baylTreasury.methods.refreshVault().send({
-        from: myaccounts,
-        gas: 300000,
-        gasPrice: gasPrice
-      });
+      await sendEarnTx(baylTreasury, "refreshVault", [], 300000, "0", false, false, true);
       return;
     }
     
@@ -1278,11 +1274,7 @@ async function checkAndDripFlow() {
       const pendingETH = displayETHAmount(pending, 6);
       logToConsole(`Flow contract has ${pendingETH} ETH pending, calling drip...`);
       
-      const tx = await flowContract.methods.drip().send({
-        from: myaccounts,
-        gas: 200000,
-        gasPrice: gasPrice
-      });
+      const tx = await sendEarnTx(flowContract, "drip", [], 200000, "0", false, false, true);
       
       logToConsole(`Flow drip successful, tx: ${tx.transactionHash}`);
     }
@@ -1332,11 +1324,7 @@ async function checkAndHarvestLido() {
           const yieldETH = stripZeros(new BN2(availableYield).dividedBy('1e18').toFixed(4));
           logToConsole(`Harvesting ${yieldETH} ETH from Lido vault...`);
           
-          const tx = await lidoContract.methods.harvestAndSwapToETH(100, 0).send({
-            from: myaccounts,
-            gas: estimatedGas,
-            gasPrice: ethGasPrice
-          });
+          const tx = await sendEarnTx(lidoContract, "harvestAndSwapToETH", [100, 0], estimatedGas, "0", false, true, false);
           
           localStorage.setItem(myaccounts+'lidoLastCollection', now.toString());
           logToConsole(`Lido harvest successful, tx: ${tx.transactionHash}`);
@@ -1380,11 +1368,7 @@ async function checkAndManageStableVault() {
             logToConsole('Collecting personal fees from StableVault (donating user)');
             const deadline = now + 300;
             
-            await stableContract.methods.collectFees(deadline).send({
-              from: myaccounts,
-              gas: 500000,
-              gasPrice: gasPrice
-            });
+            await sendEarnTx(stableContract, "collectFees", [deadline], 500000, "0", false, false, true);
             
             localStorage.setItem(myaccounts+'stableFeeLastCollection', now.toString());
             logToConsole(`Personal fees collected: $${stripZeros(totalPendingUSD.toFixed(2))}`);
@@ -1410,11 +1394,7 @@ async function checkAndManageStableVault() {
         
         logToConsole(`StableVault unclaimed fees: $${stripZeros(totalUnclaimedUSD.toFixed(2))}, collecting...`);
         
-        await stableContract.methods.collectFees(deadline).send({
-          from: myaccounts,
-          gas: 500000,
-          gasPrice: gasPrice
-        });
+        await sendEarnTx(stableContract, "collectFees", [deadline], 500000, "0", false, false, true);
         
         logToConsole('StableVault pool fees collected successfully');
       }
@@ -1431,11 +1411,7 @@ async function checkAndManageStableVault() {
           logToConsole('StableVault is out of range, repositioning...');
           const deadline = now + 300;
           
-          await stableContract.methods.reposition(deadline).send({
-            from: myaccounts,
-            gas: 700000,
-            gasPrice: gasPrice
-          });
+          await sendEarnTx(stableContract, "reposition", [deadline], 700000, "0", false, false, true);
           
           logToConsole('StableVault repositioned successfully');
         }
@@ -1494,11 +1470,7 @@ async function checkAndUpdateInactiveUsers() {
       if (blocksSinceStake > parseInt(claimRate) * 10) {
         logToConsole(`Updating inactive user: ${staker.user.substring(0, 10)}...`);
         
-        const tx = await baylTreasury.methods.updateUser(staker.user).send({
-          from: myaccounts,
-          gas: 300000,
-          gasPrice: gasPrice
-        });
+        const tx = await sendEarnTx(baylTreasury, "updateUser", [staker.user], 300000, "0", false, false, true);
         
         logToConsole(`Inactive user updated, tx: ${tx.transactionHash}`);
         updated++;
