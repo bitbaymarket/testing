@@ -130,6 +130,7 @@
               <label class="for-dropdown" for="dropdown" style="padding-left: 10px;">Menu <img class="icon uil uil-arrow-down" src="./assets/images/arrow-down.svg"></label>
             <div class="section-dropdown">
               <br>
+              <a href="#" onclick="openSettings(); return false;">⚙️ Settings</a>
               <a href="./information.html">FAQ about the Bridge</a>
               <a href="https://www.bitbay.market" target="_blank">Learn more about BitBay</a>
               <a href="https://github.com/bitbaymarket/bridge" target="_blank">Open source code on Github</a>
@@ -190,7 +191,7 @@
             <li class="tabs__nav-item">Swap</li>
             <li class="tabs__nav-item">Liquidity</li>
             <li class="tabs__nav-item">Bridge</li>
-            <li class="tabs__nav-item">Earn</li>
+            <li class="tabs__nav-item" id="earn-tab">Earn</li>
           </ul>
         </div>
       </div>
@@ -1152,6 +1153,42 @@
 </div>
 <!-- /.modal -->
 
+<!-- Settings Modal -->
+<div id="modal-settings" class="modal fade" tabindex="-1" role="dialog" style="display: none;">
+ <div class="modal-dialog">
+  <div class="modal-content">
+   <div class="modal-header">
+    <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="closeSettings()">
+     <span aria-hidden="true">×</span>
+    </button>
+    <h4 class="modal-title">⚙️ Settings</h4>
+   </div>
+   <div class="modal-body">
+     <div class="callout callout-info">
+       <p>Configure custom RPC endpoints for Polygon and Ethereum networks. These settings are ignored when testnet is selected.</p>
+     </div>
+     
+     <div style="margin-bottom: 20px;">
+       <label style="display: block; margin-bottom: 5px; font-weight: bold;">Polygon Mainnet RPC:</label>
+       <input type="text" id="polygonRpcInput" class="form_field" placeholder="https://polygon.drpc.org/" style="width: 100%; padding: 8px;" />
+       <small style="color: #777;">Leave empty to use default RPC endpoints</small>
+     </div>
+     
+     <div style="margin-bottom: 20px;">
+       <label style="display: block; margin-bottom: 5px; font-weight: bold;">Ethereum Mainnet RPC:</label>
+       <input type="text" id="ethereumRpcInput" class="form_field" placeholder="https://eth.drpc.org/" style="width: 100%; padding: 8px;" />
+       <small style="color: #777;">Leave empty to use default RPC endpoint</small>
+     </div>
+     
+     <div style="margin-top: 20px;">
+       <button class="swapSelector btn" style="width: 48%; margin-right: 2%;" onclick="saveSettings()">Save Settings</button>
+       <button class="swapSelector btn" style="width: 48%;" onclick="resetSettings()">Reset to Defaults</button>
+     </div>
+   </div>
+  </div>
+ </div>
+</div>
+
 <!-- scripts -->
 <script type="text/javascript" src="./assets/js/nouislider.min.js"></script>
 <script type="text/javascript" src="./assets/js/kane-modal.js"></script>
@@ -1829,6 +1866,112 @@ function darkTheme(toggle = true) {
   }
 }
 
+// Settings Modal Functions
+function openSettings() {
+  const modal = document.getElementById('modal-settings');
+  if (modal) {
+    // Load current settings
+    document.getElementById('polygonRpcInput').value = localStorage.getItem('customPolygonRpc') || '';
+    document.getElementById('ethereumRpcInput').value = localStorage.getItem('customEthereumRpc') || '';
+    
+    modal.style.display = 'block';
+    modal.classList.add('show');
+  }
+}
+
+function closeSettings() {
+  const modal = document.getElementById('modal-settings');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.remove('show');
+  }
+}
+
+function saveSettings() {
+  const polygonRpc = document.getElementById('polygonRpcInput').value.trim();
+  const ethereumRpc = document.getElementById('ethereumRpcInput').value.trim();
+  
+  // Validate RPC URLs
+  if (polygonRpc !== '' && !polygonRpc.startsWith('http')) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Invalid RPC URL',
+      text: 'Polygon RPC URL must start with http:// or https://'
+    });
+    return;
+  }
+  
+  if (ethereumRpc !== '' && !ethereumRpc.startsWith('http')) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Invalid RPC URL',
+      text: 'Ethereum RPC URL must start with http:// or https://'
+    });
+    return;
+  }
+  
+  // Save to localStorage
+  localStorage.setItem('customPolygonRpc', polygonRpc);
+  localStorage.setItem('customEthereumRpc', ethereumRpc);
+  
+  // Update global variables
+  CUSTOM_POLYGON_RPC = polygonRpc || null;
+  CUSTOM_ETHEREUM_RPC = ethereumRpc || null;
+  
+  // Update web3 instances if logged in and not on testnet
+  if (myaccounts && currentChainId !== "11155111") {
+    if (loginType === 2) {
+      // Update main web3 instance for password login
+      const newRpc = getPolygonRpc();
+      web3.setProvider(new Web3.providers.HttpProvider(newRpc));
+      console.log('Updated Polygon RPC to:', newRpc);
+    }
+    
+    // Update earn.js web3 instances
+    if (typeof earnState !== 'undefined') {
+      earnState.polWeb3 = new Web3(getPolygonRpc());
+      earnState.ethWeb3 = new Web3(getEthereumRpc());
+      console.log('Updated Earn tab RPC endpoints');
+    }
+  }
+  
+  closeSettings();
+  
+  Swal.fire({
+    icon: 'success',
+    title: 'Settings Saved',
+    text: 'RPC settings have been saved. Changes will apply on next transaction or page reload.',
+    timer: 3000
+  });
+}
+
+function resetSettings() {
+  Swal.fire({
+    title: 'Reset to Defaults?',
+    text: 'This will clear custom RPC settings and use default endpoints.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Reset',
+    cancelButtonText: 'Cancel'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      document.getElementById('polygonRpcInput').value = '';
+      document.getElementById('ethereumRpcInput').value = '';
+      localStorage.removeItem('customPolygonRpc');
+      localStorage.removeItem('customEthereumRpc');
+      CUSTOM_POLYGON_RPC = null;
+      CUSTOM_ETHEREUM_RPC = null;
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Reset Complete',
+        text: 'Settings have been reset to defaults.',
+        timer: 2000
+      });
+    }
+  });
+}
+
 function observeNoInvertElements() {
   const observer = new MutationObserver(mutations => {
     mutations.forEach(mutation => {
@@ -1985,6 +2128,49 @@ var mmweb3 = [];
 var contractInst = [];
 var gasPrice;
 var RPC_ENDPOINTS = ["https://polygon.drpc.org/", "https://1rpc.io/matic", "https://polygon-rpc.com"];
+var CUSTOM_POLYGON_RPC = null;
+var CUSTOM_ETHEREUM_RPC = null;
+var DEFAULT_ETHEREUM_RPC = "https://eth.drpc.org/";
+
+// Load custom RPC settings from localStorage
+function loadRpcSettings() {
+  try {
+    const savedPolygonRpc = localStorage.getItem('customPolygonRpc');
+    const savedEthereumRpc = localStorage.getItem('customEthereumRpc');
+    
+    if (savedPolygonRpc && savedPolygonRpc.trim() !== '') {
+      CUSTOM_POLYGON_RPC = savedPolygonRpc;
+    }
+    
+    if (savedEthereumRpc && savedEthereumRpc.trim() !== '') {
+      CUSTOM_ETHEREUM_RPC = savedEthereumRpc;
+    }
+  } catch (e) {
+    console.error('Failed to load RPC settings:', e);
+  }
+}
+
+// Get effective Polygon RPC (returns custom or default)
+function getPolygonRpc() {
+  // Don't use custom RPC if on testnet
+  if (currentChainId === "11155111") {
+    return RPC_ENDPOINTS[0];
+  }
+  return CUSTOM_POLYGON_RPC || RPC_ENDPOINTS[0];
+}
+
+// Get effective Ethereum RPC (returns custom or default)
+function getEthereumRpc() {
+  // Don't use custom RPC if on testnet
+  if (currentChainId === "11155111") {
+    return DEFAULT_ETHEREUM_RPC;
+  }
+  return CUSTOM_ETHEREUM_RPC || DEFAULT_ETHEREUM_RPC;
+}
+
+// Initialize RPC settings on page load
+loadRpcSettings();
+
 //web3[0] = new Web3("https://cloudflare-eth.com");
 //web3[1] = new Web3("https://bsc-dataseed.binance.org");
 //web3[2] = new Web3("https://api-goerli.etherscan.io/");
@@ -2123,8 +2309,9 @@ function isRateLimitError(error, switchThis = true) {
   if (code === 429 || code === -32005 || code === -32429 || msg.includes("rate limit") || msg.includes("too many requests") || msg.includes("throttle")) {
     if(currentRpcIndex != 999 && !switchThis) {
       currentRpcIndex = (currentRpcIndex + 1) % RPC_ENDPOINTS.length;
-      web3.setProvider(new Web3.providers.HttpProvider(RPC_ENDPOINTS[currentRpcIndex]));
-      console.log("Switched RPC to:", RPC_ENDPOINTS[currentRpcIndex]);
+      const rpcToUse = CUSTOM_POLYGON_RPC && currentChainId !== "11155111" ? CUSTOM_POLYGON_RPC : RPC_ENDPOINTS[currentRpcIndex];
+      web3.setProvider(new Web3.providers.HttpProvider(rpcToUse));
+      console.log("Switched RPC to:", rpcToUse);
     }
     return true;
   }
@@ -2195,7 +2382,7 @@ async function login() {
           web3 = new Web3("https://eth-sepolia.public.blastapi.io");
         } else if (chainId2 == "137") {
           currentRpcIndex = 1;
-          web3 = new Web3(RPC_ENDPOINTS[1]);
+          web3 = new Web3(getPolygonRpc());
         } else {
           try {
             await window.ethereum.request({
@@ -2207,7 +2394,7 @@ async function login() {
             return false;  
           }
           currentRpcIndex = 1;
-          web3 = new Web3(RPC_ENDPOINTS[1]);
+          web3 = new Web3(getPolygonRpc());
           
         }
         mysignature=Crypto.SHA256(mysignature);
@@ -2359,7 +2546,7 @@ async function login() {
               var accountprivkey = '0x' + hashedPassword;
               if(parseInt(network) == 0) {
                   currentRpcIndex = 1;
-                  web3 = new Web3(RPC_ENDPOINTS[1]);
+                  web3 = new Web3(getPolygonRpc());
                   //web3 = new Web3("https://polygon-mainnet.public.blastapi.io");
               } else {
                   web3 = new Web3("https://eth-sepolia.public.blastapi.io");
@@ -2545,7 +2732,7 @@ document.getElementById("CoinPercent").value = '10';
 document.getElementById('SwapCoin').value = "0";
 document.getElementById('SwapCoin2').value = "0";
 var updates = "";
-let currentRpcIndex = 999;
+let currentRpcIndex = 1;
 var loggingIn = false;
 var netSwitch = false;
 
@@ -2635,6 +2822,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", confirmBox = false, switchNetworks = false) {
+  // If a contract object is passed (not "ETH"), rebuild it with main web3 (which has private keys)
+  if (contract !== "ETH" && contract.options && contract.options.jsonInterface) {
+    contract = new web3.eth.Contract(contract.options.jsonInterface, contract.options.address);
+  }
+  
   if(loginType == 1) {
     var myaccounts2 = await mmweb3.eth.getAccounts();
     if (myaccounts2.length == 0) {
@@ -2696,6 +2888,22 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
     }
     return;
   }
+  
+  // For loginType 2 (password login), handle network switching for Ethereum operations
+  let switchedProvider = false;
+  let originalProvider = null;
+  if (loginType == 2 && switchNetworks) {
+    // Save original provider
+    originalProvider = web3.currentProvider;
+    // Switch to Ethereum RPC
+    web3.setProvider(new Web3.providers.HttpProvider(getEthereumRpc()));
+    switchedProvider = true;
+    // Rebuild contract with new provider
+    if (contract !== "ETH" && contract.options && contract.options.jsonInterface) {
+      contract = new web3.eth.Contract(contract.options.jsonInterface, contract.options.address);
+    }
+  }
+  
   try {
     if (confirmBox) {
       // Format base token value if not zero
@@ -2755,6 +2963,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
         throw new Error("User has rejected the transaction");
       }
     }
+    
     const balance = await web3.eth.getBalance(myaccounts);
     const BN2 = web3.utils.BN;
     if (new BN2(balance).lt(new BN2(glimit).mul(new BN2(gasPrice)))) {
@@ -2815,6 +3024,10 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
       const receipt = await web3.eth.getTransactionReceipt(txHash);
       if (receipt) {
         Swal.close();
+        // Switch back provider if we switched for loginType 2
+        if (switchedProvider && originalProvider) {
+          web3.setProvider(originalProvider);
+        }
         return receipt;
       }
       if (Date.now() - startTime > 120_000) { // 2 minutes
@@ -2860,6 +3073,17 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
     }
   } catch (e) {
     await Swal.close();
+    // Switch back provider if we switched for loginType 2
+    if (switchedProvider && originalProvider) {
+      try {
+        web3.setProvider(originalProvider);
+      } catch (switchBackErr) {
+        // If we can't switch back, reload the page
+        await Swal.fire('Provider Switch Error','Unable to switch back to Polygon RPC. Page will reload.');
+        location.reload();
+        return;
+      }
+    }
     throw new Error(e.message || e);
   }
 }
@@ -2901,6 +3125,12 @@ async function checkbalances() {
         deflationrate = 99;
         compoundrate = 5;
         reservetimelock = 600; //Testnet is 10 minutes
+        
+        // Hide Earn tab on testnet
+        const earnTab = document.getElementById('earn-tab');
+        if (earnTab) {
+          earnTab.style.display = 'none';
+        }
     }
     if (currentChainId == "137") {
         document.getElementById("current-network").innerHTML = "Polygon";
@@ -2917,6 +3147,12 @@ async function checkbalances() {
         deflationrate = 99;
         compoundrate = 5;
         reservetimelock = 2592000; //One month
+        
+        // Show Earn tab on mainnet
+        const earnTab = document.getElementById('earn-tab');
+        if (earnTab) {
+          earnTab.style.display = '';
+        }
     }    
     if (netname == "unknown") {
         //document.getElementById("text1").innerHTML = "Unsupported network";
