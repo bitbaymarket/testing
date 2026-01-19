@@ -184,10 +184,12 @@ function initializeEarnTab() {
   console.log('Initializing Earn tab...');
   
   // Initialize Ethereum Web3 for Lido operations
-  earnState.ethWeb3 = new Web3('https://eth-mainnet.public.blastapi.io');
+  earnState.ethWeb3 = new Web3('https://eth.drpc.org/');
+  //'https://eth-mainnet.public.blastapi.io'
+  //'https://1rpc.io/eth'
   
   // Use existing Polygon Web3 if available
-  earnState.polWeb3 = new Web3('https://1rpc.io/matic');
+  earnState.polWeb3 = new Web3(RPC_ENDPOINTS[0]);
   
   // Load saved staking state
   const stakingEnabled = localStorage.getItem(myaccounts+'earnStakingEnabled');
@@ -233,7 +235,7 @@ async function onEarnUserLogin() {
   console.log('User logged in, initializing Earn data...');
   
   // Update polWeb3 reference
-  earnState.polWeb3 = new Web3('https://polygon-rpc.com');
+  earnState.polWeb3 = new Web3(RPC_ENDPOINTS[0]);
   
   // Detect login type
   earnState.isPasswordLogin = (loginType === 2);

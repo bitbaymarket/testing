@@ -1981,8 +1981,10 @@ if(buyThis != '') {
 }
 
 var web3 = [];
+var mmweb3 = [];
 var contractInst = [];
 var gasPrice;
+var RPC_ENDPOINTS = ["https://polygon.drpc.org/", "https://1rpc.io/matic", "https://polygon-rpc.com"];
 //web3[0] = new Web3("https://cloudflare-eth.com");
 //web3[1] = new Web3("https://bsc-dataseed.binance.org");
 //web3[2] = new Web3("https://api-goerli.etherscan.io/");
@@ -2000,18 +2002,20 @@ window.addEventListener("load", async function() {
     // detect Metamask account change
     window.ethereum.on('accountsChanged', async function (newaccounts) {
       console.log('accountsChanges',newaccounts);
-      defaultvars();
-      if(!loggingIn) {
-        await login();
+      if(netSwitch || loggingIn) {
+        return;
       }
+      defaultvars();      
+      await login();
     });
      // detect Network account change
     window.ethereum.on('chainChanged', async function(thenetworkId){
       console.log('chainChanged',thenetworkId);
-      defaultvars();
-      if(!loggingIn) {
-        await login();
+      if(netSwitch || loggingIn) {
+        return;
       }
+      defaultvars();      
+      await login();
     });
 
   }
@@ -2113,6 +2117,20 @@ document.getElementById('ChartSelect').addEventListener('change', async function
     prevselect = 10;
 });
 
+function isRateLimitError(error, switchThis = true) {
+  const msg = (error.message || error. toString()).toLowerCase();
+  const code = error.code;
+  if (code === 429 || code === -32005 || code === -32429 || msg.includes("rate limit") || msg.includes("too many requests") || msg.includes("throttle")) {
+    if(currentRpcIndex != 999 && !switchThis) {
+      currentRpcIndex = (currentRpcIndex + 1) % RPC_ENDPOINTS.length;
+      web3.setProvider(new Web3.providers.HttpProvider(RPC_ENDPOINTS[currentRpcIndex]));
+      console.log("Switched RPC to:", RPC_ENDPOINTS[currentRpcIndex]);
+    }
+    return true;
+  }
+  return false;
+}
+
 function translateThis(text) {
   return text;
 }
@@ -2121,7 +2139,6 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-var loggingIn = false;
 async function login() {
     const isAndroid = /Android/i.test(navigator.userAgent);
     const isMetaMaskInstalled = typeof window.ethereum !== 'undefined' && window.ethereum.isMetaMask;
@@ -2159,11 +2176,11 @@ async function login() {
           loggingIn = false;
           return;
         }
-        web3 = new Web3(window.ethereum);
-        var myaccounts2 = await web3.eth.getAccounts();
+        mmweb3 = new Web3(window.ethereum);
+        var myaccounts2 = await mmweb3.eth.getAccounts();
         if (myaccounts2.length == 0) {
             //document.getElementById("text1").innerHTML = "Please unlock Metamask so it can connect.";
-            modalDialog('Connect', "Please unlock Metamask so it can connect.", "warning");
+            modalDialog(translateThis('Connect'), translateThis("Please unlock Metamask so it can connect."), "warning");
             return;
         }
         myaccounts = DOMPurify.sanitize(myaccounts2[0]);
@@ -2173,6 +2190,26 @@ async function login() {
           method: 'personal_sign',
           params: ["This message shall be signed to generate a secondary trading key for my.bitbay.market", window.ethereum.selectedAddress],
         });
+        var chainId2 = await mmweb3.eth.net.getId();
+        if (chainId2 == "11155111") {
+          web3 = new Web3("https://eth-sepolia.public.blastapi.io");
+        } else if (chainId2 == "137") {
+          currentRpcIndex = 1;
+          web3 = new Web3(RPC_ENDPOINTS[1]);
+        } else {
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: '0x89' }],
+            });
+          } catch {
+            await Swal.fire(translateThis("Invalid network."), translateThis("Please select Polygon network within MetaMask in order to connect."));
+            return false;  
+          }
+          currentRpcIndex = 1;
+          web3 = new Web3(RPC_ENDPOINTS[1]);
+          
+        }
         mysignature=Crypto.SHA256(mysignature);
         var userprivkey = mysignature;
         userprivkey=Crypto.SHA256(Crypto.SHA256(userprivkey));
@@ -2321,7 +2358,8 @@ async function login() {
               }
               var accountprivkey = '0x' + hashedPassword;
               if(parseInt(network) == 0) {
-                  web3 = new Web3("https://polygon-rpc.com");
+                  currentRpcIndex = 1;
+                  web3 = new Web3(RPC_ENDPOINTS[1]);
                   //web3 = new Web3("https://polygon-mainnet.public.blastapi.io");
               } else {
                   web3 = new Web3("https://eth-sepolia.public.blastapi.io");
@@ -2418,29 +2456,30 @@ async function login2() {
     } catch (e) {
         hideSpinner()
         console.error("Login failed:", e.message);
+        const ratelimit = isRateLimitError(e, false);
         // Check if the error message contains '502 Bad Gateway'
         if (e.message.includes("502 Bad Gateway")) {
             Swal.fire({
                 icon: 'error',
-                title: 'Issue connecting to MetaMask',
-                text: 'Please check the API/RPC or internet connection.',
-                confirmButtonText: 'Close'
+                title: translateThis('Issue connecting to MetaMask'),
+                text: translateThis('Please check the API/RPC or internet connection.'),
+                confirmButtonText: translateThis('Close')
             });
         }
-        else if (e.message.includes("Rate limit exceeded") || e.message.includes("All retries exhausted")) {
+        else if (e.message.includes("Rate limit exceeded") || e.message.includes("All retries exhausted") || ratelimit) {
             Swal.fire({
                 icon: 'warning',
-                title: 'Issue connecting to MetaMask',
-                text: 'Rate Limit Exceeded. You are making too many requests, please wait a while before trying again.',
-                confirmButtonText: 'Close'
+                title: translateThis('Issue connecting to MetaMask'),
+                text: translateThis('Rate Limit Exceeded. You are making too many requests, please wait a while before trying again.'),
+                confirmButtonText: translateThis('Close')
             });
         }
         else {
             Swal.fire({
                 icon: 'error',
-                title: 'An error occurred',
-                text: 'Something went wrong. Please try again later.',
-                confirmButtonText: 'Close'
+                title: translateThis('An error occurred'),
+                text: translateThis('Something went wrong. Please try again later.'),
+                confirmButtonText: translateThis('Close')
             });
         }
         console.error("Error stack:", e.stack);
@@ -2506,6 +2545,9 @@ document.getElementById("CoinPercent").value = '10';
 document.getElementById('SwapCoin').value = "0";
 document.getElementById('SwapCoin2').value = "0";
 var updates = "";
+let currentRpcIndex = 999;
+var loggingIn = false;
+var netSwitch = false;
 
 function defaultvars() {
     myaccounts = [];
@@ -2559,6 +2601,9 @@ function defaultvars() {
     lastMinMax = 0;
     withdrawMin1 = 0;
     withdrawMin2 = 0;
+    currentRpcIndex = 999;
+    loggingIn = false;
+    netSwitch = false;
     document.getElementById('Coin1').value = "0";
     document.getElementById("Coin1").selectedIndex = 0;
     document.getElementById('Coin2').value = "0";
@@ -2591,12 +2636,64 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", confirmBox = false, switchNetworks = false) {
   if(loginType == 1) {
-    txPromise = await contract.methods[method](...args).send({
-      from: myaccounts,
-      gasLimit: glimit,
-      gasPrice: gasPrice,
-      value: val
-    });
+    var myaccounts2 = await mmweb3.eth.getAccounts();
+    if (myaccounts2.length == 0) {
+        modalDialog(translateThis('Connect'), translateThis("Please unlock Metamask so it can connect."), "warning");
+        throw new Error("Transaction failed");
+    }
+    const POLYGON_CHAIN_ID = '0x89';
+    const ETH_CHAIN_ID = '0x1';
+    let switchedNetwork = false;
+    try {
+      if (switchNetworks) {
+        const chainId2 = await mmweb3.eth.net.getId();
+        if(chainId2 == "11155111") {
+          Swal.fire("Can not perform this action on testnet");
+          throw new Error("Transaction failed");
+        }
+        netSwitch = true;
+        if (chainId2 != "1") {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: ETH_CHAIN_ID }],
+          });
+        }
+        switchedNetwork = true;
+        // Rebuild contract with mmweb3 now on ETH
+        mmweb3 = new Web3(window.ethereum);
+        contract = new mmweb3.eth.Contract(contract.options.jsonInterface, contract.options.address);
+      }
+      txPromise = await contract.methods[method](...args).send({
+        from: myaccounts,
+        gasLimit: glimit,
+        gasPrice: gasPrice,
+        value: val
+      });      
+      if (switchedNetwork) {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: POLYGON_CHAIN_ID }],
+        });
+        mmweb3 = new Web3(window.ethereum);
+      }      
+      netSwitch = false;      
+    } catch (e) {
+      if (switchedNetwork) {
+        try {
+          await window.ethereum. request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: POLYGON_CHAIN_ID }],
+          });
+          mmweb3 = new Web3(window.ethereum);
+        } catch (switchBackErr) {
+          await Swal.fire('Network Switch Required','Unable to switch back to Polygon. Page will reload.');
+          location.reload();
+          return;
+        }
+      }
+      netSwitch = false;
+      throw new Error(e.message || e);
+    }
     return;
   }
   try {
@@ -2776,6 +2873,7 @@ function stripZeros(valStr) {
 var firstLoad = true;
 
 async function checkbalances() {
+  try {
     if (!isConnected) {
         return;
     }
@@ -3017,6 +3115,10 @@ async function checkbalances() {
     await getNetworkInfo();
     await getMarketData();
     await checkAutomaticTradingAccount();
+  } catch (e) {
+    isRateLimitError(e);
+    throw new Error(e.message || e);
+  }
 }
 
 function populateSendOptions() {
