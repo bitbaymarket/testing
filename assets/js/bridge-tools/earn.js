@@ -81,6 +81,72 @@ function logToConsole(message) {
   console.log(logEntry);
 }
 
+// ============================================================================
+// TRANSACTION HELPER - Use sendTx with network switching support
+// ============================================================================
+
+/**
+ * Send transaction using earn.js web3 instances or main sendTx
+ * @param {Object} contract - Web3 contract instance
+ * @param {String} method - Method name to call
+ * @param {Array} args - Method arguments
+ * @param {Number} glimit - Gas limit
+ * @param {String} val - Value to send (in wei)
+ * @param {Boolean} confirmBox - Show confirmation dialog (ignored for loginType 2)
+ * @param {Boolean} switchNetworks - Switch to Ethereum mainnet for this tx
+ * @param {Boolean} useEarnWeb3 - Use earn.js web3 instance instead of main web3
+ * @returns {Promise} Transaction receipt
+ */
+async function sendEarnTx(contract, method, args = [], glimit = 2500000, val = "0", confirmBox = false, switchNetworks = false, useEarnWeb3 = false) {
+  // For loginType 2 (password login), we handle transactions differently
+  if (loginType === 2) {
+    // Never show confirm box for password login (staking automation)
+    confirmBox = false;
+    
+    // Determine which web3 instance to use
+    let web3Instance;
+    if (switchNetworks) {
+      // Use Ethereum web3 for Lido operations
+      web3Instance = earnState.ethWeb3;
+    } else if (useEarnWeb3) {
+      // Use Polygon web3 from earn state
+      web3Instance = earnState.polWeb3;
+    } else {
+      // Use main web3 instance
+      web3Instance = web3;
+    }
+    
+    // Rebuild contract with correct web3 instance
+    const rebuiltContract = new web3Instance.eth.Contract(
+      contract.options.jsonInterface,
+      contract.options.address
+    );
+    
+    // Send transaction directly
+    try {
+      const txPromise = await rebuiltContract.methods[method](...args).send({
+        from: myaccounts,
+        gasLimit: glimit,
+        gas: glimit,
+        value: val
+      });
+      
+      logToConsole(`✓ ${method} successful`);
+      return txPromise;
+    } catch (error) {
+      logToConsole(`✗ ${method} failed: ${error.message}`);
+      throw error;
+    }
+  }
+  
+  // For MetaMask (loginType 1), use the main sendTx function
+  if (typeof sendTx === 'function') {
+    return await sendTx(contract, method, args, glimit, val, confirmBox, switchNetworks);
+  } else {
+    throw new Error('sendTx function not available');
+  }
+}
+
 // Helper function to show vote payload details
 function showVotePayload(hash) {
   if (!earnState.polWeb3) return;
@@ -183,13 +249,19 @@ function formatUSDCAmount(amountString, decimals = 2) {
 function initializeEarnTab() {
   console.log('Initializing Earn tab...');
   
-  // Initialize Ethereum Web3 for Lido operations
-  earnState.ethWeb3 = new Web3('https://eth.drpc.org/');
-  //'https://eth-mainnet.public.blastapi.io'
-  //'https://1rpc.io/eth'
+  // Don't initialize if user is not logged in
+  if (!myaccounts || loginType === 0) {
+    console.log('User not logged in, skipping Earn tab initialization');
+    return;
+  }
   
-  // Use existing Polygon Web3 if available
-  earnState.polWeb3 = new Web3(RPC_ENDPOINTS[0]);
+  // Initialize Ethereum Web3 for Lido operations using custom RPC if available
+  const ethRpc = typeof getEthereumRpc === 'function' ? getEthereumRpc() : 'https://eth.drpc.org/';
+  earnState.ethWeb3 = new Web3(ethRpc);
+  
+  // Use custom Polygon RPC if available
+  const polRpc = typeof getPolygonRpc === 'function' ? getPolygonRpc() : RPC_ENDPOINTS[0];
+  earnState.polWeb3 = new Web3(polRpc);
   
   // Load saved staking state
   const stakingEnabled = localStorage.getItem(myaccounts+'earnStakingEnabled');
@@ -234,8 +306,17 @@ function initializeEarnTab() {
 async function onEarnUserLogin() {
   console.log('User logged in, initializing Earn data...');
   
-  // Update polWeb3 reference
-  earnState.polWeb3 = new Web3(RPC_ENDPOINTS[0]);
+  // Don't proceed if user is not logged in
+  if (!myaccounts || loginType === 0) {
+    console.log('User not logged in, skipping Earn tab login initialization');
+    return;
+  }
+  
+  // Update web3 references with custom RPC if available
+  const polRpc = typeof getPolygonRpc === 'function' ? getPolygonRpc() : RPC_ENDPOINTS[0];
+  const ethRpc = typeof getEthereumRpc === 'function' ? getEthereumRpc() : 'https://eth.drpc.org/';
+  earnState.polWeb3 = new Web3(polRpc);
+  earnState.ethWeb3 = new Web3(ethRpc);
   
   // Detect login type
   earnState.isPasswordLogin = (loginType === 2);
@@ -1666,11 +1747,7 @@ async function depositStake() {
         TREASURY_ADDRESSES.USDC
       ];
       
-      await baylTreasury.methods.setCoins(coins).send({
-        from: myaccounts,
-        gas: 200000,
-        gasPrice: gasPrice
-      });
+      await sendEarnTx(baylTreasury, "setCoins", [coins], 200000, "0", false, false, true);
     }
     
     // Get BAYL address
@@ -1690,18 +1767,10 @@ async function depositStake() {
     );
     
     // Approve BAYL to vault
-    await baylContract.methods.approve(TREASURY_ADDRESSES.VAULT, amountWei).send({
-      from: myaccounts,
-      gas: 100000,
-      gasPrice: gasPrice
-    });
+    await sendEarnTx(baylContract, "approve", [TREASURY_ADDRESSES.VAULT, amountWei], 100000, "0", false, false, true);
     
     // Deposit to vault (which will stake to treasury)
-    await vaultContract.methods.depositBAYL(amountWei).send({
-      from: myaccounts,
-      gas: 500000,
-      gasPrice: gasPrice
-    });
+    await sendEarnTx(vaultContract, "depositBAYL", [amountWei], 500000, "0", false, false, true);
     
     hideSpinner();
     Swal.fire('Success', 'BAYL staked successfully!', 'success');
@@ -1742,11 +1811,7 @@ async function unstakeBAYL() {
     const amountWei = earnState.polWeb3.utils.toWei(result.value, 'ether');
     const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
     
-    await vaultContract.methods.withdrawBAYL(amountWei).send({
-      from: myaccounts,
-      gas: 500000,
-      gasPrice: gasPrice
-    });
+    await sendEarnTx(vaultContract, "withdrawBAYL", [amountWei], 500000, "0", false, false, true);
     
     hideSpinner();
     Swal.fire('Success', 'BAYL unstaked successfully!', 'success');
@@ -2552,6 +2617,12 @@ async function executeWithdrawal(withdrawData) {
 // ============================================================================
 
 async function refreshEarnTab() {
+  // Don't refresh if user is not logged in
+  if (!myaccounts || loginType === 0) {
+    console.log('User not logged in, skipping Earn tab refresh');
+    return;
+  }
+  
   const now = Date.now();
   
   // Refresh Ethereum data
