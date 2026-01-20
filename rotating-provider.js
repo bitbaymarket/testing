@@ -224,6 +224,9 @@
    * @returns {Object}
    */
   RotatingProvider.prototype._getGlobalStats = function() {
+    if (typeof window === 'undefined' || !window.RPCState) {
+      return null;
+    }
     return {
       currentProvider: window.RPCState.currentProvider,
       currentTier: window.RPCState.currentTier,
@@ -377,7 +380,7 @@
         self._rotateProvider();
         provider = self._getCurrentProvider();
         stats = self._getCurrentStats();
-        if (stats) stats.recordRequest();
+        // Note: We don't record again here - the next iteration will record
       }
       
       self._updateGlobalState();
