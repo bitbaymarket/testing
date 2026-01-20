@@ -39,11 +39,6 @@ const TREASURY_ADDRESSES = {
 // GLOBAL STATE
 // ============================================================================
 
-// Set RPC index for load splitting (different from main interface)
-if (typeof currentRpcIndex !== 'undefined') {
-  currentRpcIndex = 0;
-}
-
 var earnState = {
   stakingEnabled: false,
   stakingInterval: null,
@@ -92,14 +87,14 @@ function logToConsole(message) {
 
 /**
  * Send transaction using earn.js web3 instances or main sendTx
- * @param {Object} contract - Web3 contract instance
+ * @param {Object} contract - Web3 contract instance or type "ETH" for base send
  * @param {String} method - Method name to call
  * @param {Array} args - Method arguments
  * @param {Number} glimit - Gas limit
  * @param {String} val - Value to send (in wei)
  * @param {Boolean} confirmBox - Show confirmation dialog (ignored for loginType 2)
  * @param {Boolean} switchNetworks - Switch to Ethereum mainnet for this tx
- * @param {Boolean} useEarnWeb3 - Use earn.js web3 instance instead of main web3
+ * @param {Boolean} confCheck - check for transaction confirmations
  * @returns {Promise} Transaction receipt
  */
 // Helper function to show vote payload details
@@ -115,14 +110,14 @@ function showVotePayload(hash) {
     html += `<pre style="background: #f5f5f5; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto;">${DOMPurify.sanitize(JSON.stringify(payload))}</pre>`;
     html += `</div>`;
     
-    Swal.fire({
+    await Swal.fire({
       title: 'Vote Details',
       html: html,
       width: '700px',
       confirmButtonText: 'Close'
     });
   }).catch(error => {
-    Swal.fire('Error', translateThis('Failed to load vote details'), 'error');
+    await Swal.fire('Error', translateThis('Failed to load vote details'), 'error');
   });
 }
 
@@ -417,8 +412,8 @@ async function loadETHBalances() {
       balances.ETH = ethBalanceETH;
     }
     
-    // Show gas warning if low (0.01 ETH)
-    const lowBalanceThreshold = earnState.ethWeb3.utils.toWei('0.01', 'ether');
+    // Show gas warning if low (0.0025 ETH)
+    const lowBalanceThreshold = earnState.ethWeb3.utils.toWei('0.0025', 'ether');
     if (new BN(ethBalance).lt(new BN(lowBalanceThreshold))) {
       document.getElementById('ethGasWarning').classList.remove('hidden');
     } else {
@@ -459,7 +454,7 @@ async function loadETHBalances() {
 
 async function depositLidoHODL() {
   if (!earnState.ethWeb3 || !myaccounts) {
-    Swal.fire('Error', translateThis('Please connect your wallet first'), 'error');
+    await Swal.fire('Error', translateThis('Please connect your wallet first'), 'error');
     return;
   }
   
@@ -498,7 +493,7 @@ async function depositLidoHODL() {
     }
     
     if (!hasETH && !hasStETH) {
-      Swal.fire('Error', translateThis('You need ETH or stETH on the Ethereum network to deposit'), 'error');
+      await Swal.fire('Error', translateThis('You need ETH or stETH on the Ethereum network to deposit'), 'error');
       return;
     }
     
@@ -669,9 +664,9 @@ async function depositLidoHODL() {
         }
         
         // Deposit ETH (will be swapped to stETH via Curve)
-        await sendTx(lidoContract, "tradeAndLockStETH", [slippage, lockDays, increment], 500000, amountWei, false, true);
+        await sendTx(lidoContract, "tradeAndLockStETH", [slippage, lockDays, increment], 500000, amountWei, true, true);
         
-        Swal.fire(translateThis('Success'), translateThis('ETH deposited and converted to stETH!'), 'success');
+        await Swal.fire(translateThis('Success'), translateThis('ETH deposited and converted to stETH!'), 'success');
       } else {
         // Deposit stETH
         const stETHContract = new earnState.ethWeb3.eth.Contract(
@@ -694,9 +689,10 @@ async function depositLidoHODL() {
           text: translateThis('Authorizing stETH allowance...'),
           showConfirmButton: false
         });
+        await delay(500);
         
         // Approve stETH
-        await sendTx(stETHContract, "approve", [TREASURY_ADDRESSES.LIDO_VAULT, amountWei], 100000, "0", false, true);
+        await sendTx(stETHContract, "approve", [TREASURY_ADDRESSES.LIDO_VAULT, amountWei], 100000, "0", true, true);
         
         Swal.fire({
           icon: 'info',
@@ -704,11 +700,12 @@ async function depositLidoHODL() {
           text: translateThis('Depositing stETH to vault...'),
           showConfirmButton: false
         });
+        await delay(500);
         
         // Deposit stETH
-        await sendTx(lidoContract, "lockStETH", [amountWei, lockDays, increment], 300000, "0", false, true);
+        await sendTx(lidoContract, "lockStETH", [amountWei, lockDays, increment], 300000, "0", true, true);
         
-        Swal.fire(translateThis('Success'), translateThis('stETH deposited successfully!'), 'success');
+        await Swal.fire(translateThis('Success'), translateThis('stETH deposited successfully!'), 'success');
       }
       
       hideSpinner();
@@ -795,7 +792,7 @@ async function withdrawLidoHODL() {
     showSpinner();
     
     try {
-      await sendTx(lidoContract, "withdrawStETH", [withdrawAmountWei], 300000, "0", false, true);
+      await sendTx(lidoContract, "withdrawStETH", [withdrawAmountWei], 300000, "0", true, true);
       
       hideSpinner();
       Swal.fire('Success', `Withdrew ${withdrawAmount} stETH successfully!`, 'success');
@@ -974,12 +971,8 @@ async function depositStableVault() {
         text: 'Configuring where your profits will be sent...',
         showConfirmButton: false
       });
-      
-      await feeVaultContract.methods.changeSendTo(targetSendTo).send({
-        from: myaccounts,
-        gas: 100000,
-        gasPrice: gasPrice
-      });
+      await delay(500);
+      await sendTx(feeVaultContract, "changeSendTo", [targetSendTo], 100000, "0", true, false);
     }
     
     // Approve DAI
@@ -1012,25 +1005,26 @@ async function depositStableVault() {
       text: 'Depositing DAI to StableVault...',
       showConfirmButton: false
     });
+    await delay(500);
     
     // Deposit with 5 minute deadline
     const deadline = Math.floor(Date.now() / 1000) + 300;
-    await sendTx(stableContract, "deposit", [amountWei, deadline], 500000, "0", false, false);
+    await sendTx(stableContract, "deposit", [amountWei, deadline], 500000, "0", true, false);
     
     hideSpinner();
-    Swal.fire('Success', 'Deposit successful!', 'success');
+    await Swal.fire('Success', 'Deposit successful!', 'success');
     await refreshEarnTab();
     
   } catch (error) {
     hideSpinner();
     console.error('Error depositing to StableVault:', error);
-    Swal.fire('Error', error.message || 'Deposit failed', 'error');
+    await Swal.fire('Error', error.message || 'Deposit failed', 'error');
   }
 }
 
 async function collectStableFees() {
   if (!earnState.polWeb3 || !myaccounts) {
-    Swal.fire('Error', 'Please connect your wallet first', 'error');
+    await Swal.fire('Error', 'Please connect your wallet first', 'error');
     return;
   }
   
@@ -1040,22 +1034,22 @@ async function collectStableFees() {
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
     const deadline = Math.floor(Date.now() / 1000) + 300;
     
-    await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false);
+    await sendTx(stableContract, "collectFees", [deadline], 500000, "0", true, false);
     
     hideSpinner();
-    Swal.fire('Success', 'Fees collected!', 'success');
+    await Swal.fire('Success', 'Fees collected!', 'success');
     await refreshEarnTab();
     
   } catch (error) {
     hideSpinner();
     console.error('Error collecting fees:', error);
-    Swal.fire('Error', error.message || 'Fee collection failed', 'error');
+    await Swal.fire('Error', error.message || 'Fee collection failed', 'error');
   }
 }
 
 async function withdrawStableVault() {
   if (!earnState.polWeb3 || !myaccounts || loginType !== 2) {
-    Swal.fire('Error', 'Please login with password to withdraw', 'error');
+    await Swal.fire('Error', 'Please login with password to withdraw', 'error');
     return;
   }
   
@@ -1088,16 +1082,16 @@ async function withdrawStableVault() {
     const deadline = Math.floor(Date.now() / 1000) + 300;
     
     // Withdraw with dust collection enabled
-    await sendTx(stableContract, "withdraw", [withdrawShares.toString(), deadline, true], 700000, "0", false, false);
+    await sendTx(stableContract, "withdraw", [withdrawShares.toString(), deadline, true], 700000, "0", true, false);
     
     hideSpinner();
-    Swal.fire('Success', 'Withdrawal successful!', 'success');
+    await Swal.fire('Success', 'Withdrawal successful!', 'success');
     await refreshEarnTab();
     
   } catch (error) {
     hideSpinner();
     console.error('Error withdrawing from StableVault:', error);
-    Swal.fire('Error', error.message || 'Withdrawal failed', 'error');
+    await Swal.fire('Error', error.message || 'Withdrawal failed', 'error');
   }
 }
 
@@ -1146,6 +1140,14 @@ function stopStakingAutomation() {
   console.log('Staking automation stopped');
 }
 
+function showResult(res) {
+  try {
+    return DOMPurify.sanitize(res.transactionHash);
+  } catch (e) {
+    return "Transaction submitted";
+  }
+}
+
 async function checkStakingConditions() {
   if (!earnState.stakingEnabled || !earnState.isPasswordLogin || !myaccounts) {
     return;
@@ -1180,7 +1182,9 @@ async function checkStakingConditions() {
     // Check if user needs to refresh (if lastRefresh == 1, they are paused)
     if (userInfo.lastRefresh == 1 && parseInt(userInfo.shares) > 0) {
       console.log('User is paused, refreshing vault...');
-      await sendTx(baylTreasury, "refreshVault", [], 300000, "0", false, false);
+      logToConsole('User is paused, refreshing vault...');
+      const res = await sendTx(baylTreasury, "refreshVault", [], 300000, "0", false, false, false);
+      logToConsole(showResult(res));
       return;
     }
     
@@ -1189,6 +1193,15 @@ async function checkStakingConditions() {
     const claimRate = DOMPurify.sanitize(await baylTreasury.methods.claimRate().call());
     const blocksSinceStake = currentBlock - userInfo.stakeBlock;
     const targetBlocks = Math.floor(parseInt(claimRate) * 0.85) + (earnState.randomDelaySeconds / 2); // ~2 sec per block on Polygon
+    const sectionsMissed = Math.floor((currentBlock - userInfo.stakeBlock) / claimRate) * 10;
+
+    if (sectionsMissed >= 100) {
+      console.log('User has been inactive too long, anyone can update.  Calling updateUser...');
+      logToConsole('Extended inactivity detected, refreshing position...');
+      const res = await sendTx(baylTreasury, "updateUser", [userAddress], 300000, "0", false, false, false);
+      logToConsole(showResult(res));
+      return;
+    }
     
     if (blocksSinceStake < targetBlocks) {
       console.log(`Not time to stake yet. Blocks since stake: ${blocksSinceStake}, target: ${targetBlocks}`);
@@ -1229,9 +1242,8 @@ async function checkAndDripFlow() {
       const pendingETH = displayETHAmount(pending, 6);
       logToConsole(`Flow contract has ${pendingETH} ETH pending, calling drip...`);
       
-      const tx = await sendTx(flowContract, "drip", [], 200000, "0", false, false);
-      
-      logToConsole(`Flow drip successful, tx: ${tx.transactionHash}`);
+      const tx = await sendTx(flowContract, "drip", [], 200000, "0", false, false, false);
+      logToConsole(`Flow drip successful, tx: ${showResult(tx)}`);
     }
   } catch (error) {
     console.error('Error checking/dripping flow:', error);
@@ -1247,14 +1259,14 @@ async function checkAndHarvestLido() {
     const availableYield = DOMPurify.sanitize(await lidoContract.methods.availableYield().call());
     const BN = earnState.ethWeb3.utils.BN;
     
-    // Check if yield exceeds 0.01 ETH
-    if (new BN(availableYield).gt(new BN('10000000000000000'))) {
+    // Check if yield exceeds 0.005 ETH
+    if (new BN(availableYield).gt(new BN('5000000000000000'))) {
       // Check ETH balance for gas
       const ethBalance = DOMPurify.sanitize(await earnState.ethWeb3.eth.getBalance(myaccounts));
       const BN2 = BigNumber;
       const ethBalanceETH = new BN2(ethBalance).dividedBy('1e18');
       
-      if (ethBalanceETH.lt(new BN2('0.01'))) {
+      if (ethBalanceETH.lt(new BN2('0.0025'))) {
         logToConsole('Not enough ETH gas to harvest Lido yield');
         document.getElementById('stakingEthGasWarning').classList.remove('hidden');
         return;
@@ -1279,10 +1291,10 @@ async function checkAndHarvestLido() {
           const yieldETH = stripZeros(new BN2(availableYield).dividedBy('1e18').toFixed(4));
           logToConsole(`Harvesting ${yieldETH} ETH from Lido vault...`);
           
-          const tx = await sendTx(lidoContract, "harvestAndSwapToETH", [100, 0], estimatedGas, "0", false, true);
+          const tx = await sendTx(lidoContract, "harvestAndSwapToETH", [100, 0], estimatedGas, "0", false, true, false);
           
           localStorage.setItem(myaccounts+'lidoLastCollection', now.toString());
-          logToConsole(`Lido harvest successful, tx: ${tx.transactionHash}`);
+          logToConsole(`Lido harvest successful, tx: ${showResult(tx)}`);
         }
       }
     }
@@ -1321,12 +1333,10 @@ async function checkAndManageStableVault() {
           // Collect once per day
           if (now - lastFeeCollection > 86400) {
             logToConsole('Collecting personal fees from StableVault (donating user)');
-            const deadline = now + 300;
-            
-            await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false);
-            
+            const deadline = now + 300;            
+            const tx = await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false, false);            
             localStorage.setItem(myaccounts+'stableFeeLastCollection', now.toString());
-            logToConsole(`Personal fees collected: $${stripZeros(totalPendingUSD.toFixed(2))}`);
+            logToConsole(`Personal fees collected $${stripZeros(totalPendingUSD.toFixed(2))}: ` + showResult(tx));
           }
         }
       }
@@ -1347,11 +1357,9 @@ async function checkAndManageStableVault() {
         const now = Math.floor(Date.now() / 1000);
         const deadline = now + 300;
         
-        logToConsole(`StableVault unclaimed fees: $${stripZeros(totalUnclaimedUSD.toFixed(2))}, collecting...`);
-        
-        await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false);
-        
-        logToConsole('StableVault pool fees collected successfully');
+        logToConsole(`StableVault unclaimed fees: $${stripZeros(totalUnclaimedUSD.toFixed(2))}, collecting...`);        
+        const tx = await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false, false);        
+        logToConsole('StableVault pool fees collected successfully: ' + showResult(tx));
       }
       
       // Check if position needs repositioning (if out of range)
@@ -1364,11 +1372,9 @@ async function checkAndManageStableVault() {
         
         if (now - lastReposition > positionTimelock) {
           logToConsole('StableVault is out of range, repositioning...');
-          const deadline = now + 300;
-          
-          await sendTx(stableContract, "reposition", [deadline], 700000, "0", false, false);
-          
-          logToConsole('StableVault repositioned successfully');
+          const deadline = now + 300;          
+          const tx = await sendTx(stableContract, "reposition", [deadline], 700000, "0", false, false, false);          
+          logToConsole('StableVault repositioned successfully: ' + showResult(tx));
         }
       }
       
@@ -1379,15 +1385,17 @@ async function checkAndManageStableVault() {
       
       if (now - lastDustClean > cleanTimelock) {
         logToConsole('Cleaning StableVault dust...');
-        const deadline = now + 300;
-        
-        await stableContract.methods.cleanDust(deadline).send({
-          from: myaccounts,
-          gas: 500000,
-          gasPrice: gasPrice
-        });
-        
-        logToConsole('StableVault dust cleaned successfully');
+        const daiToken = new earnState.polWeb3.eth.Contract(ERC20ABI, TREASURY_ADDRESSES.DAI);
+        const usdcToken = new earnState.polWeb3.eth.Contract(ERC20ABI, TREASURY_ADDRESSES.USDC);
+        const [daiBalance, usdcBalance] = await Promise.all([
+          daiToken.methods.balanceOf(stableVaultAddress).call(),
+          usdcToken.methods.balanceOf(stableVaultAddress).call()
+        ]);        
+        if (parseInt(daiBalance) > 0 || parseInt(usdcBalance) > 0) {
+          const deadline = now + 300;
+          const tx = await sendTx(stableContract, "cleanDust", [deadline], 500000, "0", false, false, false);        
+          logToConsole('StableVault dust cleaned successfully: ' + showResult(tx));
+        }
       }
     }
     
@@ -1419,15 +1427,12 @@ async function checkAndUpdateInactiveUsers() {
       if (staker.user === myaccounts) continue; // Skip self
       
       const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(staker.user).call())));
-      const blocksSinceStake = currentBlock - userInfo.stakeBlock;
-      
-      // Check if user is inactive (more than 10x claim rate)
-      if (blocksSinceStake > parseInt(claimRate) * 10) {
-        logToConsole(`Updating inactive user: ${staker.user.substring(0, 10)}...`);
-        
-        const tx = await sendTx(baylTreasury, "updateUser", [staker.user], 300000, "0", false, false);
-        
-        logToConsole(`Inactive user updated, tx: ${tx.transactionHash}`);
+      const sectionsMissed = Math.floor((currentBlock - userInfo.stakeBlock) / claimRate) * 10;
+
+      if (sectionsMissed >= 100) {
+        logToConsole(`Updating inactive user: ${staker.user.substring(0, 10)}...`);        
+        const tx = await sendTx(baylTreasury, "updateUser", [staker.user], 300000, "0", false, false, false);        
+        logToConsole(`Inactive user updated, tx: ${showResult(tx)}`);
         updated++;
       }
     }
@@ -1464,15 +1469,14 @@ async function loadStakingInfo() {
     const refreshRate = DOMPurify.sanitize(await baylTreasury.methods.refreshRate().call());
     const claimRate = DOMPurify.sanitize(await baylTreasury.methods.claimRate().call());
     
-    document.getElementById('baylTotalStaked').textContent = displayBAYAmount(totalTokens, 2);
+    document.getElementById('baylTotalStaked').textContent = displayBAYAmount(totalTokens, 4);
     document.getElementById('baylTotalShares').textContent = totalShares;
-    document.getElementById('baylRefreshRate').textContent = 
-      Math.floor(refreshRate / 86400) + ' days';
+    document.getElementById('baylRefreshRate').textContent = Math.floor(refreshRate / 86400) + ' days';
     document.getElementById('baylClaimRate').textContent = claimRate + ' blocks';
     
     // Load user staking info
     const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call())));
-    document.getElementById('userShares').textContent = displayBAYAmount(userInfo.shares, 2);
+    document.getElementById('userShares').textContent = displayBAYAmount(userInfo.shares, 4);
     
     if (userInfo.lastRefresh > 0) {
       const lastRefreshDate = new Date(userInfo.lastRefresh * 1000);
@@ -1488,29 +1492,32 @@ async function loadStakingInfo() {
     const userCoins = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getUserCoins(myaccounts).call())));
     if (userCoins && userCoins.length > 0) {
       const coinNames = [];
-      if (userCoins.includes('0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619')) coinNames.push('WETH');
-      if (userCoins.includes('0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063')) coinNames.push('DAI');
+      if (userCoins.includes(TREASURY_ADDRESSES.WETH)) coinNames.push('WETH');
+      if (userCoins.includes(TREASURY_ADDRESSES.DAI)) coinNames.push('DAI');
       if (userCoins.includes(TREASURY_ADDRESSES.USDC)) coinNames.push('USDC');
-      document.getElementById('userTrackingCoins').textContent = coinNames.join(', ') || 'None';
-      
-      // Get pending rewards for each coin
+      document.getElementById('userTrackingCoins').textContent =
+        coinNames.join(', ') || 'None';
+      // ✅ Get ALL pending rewards ONCE (same order as userCoins)
+      const pendingRewards = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.pendingReward(myaccounts).call())));
       let rewardsHTML = '';
-      for (const coin of userCoins) {
-        const pending = DOMPurify.sanitize(await baylTreasury.methods.getPendingReward(myaccounts, coin).call());
+      for (let i = 0; i < userCoins.length; i++) {
+        const coin = userCoins[i];
+        const pending = pendingRewards[i];
         if (isGreaterThanZero(pending)) {
           let coinName = coin.substring(0, 10) + '...';
           let pendingDisplay = '';
-          if (coin.toLowerCase() === '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'.toLowerCase()) {
+
+          if (coin.toLowerCase() === TREASURY_ADDRESSES.WETH.toLowerCase()) {
             coinName = 'WETH';
             pendingDisplay = displayETHAmount(pending, 6);
-          } else if (coin.toLowerCase() === '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063'.toLowerCase()) {
+          } else if (coin.toLowerCase() === TREASURY_ADDRESSES.DAI.toLowerCase()) {
             coinName = 'DAI';
             pendingDisplay = displayETHAmount(pending, 6);
           } else if (coin.toLowerCase() === TREASURY_ADDRESSES.USDC.toLowerCase()) {
             coinName = 'USDC';
             pendingDisplay = displayUSDCAmount(pending, 6);
           }
-          
+
           rewardsHTML += `<div>${coinName}: ${pendingDisplay}</div>`;
         }
       }
@@ -1553,8 +1560,8 @@ async function loadStakingInfo() {
       const baylBalance = DOMPurify.sanitize(await baylContract.methods.balanceOf(earnState.userVaultAddress).call());
       const bayrBalance = DOMPurify.sanitize(await bayrContract.methods.balanceOf(earnState.userVaultAddress).call());
       
-      document.getElementById('vaultBaylBalance').textContent = displayBAYAmount(baylBalance, 2);
-      document.getElementById('vaultBayrBalance').textContent = displayBAYAmount(bayrBalance, 2);
+      document.getElementById('vaultBaylBalance').textContent = displayBAYAmount(baylBalance, 4);
+      document.getElementById('vaultBayrBalance').textContent = displayBAYAmount(bayrBalance, 4);
       
       document.getElementById('vaultBalances').classList.remove('hidden');
     }
@@ -1600,54 +1607,45 @@ async function loadTopStakers() {
 
 async function depositStake() {
   if (!earnState.polWeb3 || !myaccounts || loginType !== 2) {
-    Swal.fire('Error', 'Please login with password to stake', 'error');
+    await Swal.fire('Error', 'Please login with password to stake', 'error');
     return;
   }
-  
   const result = await Swal.fire({
     title: 'Staking Disclaimer',
     html: `
-      <p>Rewards are not guaranteed and are based on users who opt-in. This system is not a security because there is no common enterprise. In exchange for protocol fees, you are doing work by securing the blockchain, managing the stablecoin position, and voting on important protocol decisions.</p>
-      <p><a href="https://bitbay.market/downloads/whitepapers/Protocol-owned-assets.pdf" target="_blank">Learn more about BitBay staking</a></p>
+      <p>`+translateThis("Rewards are not guaranteed and are based on users who opt-in. This system is not a security because users volunteer, there is no common enterprise and stakers do tasks for the rewards. In exchange for protocol fees, you are doing work by securing the blockchain, managing the stablecoin position, and voting on important protocol decisions.")+translateThis(" Additionally, your node will be tasked with occasionally covering gas fees in order to manage these positions and redeem rewards. Please make sure that you monitor your account and understand the source code.")+`</p>
+      <p><a href="https://bitbay.market/downloads/whitepapers/Protocol-owned-assets.pdf" target="_blank"> `+translateThis("Click here to learn more about BitBay staking.")+`</a></p>
     `,
     icon: 'info',
     showCancelButton: true,
     confirmButtonText: 'I Understand, Continue',
     cancelButtonText: 'Cancel'
   });
-  
   if (!result.isConfirmed) return;
-  
-  const amount = document.getElementById('stakingDepositAmount').value;
-  
+  var amount = document.getElementById('stakingDepositAmount').value;
   const BN = BigNumber;
   if (!amount || new BN(amount).lte(new BN('0'))) {
-    Swal.fire('Error', 'Please enter a valid amount', 'error');
+    await Swal.fire(translateThis('Error'), translateThis('Please enter a valid amount'), 'error');
     return;
   }
-  
   try {
     showSpinner();
-    
-    const amountWei = earnState.polWeb3.utils.toWei(amount, 'ether');
+    const amount = BN(result.value).times('1e8').toString();
     const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
-    
     // Check if this is first deposit - if so, set coins first
-    const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call())));
     const userCoins = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getUserCoins(myaccounts).call())));
-    
     if (!userCoins || userCoins.length === 0) {
       // Set default coins: WETH, DAI, USDC
       const coins = [
-        '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619', // WETH on Polygon
-        '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063', // DAI on Polygon
+        TREASURY_ADDRESSES.WETH, // WETH on Polygon
+        TREASURY_ADDRESSES.DAI, // DAI on Polygon
         TREASURY_ADDRESSES.USDC
       ];
-      
+      Swal.fire("Transaction Processing...", "Setting the coins to track when checking for rewards: WETH, DAI, USDC");
+      await delay(500);
       await sendTx(baylTreasury, "setCoins", [coins], 200000, "0", false, false);
     }
-    
     // Get BAYL address
     const baylAddress = DOMPurify.sanitize(await vaultContract.methods.BAYL().call());
     const baylContract = new earnState.polWeb3.eth.Contract(
@@ -1663,30 +1661,32 @@ async function depositStake() {
       }],
       baylAddress
     );
-    
     // Approve BAYL to vault
-    await sendTx(baylContract, "approve", [TREASURY_ADDRESSES.VAULT, amountWei], 100000, "0", false, false);
-    
+    Swal.fire({
+      icon: 'info',
+      title: 'Allowance',
+      text: 'Authorizing BAYL allowance...',
+      showConfirmButton: false
+    });
+    await sendTx(baylContract, "approve", [TREASURY_ADDRESSES.VAULT, amount], 100000, "0", false, false);
     // Deposit to vault (which will stake to treasury)
-    await sendTx(vaultContract, "depositBAYL", [amountWei], 500000, "0", false, false);
-    
+    await sendTx(vaultContract, "depositLiquid", [amount], 1500000, "0", true, false);
     hideSpinner();
-    Swal.fire('Success', 'BAYL staked successfully!', 'success');
+    await Swal.fire('Success', 'BAYL staked successfully!', 'success');
     await refreshEarnTab();
-    
   } catch (error) {
     hideSpinner();
     console.error('Error staking BAYL:', error);
-    Swal.fire('Error', error.message || 'Staking failed', 'error');
+    await Swal.fire('Error', error.message || 'Staking failed', 'error');
   }
 }
 
 async function unstakeBAYL() {
   if (!earnState.polWeb3 || !myaccounts || loginType !== 2) {
-    Swal.fire('Error', 'Please login with password to unstake', 'error');
+    await Swal.fire('Error', 'Please login with password to unstake', 'error');
     return;
   }
-  
+  const BN = BigNumber;
   const result = await Swal.fire({
     title: 'Unstake BAYL',
     input: 'number',
@@ -1694,49 +1694,42 @@ async function unstakeBAYL() {
     inputPlaceholder: '0.0',
     showCancelButton: true,
     inputValidator: (value) => {
-      const BN = BigNumber;
       if (!value || new BN(value).lte(new BN('0'))) {
         return 'Please enter a valid amount';
       }
     }
   });
-  
   if (!result.isConfirmed) return;
-  
   try {
     showSpinner();
-    
-    const amountWei = earnState.polWeb3.utils.toWei(result.value, 'ether');
+    const amount = BN(result.value).times('1e8').toString();
     const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
-    
-    await sendTx(vaultContract, "withdrawBAYL", [amountWei], 500000, "0", false, false);
-    
+    await sendTx(vaultContract, "withdrawLiquid", [amount], 1000000, "0", true, false);
     hideSpinner();
-    Swal.fire('Success', 'BAYL unstaked successfully!', 'success');
+    await Swal.fire('Success', 'BAYL unstaked successfully!', 'success');
     await refreshEarnTab();
-    
   } catch (error) {
     hideSpinner();
     console.error('Error unstaking BAYL:', error);
-    Swal.fire('Error', error.message || 'Unstaking failed', 'error');
+    await Swal.fire('Error', error.message || 'Unstaking failed', 'error');
   }
 }
 
-async function claimStakingRewards() {
+async function claimStakingRewards(showSwal = false) {
   if (!earnState.polWeb3 || !myaccounts || loginType !== 2) {
-    Swal.fire('Error', 'Please login with password to claim rewards', 'error');
+    if(showSwal) {
+      await Swal.fire('Error', 'Please login with password to claim rewards', 'error');
+    }
     return;
   }
-  
   try {
-    showSpinner();
-    
-    const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
-    
+    if(showSwal) {
+      showSpinner();
+    }
+    const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);    
     // Get user's saved votes
     const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
     const votesToCast = [];
-    
     for (const vote of savedVotes) {
       if (vote.timesCast < vote.repeat) {
         // Build the vote payload array per StakingVote.sol _executePayload spec
@@ -1744,54 +1737,39 @@ async function claimStakingRewards() {
         // payload[1] = abi.encode(string("functionName(type)"))  // function signature
         // payload[2] = abi.encode(address(targetContract))  // target address
         // payload[3+] = encoded arguments (raw bytes, not double-encoded)
-        
         for (const func of vote.functions) {
           try {
             const payload = [];
-            
             // Element 0: opcode (uint256 = 0)
             payload.push(earnState.polWeb3.eth.abi.encodeParameter('uint256', '0'));
-            
             // Element 1: function signature as string
             payload.push(earnState.polWeb3.eth.abi.encodeParameter('string', func.signature));
-            
             // Element 2: target contract address
             payload.push(earnState.polWeb3.eth.abi.encodeParameter('address', vote.targetContract));
-            
             // Element 3+: encode the argument(s) individually
             payload.push(earnState.polWeb3.eth.abi.encodeParameter(func.paramType, func.paramValue));
-            
             votesToCast.push(payload);
           } catch (e) {
             console.error('Error encoding vote:', e);
           }
         }
-        
         // Increment times cast
         vote.timesCast++;
       }
     }
-    
     // Save updated vote counts
-    localStorage.setItem(myaccounts+'earnUserVotes', JSON.stringify(savedVotes));
-    
-    // Claim rewards with votes (as bytes[][] array)
-    await baylTreasury.methods.claimRewards(TREASURY_ADDRESSES.VOTE_BAYL, votesToCast).send({
-      from: myaccounts,
-      gas: 700000,
-      gasPrice: gasPrice
-    });
-    
-    // Update total rewards in localStorage
     const userCoins = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getUserCoins(myaccounts).call())));
-    for (const coin of userCoins) {
-      let coinName = 'Unknown';
-      if (coin.toLowerCase() === '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'.toLowerCase()) coinName = 'WETH';
-      if (coin.toLowerCase() === '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063'.toLowerCase()) coinName = 'DAI';
+    const pendingRewards = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.pendingReward(myaccounts).call())));
+    var foundRewards = false;
+    for (let i = 0; i < userCoins.length; i++) {
+      const coin = userCoins[i];
+      const pending = pendingRewards[i];
+      let coinName = coin;
+      if (coin.toLowerCase() === TREASURY_ADDRESSES.WETH.toLowerCase()) coinName = 'WETH';
+      if (coin.toLowerCase() === TREASURY_ADDRESSES.DAI.toLowerCase()) coinName = 'DAI';
       if (coin.toLowerCase() === TREASURY_ADDRESSES.USDC.toLowerCase()) coinName = 'USDC';
-      
-      const pending = DOMPurify.sanitize(await baylTreasury.methods.getPendingReward(myaccounts, coin).call());
       if (parseInt(pending) > 0) {
+        foundRewards = true;
         const BN = BigNumber;
         let amount;
         if (coinName === 'USDC') {
@@ -1802,23 +1780,39 @@ async function claimStakingRewards() {
         earnState.userTotalRewards[coinName] = (earnState.userTotalRewards[coinName] || 0) + amount;
       }
     }
-    
-    localStorage.setItem(myaccounts+'earnTotalRewards', JSON.stringify(earnState.userTotalRewards));
-    
-    hideSpinner();
-    
-    let message = 'Rewards claimed successfully!';
-    if (votesToCast.length > 0) {
-      message += ` ${votesToCast.length} vote(s) cast.`;
+    var tx;
+    if(foundRewards || !showSwal) {
+      tx = await sendTx(baylTreasury, "claimRewards", [TREASURY_ADDRESSES.VOTE_BAYL, votesToCast], 700000, "0", showSwal, false, showSwal);
+    } else {
+      if(showSwal) {
+        await Swal.fire(translateThis("Transaction not sent"), translateThis("No rewards found."));
+        hideSpinner();
+      }
+      console.log("No rewards found");
+      return;
     }
-    
-    Swal.fire('Success', message, 'success');
+    localStorage.setItem(myaccounts+'earnUserVotes', JSON.stringify(savedVotes));
+    localStorage.setItem(myaccounts+'earnTotalRewards', JSON.stringify(earnState.userTotalRewards));
+    if(showSwal) {
+      hideSpinner();
+    }
+    let message = 'Stake claimed successfully';
+    if (votesToCast.length > 0) {
+      message += ` -- ${votesToCast.length} vote(s) cast.`;
+    }
+    if(!showSwal) {
+      logToConsole(message+` -- tx: ${showResult(tx)}`);
+    }
+    if(showSwal) {
+      await Swal.fire('Success', message, 'success');
+    }
     await refreshEarnTab();
-    
   } catch (error) {
     hideSpinner();
     console.error('Error claiming rewards:', error);
-    Swal.fire('Error', error.message || 'Claiming rewards failed', 'error');
+    if(showSwal) {
+      await Swal.fire('Error', error.message || 'Claiming rewards failed', 'error');
+    }
   }
 }
 
@@ -1890,7 +1884,7 @@ function showCreateVoteDialog() {
   // Load any saved votes from localStorage
   const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
   
-  Swal.fire({
+  await Swal.fire({
     title: 'Create New Vote',
     html: `
       <div style="text-align: left; font-size: 0.9em;">
@@ -2013,7 +2007,7 @@ function createVoteFromDialog() {
   savedVotes.push(newVote);
   localStorage.setItem(myaccounts+'earnUserVotes', JSON.stringify(savedVotes));
   
-  Swal.fire('Success', 'Vote created! It will be cast during your next reward claim.', 'success');
+  await Swal.fire('Success', 'Vote created! It will be cast during your next reward claim.', 'success');
   return true;
 }
 
@@ -2043,7 +2037,7 @@ function showVoteDetailsDialog() {
   
   html += '</div>';
   
-  Swal.fire({
+  await Swal.fire({
     title: 'Your Votes',
     html: html,
     width: '500px',
@@ -2090,8 +2084,8 @@ async function calculateAndDisplayROI() {
     const usdcPrice = 1;
     
     // Get weekly rewards for each coin
-    const wethAddress = '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619';
-    const daiAddress = '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063';
+    const wethAddress = TREASURY_ADDRESSES.WETH;
+    const daiAddress = TREASURY_ADDRESSES.DAI;
     const usdcAddress = TREASURY_ADDRESSES.USDC;
     
     const wethRewards = DOMPurify.sanitize(await baylTreasury.methods.weeklyRewards(currentWeek, wethAddress).call());
@@ -2233,7 +2227,7 @@ async function loadTokenBalances() {
 
 function copyDepositAddress(coinType) {
   if (!myaccounts) {
-    Swal.fire('Error', 'Please connect your wallet first', 'error');
+    await Swal.fire('Error', 'Please connect your wallet first', 'error');
     return;
   }
   
@@ -2241,7 +2235,7 @@ function copyDepositAddress(coinType) {
   
   // Copy to clipboard
   navigator.clipboard.writeText(address).then(() => {
-    Swal.fire({
+    await Swal.fire({
       title: `${coinType} Deposit Address`,
       html: `
         <p>Address copied to clipboard!</p>
@@ -2256,7 +2250,7 @@ function copyDepositAddress(coinType) {
       confirmButtonText: 'OK'
     });
   }).catch(() => {
-    Swal.fire({
+    await Swal.fire({
       title: `${coinType} Deposit Address`,
       html: `
         <p style="word-break: break-all; font-family: monospace; background: #f5f5f5; padding: 10px; border-radius: 5px;">
@@ -2274,7 +2268,7 @@ function copyDepositAddress(coinType) {
 
 async function showWithdrawDialog() {
   if (!earnState.polWeb3 || !myaccounts) {
-    Swal.fire('Error', 'Please connect your wallet first', 'error');
+    await Swal.fire('Error', 'Please connect your wallet first', 'error');
     return;
   }
   
@@ -2345,7 +2339,7 @@ async function showWithdrawDialog() {
     }
     
     if (balances.length === 0) {
-      Swal.fire('Info', 'No available balances to withdraw', 'info');
+      await Swal.fire('Info', 'No available balances to withdraw', 'info');
       return;
     }
     
@@ -2397,74 +2391,50 @@ async function showWithdrawDialog() {
     
   } catch (error) {
     console.error('Error in withdraw dialog:', error);
-    Swal.fire('Error', 'Failed to load balances: ' + error.message, 'error');
+    await Swal.fire('Error', error.message, 'error');
   }
 }
 
 async function executeWithdrawal(withdrawData) {
   const { coin, amount, address } = withdrawData;
-  
   showSpinner();
-  
   try {
     const BN = BigNumber;
-    const gasPrice = DOMPurify.sanitize(await earnState.polWeb3.eth.getGasPrice());
-    
     if (coin.coin === 'POL') {
       // Withdraw POL
-      const balance = DOMPurify.sanitize(await earnState.polWeb3.eth.getBalance(myaccounts));
       let amountWei;
-      
       if (amount) {
         amountWei = earnState.polWeb3.utils.toWei(amount, 'ether');
       } else {
         // Reserve gas for transaction when withdrawing full balance
-        const gasCost = new BN(gasPrice).times(21000);
+        const balance = DOMPurify.sanitize(await earnState.polWeb3.eth.getBalance(myaccounts));
+        const gasPrice2 = DOMPurify.sanitize(await earnState.polWeb3.eth.getGasPrice());
+        const gasCost = (new BN(gasPrice2).times(50000)).times(1.5);
         amountWei = new BN(balance).minus(gasCost).toFixed(0);
-        
         if (new BN(amountWei).lte(new BN('0'))) {
           throw new Error('Insufficient balance to cover gas fees');
         }
       }
-      
-      await earnState.polWeb3.eth.sendTransaction({
-        from: myaccounts,
-        to: address,
-        value: amountWei,
-        gas: 21000,
-        gasPrice: gasPrice
-      });
-      
+      await sendTx("ETH",amountWei.toString(),[address],50000,true);
     } else if (coin.coin === 'ETH') {
       // Withdraw ETH
-      const balance = DOMPurify.sanitize(await earnState.ethWeb3.eth.getBalance(myaccounts));
-      const ethGasPrice = DOMPurify.sanitize(await earnState.ethWeb3.eth.getGasPrice());
       let amountWei;
-      
       if (amount) {
         amountWei = earnState.ethWeb3.utils.toWei(amount, 'ether');
       } else {
         // Reserve gas for transaction when withdrawing full balance
-        const gasCost = new BN(ethGasPrice).times(21000);
+        const balance = DOMPurify.sanitize(await earnState.ethWeb3.eth.getBalance(myaccounts));
+        const ethGasPrice = DOMPurify.sanitize(await earnState.ethWeb3.eth.getGasPrice());
+        const gasCost = (new BN(ethGasPrice).times(50000)).times(1.5);
         amountWei = new BN(balance).minus(gasCost).toFixed(0);
-        
         if (new BN(amountWei).lte(new BN('0'))) {
           throw new Error('Insufficient balance to cover gas fees');
         }
       }
-      
-      await earnState.ethWeb3.eth.sendTransaction({
-        from: myaccounts,
-        to: address,
-        value: amountWei,
-        gas: 21000,
-        gasPrice: ethGasPrice
-      });
-      
+      await sendTx("ETH",amountWei.toString(),[address],50000,"0",true,true);
     } else {
       // Withdraw ERC20 token
       let tokenAddress, decimals, web3Instance;
-      
       if (coin.coin === 'USDC') {
         tokenAddress = TREASURY_ADDRESSES.USDC;
         decimals = '1e6';
@@ -2482,31 +2452,26 @@ async function executeWithdrawal(withdrawData) {
         decimals = '1e18';
         web3Instance = earnState.ethWeb3;
       }
-      
       const tokenContract = new web3Instance.eth.Contract(
         [{"constant": false, "inputs": [{"name": "recipient", "type": "address"}, {"name": "amount", "type": "uint256"}], "name": "transfer", "outputs": [{"name": "", "type": "bool"}], "type": "function"},
          {"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}],
         tokenAddress
       );
-      
       const balance = DOMPurify.sanitize(await tokenContract.methods.balanceOf(myaccounts).call());
       const amountWei = amount ? new BN(amount).times(decimals).toFixed(0) : balance;
-      
-      await tokenContract.methods.transfer(address, amountWei).send({
-        from: myaccounts,
-        gas: 100000,
-        gasPrice: gasPrice
-      });
+      if(coin.coin === 'stETH (Lido)') {
+        await sendTx(tokenContract, "transfer", [address, amountWei], 100000, "0", true, false, true);
+      } else {
+        await sendTx(tokenContract, "transfer", [address, amountWei], 100000, "0", true, false);
+      }
     }
-    
     hideSpinner();
-    Swal.fire('Success', `${coin.coin} withdrawn successfully!`, 'success');
+    await Swal.fire('Success', `${coin.coin} withdrawn successfully!`, 'success');
     await refreshEarnTab();
-    
   } catch (error) {
     hideSpinner();
     console.error('Error withdrawing:', error);
-    Swal.fire('Error', error.message || 'Withdrawal failed', 'error');
+    await Swal.fire('Error', error.message || 'Withdrawal failed', 'error');
   }
 }
 
