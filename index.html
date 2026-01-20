@@ -2149,7 +2149,10 @@ function loadRpcSettings() {
 
 function getPolygonRpc() {
   if (currentChainId === "11155111") {
-    return;
+    return "https://eth-sepolia.public.blastapi.io";
+  }
+  if (currentRpcIndex == 999) {
+    return RPC_ENDPOINTS[0]
   }
   return CUSTOM_POLYGON_RPC || RPC_ENDPOINTS[currentRpcIndex];
 }

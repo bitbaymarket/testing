@@ -98,7 +98,7 @@ function logToConsole(message) {
  * @returns {Promise} Transaction receipt
  */
 // Helper function to show vote payload details
-function showVotePayload(hash) {
+async function showVotePayload(hash) {
   if (!earnState.polWeb3) return;
   
   const voteContract = new earnState.polWeb3.eth.Contract(stakingABI, TREASURY_ADDRESSES.VOTE_BAYL);
@@ -1198,7 +1198,7 @@ async function checkStakingConditions() {
     if (sectionsMissed >= 100) {
       console.log('User has been inactive too long, anyone can update.  Calling updateUser...');
       logToConsole('Extended inactivity detected, refreshing position...');
-      const res = await sendTx(baylTreasury, "updateUser", [userAddress], 300000, "0", false, false, false);
+      const res = await sendTx(baylTreasury, "updateUser", [myaccounts], 300000, "0", false, false, false);
       logToConsole(showResult(res));
       return;
     }
@@ -1312,7 +1312,7 @@ async function checkAndManageStableVault() {
     
     // Part 1: Check if user is donating and has pending fees > $1
     const userShares = DOMPurify.sanitize(await feeVaultContract.methods.shares(myaccounts).call());
-    
+    var now;
     if (isGreaterThanZero(userShares)) {
       const sendTo = DOMPurify.sanitize(await feeVaultContract.methods.sendTo(myaccounts).call());
       const isDonating = sendTo !== '0x0000000000000000000000000000000000000000' && 
@@ -1328,7 +1328,7 @@ async function checkAndManageStableVault() {
         // Only collect if > $1
         if (totalPendingUSD.gt(new BN('1'))) {
           const lastFeeCollection = parseInt(localStorage.getItem(myaccounts+'stableFeeLastCollection') || '0');
-          const now = Math.floor(Date.now() / 1000);
+          now = Math.floor(Date.now() / 1000);
           
           // Collect once per day
           if (now - lastFeeCollection > 86400) {
@@ -1354,7 +1354,7 @@ async function checkAndManageStableVault() {
       
       // Only proceed if > $5 for the collective pool
       if (totalUnclaimedUSD.gt(new BN('5'))) {
-        const now = Math.floor(Date.now() / 1000);
+        now = Math.floor(Date.now() / 1000);
         const deadline = now + 300;
         
         logToConsole(`StableVault unclaimed fees: $${stripZeros(totalUnclaimedUSD.toFixed(2))}, collecting...`);        
@@ -1368,7 +1368,7 @@ async function checkAndManageStableVault() {
       if (!isInRange) {
         const lastReposition = DOMPurify.sanitize(await stableContract.methods.lastReposition().call());
         const positionTimelock = DOMPurify.sanitize(await stableContract.methods.POSITION_TIMELOCK().call());
-        const now = Math.floor(Date.now() / 1000);
+        now = Math.floor(Date.now() / 1000);
         
         if (now - lastReposition > positionTimelock) {
           logToConsole('StableVault is out of range, repositioning...');
@@ -1381,15 +1381,15 @@ async function checkAndManageStableVault() {
       // Check if dust needs cleaning
       const lastDustClean = DOMPurify.sanitize(await stableContract.methods.lastDustClean().call());
       const cleanTimelock = DOMPurify.sanitize(await stableContract.methods.CLEAN_TIMELOCK().call());
-      const now = Math.floor(Date.now() / 1000);
+      now = Math.floor(Date.now() / 1000);
       
       if (now - lastDustClean > cleanTimelock) {
         logToConsole('Cleaning StableVault dust...');
         const daiToken = new earnState.polWeb3.eth.Contract(ERC20ABI, TREASURY_ADDRESSES.DAI);
         const usdcToken = new earnState.polWeb3.eth.Contract(ERC20ABI, TREASURY_ADDRESSES.USDC);
         const [daiBalance, usdcBalance] = await Promise.all([
-          daiToken.methods.balanceOf(stableVaultAddress).call(),
-          usdcToken.methods.balanceOf(stableVaultAddress).call()
+          daiToken.methods.balanceOf(TREASURY_ADDRESSES.STABLE_POOL).call(),
+          usdcToken.methods.balanceOf(TREASURY_ADDRESSES.STABLE_POOL).call()
         ]);        
         if (parseInt(daiBalance) > 0 || parseInt(usdcBalance) > 0) {
           const deadline = now + 300;
@@ -1630,7 +1630,7 @@ async function depositStake() {
   }
   try {
     showSpinner();
-    const amount = BN(result.value).times('1e8').toString();
+    const amount = BN(amount).times('1e8').toString();
     const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
     // Check if this is first deposit - if so, set coins first
@@ -1880,7 +1880,7 @@ async function loadVotes(voteContract, currentEpoch) {
   }
 }
 
-function showCreateVoteDialog() {
+async function showCreateVoteDialog() {
   // Load any saved votes from localStorage
   const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
   
@@ -1964,7 +1964,7 @@ function addVoteFunction() {
   container.appendChild(newFunction);
 }
 
-function createVoteFromDialog() {
+async function createVoteFromDialog() {
   const targetContract = document.getElementById('voteTargetContract').value;
   
   if (!targetContract || !targetContract.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -2011,7 +2011,7 @@ function createVoteFromDialog() {
   return true;
 }
 
-function showVoteDetailsDialog() {
+async function showVoteDetailsDialog() {
   const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
   
   let html = '<div style="text-align: left;">';
@@ -2225,7 +2225,7 @@ async function loadTokenBalances() {
 // DEPOSIT ADDRESS AND WITHDRAWAL FUNCTIONS
 // ============================================================================
 
-function copyDepositAddress(coinType) {
+async function copyDepositAddress(coinType) {
   if (!myaccounts) {
     await Swal.fire('Error', 'Please connect your wallet first', 'error');
     return;
@@ -2415,7 +2415,7 @@ async function executeWithdrawal(withdrawData) {
           throw new Error('Insufficient balance to cover gas fees');
         }
       }
-      await sendTx("ETH",amountWei.toString(),[address],50000,true);
+      await sendTx("ETH",amountWei.toString(),[address],50000,"0",true);
     } else if (coin.coin === 'ETH') {
       // Withdraw ETH
       let amountWei;
