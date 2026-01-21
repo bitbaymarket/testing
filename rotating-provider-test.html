@@ -54,8 +54,8 @@
 
     function showState() {
       var stateEl = document.getElementById('state');
-      if (window.RPCState) {
-        stateEl.textContent = JSON.stringify(window.RPCState.getStats(), null, 2);
+      if (window.RPCState && window.RPCState.length > 0) {
+        stateEl.textContent = JSON.stringify(window.RPCState[0].getStats(), null, 2);
       } else {
         stateEl.textContent = 'RPCState not initialized';
       }

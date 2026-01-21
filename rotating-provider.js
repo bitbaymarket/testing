@@ -4,11 +4,17 @@
  * A simple, elegant library that handles RPC provider rotation
  * with rate limit detection and two-tier provider support.
  * 
+ * Features:
+ * - Multiple instances supported (each gets own index in window.RPCState[])
+ * - Fallback cooldown: After all preferred providers fail, uses fallback
+ *   for 50 calls OR until 4 consecutive fallback failures
+ * - Automatic cycling back to preferred providers after cooldown expires
+ * 
  * Usage:
  *   const provider = new RotatingProvider(preferredConfig, fallbackConfig);
  *   const web3 = new Web3(provider);
  * 
- * Global state available at window.RPCState
+ * Global state available at window.RPCState (array of instance states)
  */
 
 var preferredProvidersDefault = [
@@ -172,13 +178,26 @@ var fallbackProvidersDefault = [
     this.fallbackIndex = 0;
     this.usingFallback = false;
     
-    // Initialize global state
+    // Cooldown tracking for fallback cycling
+    this.fallbackCallsRemaining = 0;  // How many calls to stay in fallback mode
+    this.consecutiveFallbackFailures = 0;  // Track consecutive fallback failures
+    this.forcedToFallback = false;  // Whether we were forced to fallback due to all preferred failing
+    
+    // Initialize global state array for multiple instances
     if (typeof window !== 'undefined') {
-      window.RPCState = {
+      if (!Array.isArray(window.RPCState)) {
+        window.RPCState = [];
+      }
+      // Find the next available index
+      this._stateIndex = window.RPCState.length;
+      window.RPCState.push({
         currentProvider: null,
         currentTier: 'preferred',
         preferredIndex: 0,
         fallbackIndex: 0,
+        fallbackCallsRemaining: 0,
+        consecutiveFallbackFailures: 0,
+        forcedToFallback: false,
         providers: {
           preferred: [],
           fallback: []
@@ -186,7 +205,7 @@ var fallbackProvidersDefault = [
         getStats: function() {
           return self._getGlobalStats();
         }
-      };
+      });
     }
     
     // Lazy-initialize providers (deferred until Web3 is available)
@@ -237,18 +256,24 @@ var fallbackProvidersDefault = [
    * Update global state
    */
   RotatingProvider.prototype._updateGlobalState = function() {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !Array.isArray(window.RPCState)) return;
+    
+    var state = window.RPCState[this._stateIndex];
+    if (!state) return;
     
     var currentStats = this._getCurrentStats();
     
-    window.RPCState.currentProvider = currentStats ? currentStats.url : null;
-    window.RPCState.currentTier = this.usingFallback ? 'fallback' : 'preferred';
-    window.RPCState.preferredIndex = this.preferredIndex;
-    window.RPCState.fallbackIndex = this.fallbackIndex;
-    window.RPCState.providers.preferred = this.preferredStats.map(function(s) {
+    state.currentProvider = currentStats ? currentStats.url : null;
+    state.currentTier = this.usingFallback ? 'fallback' : 'preferred';
+    state.preferredIndex = this.preferredIndex;
+    state.fallbackIndex = this.fallbackIndex;
+    state.fallbackCallsRemaining = this.fallbackCallsRemaining;
+    state.consecutiveFallbackFailures = this.consecutiveFallbackFailures;
+    state.forcedToFallback = this.forcedToFallback;
+    state.providers.preferred = this.preferredStats.map(function(s) {
       return s.getStats();
     });
-    window.RPCState.providers.fallback = this.fallbackStats.map(function(s) {
+    state.providers.fallback = this.fallbackStats.map(function(s) {
       return s.getStats();
     });
   };
@@ -258,17 +283,23 @@ var fallbackProvidersDefault = [
    * @returns {Object}
    */
   RotatingProvider.prototype._getGlobalStats = function() {
-    if (typeof window === 'undefined' || !window.RPCState) {
+    if (typeof window === 'undefined' || !Array.isArray(window.RPCState)) {
       return null;
     }
+    var state = window.RPCState[this._stateIndex];
+    if (!state) return null;
+    
     return {
-      currentProvider: window.RPCState.currentProvider,
-      currentTier: window.RPCState.currentTier,
-      preferredIndex: window.RPCState.preferredIndex,
-      fallbackIndex: window.RPCState.fallbackIndex,
+      currentProvider: state.currentProvider,
+      currentTier: state.currentTier,
+      preferredIndex: state.preferredIndex,
+      fallbackIndex: state.fallbackIndex,
+      fallbackCallsRemaining: state.fallbackCallsRemaining,
+      consecutiveFallbackFailures: state.consecutiveFallbackFailures,
+      forcedToFallback: state.forcedToFallback,
       providers: {
-        preferred: window.RPCState.providers.preferred.slice(),
-        fallback: window.RPCState.providers.fallback.slice()
+        preferred: state.providers.preferred.slice(),
+        fallback: state.providers.fallback.slice()
       }
     };
   };
@@ -297,9 +328,36 @@ var fallbackProvidersDefault = [
 
   /**
    * Rotate to next provider
+   * @param {boolean} isFailure - Whether this rotation is due to a failure
    * @returns {boolean} - true if there are more providers to try
    */
-  RotatingProvider.prototype._rotateProvider = function() {
+  RotatingProvider.prototype._rotateProvider = function(isFailure) {
+    // If in cooldown mode (using fallback with calls remaining)
+    if (this.fallbackCallsRemaining > 0 && this.usingFallback) {
+      this.fallbackCallsRemaining--;
+      
+      if (isFailure) {
+        this.consecutiveFallbackFailures++;
+        // If 4 consecutive fallback failures, try preferred providers again
+        if (this.consecutiveFallbackFailures >= 4) {
+          this.usingFallback = false;
+          this.fallbackCallsRemaining = 0;
+          this.consecutiveFallbackFailures = 0;
+          this.forcedToFallback = false;
+          this.preferredIndex = 0;
+          this._updateGlobalState();
+          return true;
+        }
+        // Rotate within fallback providers
+        this.fallbackIndex = (this.fallbackIndex + 1) % this.fallbackProviders.length;
+      } else {
+        this.consecutiveFallbackFailures = 0;
+      }
+      
+      this._updateGlobalState();
+      return true;
+    }
+    
     if (!this.usingFallback) {
       // Still in preferred tier
       this.preferredIndex++;
@@ -307,22 +365,35 @@ var fallbackProvidersDefault = [
       if (this.preferredIndex >= this.preferredProviders.length) {
         // Switch to fallback tier
         this.usingFallback = true;
+        this.forcedToFallback = true;
+        this.fallbackCallsRemaining = 50;  // 50 call cooldown
+        this.consecutiveFallbackFailures = 0;
         this.fallbackIndex = 0;
         
         if (this.fallbackProviders.length === 0) {
           // No fallback providers, wrap preferred
           this.usingFallback = false;
+          this.forcedToFallback = false;
+          this.fallbackCallsRemaining = 0;
           this.preferredIndex = 0;
           return false;
         }
       }
     } else {
-      // In fallback tier
+      // In fallback tier (not in cooldown mode)
       this.fallbackIndex++;
       
       if (this.fallbackIndex >= this.fallbackProviders.length) {
-        // All providers exhausted
-        return false;
+        // All providers exhausted, check if we should retry preferred
+        if (this.forcedToFallback) {
+          // After exhausting all fallbacks, start cooldown mode
+          this.fallbackCallsRemaining = 50;
+          this.consecutiveFallbackFailures = 0;
+          this.fallbackIndex = 0;
+        } else {
+          // All providers exhausted
+          return false;
+        }
       }
     }
     var stats = this._getCurrentStats();
@@ -345,6 +416,9 @@ var fallbackProvidersDefault = [
     this.preferredIndex = 0;
     this.fallbackIndex = 0;
     this.usingFallback = false;
+    this.fallbackCallsRemaining = 0;
+    this.consecutiveFallbackFailures = 0;
+    this.forcedToFallback = false;
     this._updateGlobalState();
   };
 
@@ -456,7 +530,7 @@ var fallbackProvidersDefault = [
       // Check if we should pre-emptively rotate due to limits
       var shouldRotate = stats.recordRequest();
       if (shouldRotate && attempts < maxAttempts - 1) {
-        self._rotateProvider();
+        self._rotateProvider(false);
         provider = self._getCurrentProvider();
         stats = self._getCurrentStats();
         // Note: We don't record again here - the next iteration will record
@@ -467,6 +541,19 @@ var fallbackProvidersDefault = [
       attempts++;
       
       return sendToProvider(provider, payload).then(function(response) {
+        // On successful request, update cooldown state
+        if (self.usingFallback && self.fallbackCallsRemaining > 0) {
+          self.fallbackCallsRemaining--;
+          self.consecutiveFallbackFailures = 0;
+          
+          // If cooldown expired, go back to preferred providers
+          if (self.fallbackCallsRemaining === 0) {
+            self.usingFallback = false;
+            self.forcedToFallback = false;
+            self.preferredIndex = 0;
+          }
+          self._updateGlobalState();
+        }
         // EIP-1193 request() should return just the result value
         return response && response.result !== undefined ? response.result : response;
       }).catch(function(err) {
@@ -478,7 +565,7 @@ var fallbackProvidersDefault = [
         }
         
         // Rotate and retry
-        var hasMore = self._rotateProvider();
+        var hasMore = self._rotateProvider(true);
         if (!hasMore || attempts >= maxAttempts) {
           throw lastError;
         }
@@ -528,10 +615,23 @@ var fallbackProvidersDefault = [
       if (err) {
         // Check if we should rotate on error
         if (isRateLimitError(err)) {
-          self._rotateProvider();
+          self._rotateProvider(true);
         }
         callback(err, null);
       } else {
+        // On successful request, update cooldown state
+        if (self.usingFallback && self.fallbackCallsRemaining > 0) {
+          self.fallbackCallsRemaining--;
+          self.consecutiveFallbackFailures = 0;
+          
+          // If cooldown expired, go back to preferred providers
+          if (self.fallbackCallsRemaining === 0) {
+            self.usingFallback = false;
+            self.forcedToFallback = false;
+            self.preferredIndex = 0;
+          }
+          self._updateGlobalState();
+        }
         // Pass through the FULL response unchanged (whether success or JSON-RPC error)
         callback(null, result);
       }
