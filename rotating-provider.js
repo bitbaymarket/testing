@@ -349,6 +349,37 @@ var fallbackProvidersDefault = [
   };
 
   /**
+   * Generate a unique request ID
+   * Uses timestamp + random to ensure uniqueness across concurrent requests
+   */
+  function getNextRequestId() {
+    return Date.now() * 1000 + Math.floor(Math.random() * 1000);
+  }
+
+  /**
+   * Ensure payload has all required JSON-RPC 2.0 fields
+   * Some RPC providers are strict and require jsonrpc and id fields
+   * @param {Object} payload - The request payload
+   * @returns {Object} - Payload with required fields
+   */
+  function ensureJsonRpcFormat(payload) {
+    if (!payload) return payload;
+    
+    // If payload already has jsonrpc field, assume it's complete
+    if (payload.jsonrpc) {
+      return payload;
+    }
+    
+    // Add required JSON-RPC 2.0 fields
+    return {
+      jsonrpc: '2.0',
+      id: (payload.id !== null && payload.id !== undefined) ? payload.id : getNextRequestId(),
+      method: payload.method,
+      params: payload.params  // Preserve original params value
+    };
+  }
+
+  /**
    * Send a request to the underlying provider (wraps callback in Promise)
    * Returns the FULL JSON-RPC response unchanged - true passthrough
    * @param {Object} provider - The HttpProvider to use
@@ -357,7 +388,11 @@ var fallbackProvidersDefault = [
    */
   function sendToProvider(provider, payload) {
     return new Promise(function(resolve, reject) {
-      provider.send(payload, function(err, result) {
+      // Ensure payload has required JSON-RPC 2.0 fields
+      // Some RPC providers are strict and reject requests without jsonrpc/id
+      var formattedPayload = ensureJsonRpcFormat(payload);
+      
+      provider.send(formattedPayload, function(err, result) {
         if (err) {
           reject(err);
         } else if (result && result.error) {
@@ -483,9 +518,13 @@ var fallbackProvidersDefault = [
     stats.recordRequest();
     this._updateGlobalState();
     
+    // Ensure payload has required JSON-RPC 2.0 fields
+    // Some RPC providers are strict and reject requests without jsonrpc/id
+    var formattedPayload = ensureJsonRpcFormat(payload);
+    
     // TRUE PASSTHROUGH: Call the underlying HttpProvider's send directly
-    // Pass payload unchanged, pass response unchanged
-    provider.send(payload, function(err, result) {
+    // Pass response unchanged
+    provider.send(formattedPayload, function(err, result) {
       if (err) {
         // Check if we should rotate on error
         if (isRateLimitError(err)) {
