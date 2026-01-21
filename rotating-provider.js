@@ -366,9 +366,9 @@ var fallbackProvidersDefault = [
           rpcError.data = result.error.data;
           reject(rpcError);
         } else {
-          // Return the full JSON-RPC response object, not just result.result
-          // Web3.js expects the complete response with jsonrpc, id, and result fields
-          resolve(result);
+          // Return just the result value for the Promise-based request() method
+          // The send() method will wrap this back into a JSON-RPC response envelope
+          resolve(result.result);
         }
       });
     });
@@ -461,7 +461,13 @@ var fallbackProvidersDefault = [
     if (typeof callback === 'function') {
       this.request(payload)
         .then(function(result) {
-          callback(null, result);
+          // Wrap the result in a JSON-RPC response envelope
+          // Web3.js expects: { jsonrpc: "2.0", id: payload.id, result: ... }
+          callback(null, {
+            jsonrpc: '2.0',
+            id: payload && payload.id != null ? payload.id : null,
+            result: result
+          });
         })
         .catch(function(err) {
           callback(err, null);
