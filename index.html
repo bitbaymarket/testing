@@ -2124,7 +2124,16 @@ var web3 = [];
 var mmweb3 = [];
 var contractInst = [];
 var gasPrice;
-var RPC_ENDPOINTS = ["https://polygon.drpc.org/", "https://1rpc.io/matic", "https://polygon-rpc.com"];
+var RPC_ENDPOINTS = ["https://polygon.drpc.org/", "https://1rpc.io/matic", "https://polygon-rpc.com", "https://polygon-bor.publicnode.com"];
+//https://api.blockeden.xyz/polygon/67nCBdZQSH9z3YqDDjdm
+//https://polygon-mainnet.gateway.tatum.io/
+//https://go.getblock.us/6fc0e1edcb0a41dd8c7d729e67b97970
+//https://pol.leorpc.com/?api_key=FREE
+//https://api.noderpc.xyz/rpc-polygon-pos/public
+//https://endpoints.omniatech.io/v1/matic/mainnet/public
+//https://polygon.api.onfinality.io/public
+//https://poly.api.pocket.network/
+//https://polygon-public.nodies.app
 var CUSTOM_POLYGON_RPC = null;
 var CUSTOM_ETHEREUM_RPC = null;
 var DEFAULT_ETHEREUM_RPC = "https://eth.drpc.org/";
@@ -2301,7 +2310,7 @@ document.getElementById('ChartSelect').addEventListener('change', async function
 function isRateLimitError(error, switchThis = true) {
   const msg = (error.message || error. toString()).toLowerCase();
   const code = error.code;
-  if (code === 429 || code === -32005 || code === -32429 || msg.includes("rate limit") || msg.includes("too many requests") || msg.includes("throttle")) {
+  if (code === 429 || code === -32429 || msg.includes("rate limit") || msg.includes("too many requests") || msg.includes("throttle")) {
     if(currentRpcIndex != 999 && switchThis) {
       currentRpcIndex = (currentRpcIndex + 1) % RPC_ENDPOINTS.length;
       const rpcToUse = CUSTOM_POLYGON_RPC && currentChainId !== "11155111" ? CUSTOM_POLYGON_RPC : RPC_ENDPOINTS[currentRpcIndex];

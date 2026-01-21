@@ -103,7 +103,7 @@ async function showVotePayload(hash) {
   
   const voteContract = new earnState.polWeb3.eth.Contract(stakingABI, TREASURY_ADDRESSES.VOTE_BAYL);
   
-  voteContract.methods.getProposalPayload(hash).call().then(payload => {
+  voteContract.methods.getProposalPayload(hash).call().then(async (payload) => {
     let html = `<div style="text-align: left; font-family: monospace; font-size: 0.85em;">`;
     html += `<p><strong>Hash:</strong> ${hash}</p>`;
     html += `<p><strong>Payload:</strong></p>`;
@@ -116,7 +116,7 @@ async function showVotePayload(hash) {
       width: '700px',
       confirmButtonText: 'Close'
     });
-  }).catch(error => {
+  }).catch(async(error) => {
     await Swal.fire('Error', translateThis('Failed to load vote details'), 'error');
   });
 }
@@ -210,7 +210,7 @@ function initializeEarnTab() {
   earnState.ethWeb3 = new Web3(ethRpc);
   
   // Use custom Polygon RPC if available
-  const polRpc = typeof getPolygonRpc === 'function' ? getPolygonRpc() : RPC_ENDPOINTS[0];
+  const polRpc = RPC_ENDPOINTS[1]//typeof getPolygonRpc === 'function' ? getPolygonRpc() : RPC_ENDPOINTS[0];
   earnState.polWeb3 = new Web3(polRpc);
   
   // Load saved staking state
@@ -263,7 +263,7 @@ async function onEarnUserLogin() {
   }
   
   // Update web3 references with custom RPC if available
-  const polRpc = typeof getPolygonRpc === 'function' ? getPolygonRpc() : RPC_ENDPOINTS[0];
+  const polRpc = RPC_ENDPOINTS[1]//typeof getPolygonRpc === 'function' ? getPolygonRpc() : RPC_ENDPOINTS[0];
   const ethRpc = typeof getEthereumRpc === 'function' ? getEthereumRpc() : 'https://eth.drpc.org/';
   earnState.polWeb3 = new Web3(polRpc);
   earnState.ethWeb3 = new Web3(ethRpc);
@@ -2234,7 +2234,7 @@ async function copyDepositAddress(coinType) {
   const address = myaccounts;
   
   // Copy to clipboard
-  navigator.clipboard.writeText(address).then(() => {
+  navigator.clipboard.writeText(address).then(async() => {
     await Swal.fire({
       title: `${coinType} Deposit Address`,
       html: `
@@ -2249,7 +2249,7 @@ async function copyDepositAddress(coinType) {
       icon: 'success',
       confirmButtonText: 'OK'
     });
-  }).catch(() => {
+  }).catch(async() => {
     await Swal.fire({
       title: `${coinType} Deposit Address`,
       html: `
