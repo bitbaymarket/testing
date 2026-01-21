@@ -54,6 +54,10 @@ var fallbackProvidersDefault = [
 (function(global) {
   'use strict';
 
+  // Configuration constants
+  var FALLBACK_COOLDOWN_CALLS = 50;  // Number of calls to stay in fallback mode
+  var MAX_CONSECUTIVE_FAILURES = 4;  // Max consecutive fallback failures before trying preferred again
+
   /**
    * Check if an error is a rate limit error
    * @param {Error} err - The error to check
@@ -338,8 +342,8 @@ var fallbackProvidersDefault = [
       
       if (isFailure) {
         this.consecutiveFallbackFailures++;
-        // If 4 consecutive fallback failures, try preferred providers again
-        if (this.consecutiveFallbackFailures >= 4) {
+        // If max consecutive fallback failures, try preferred providers again
+        if (this.consecutiveFallbackFailures >= MAX_CONSECUTIVE_FAILURES) {
           this.usingFallback = false;
           this.fallbackCallsRemaining = 0;
           this.consecutiveFallbackFailures = 0;
@@ -366,7 +370,7 @@ var fallbackProvidersDefault = [
         // Switch to fallback tier
         this.usingFallback = true;
         this.forcedToFallback = true;
-        this.fallbackCallsRemaining = 50;  // 50 call cooldown
+        this.fallbackCallsRemaining = FALLBACK_COOLDOWN_CALLS;
         this.consecutiveFallbackFailures = 0;
         this.fallbackIndex = 0;
         
@@ -387,7 +391,7 @@ var fallbackProvidersDefault = [
         // All providers exhausted, check if we should retry preferred
         if (this.forcedToFallback) {
           // After exhausting all fallbacks, start cooldown mode
-          this.fallbackCallsRemaining = 50;
+          this.fallbackCallsRemaining = FALLBACK_COOLDOWN_CALLS;
           this.consecutiveFallbackFailures = 0;
           this.fallbackIndex = 0;
         } else {
@@ -420,6 +424,25 @@ var fallbackProvidersDefault = [
     this.consecutiveFallbackFailures = 0;
     this.forcedToFallback = false;
     this._updateGlobalState();
+  };
+
+  /**
+   * Update cooldown state on successful request
+   * Called after a successful request when in fallback mode with cooldown active
+   */
+  RotatingProvider.prototype._updateCooldownOnSuccess = function() {
+    if (this.usingFallback && this.fallbackCallsRemaining > 0) {
+      this.fallbackCallsRemaining--;
+      this.consecutiveFallbackFailures = 0;
+      
+      // If cooldown expired, go back to preferred providers
+      if (this.fallbackCallsRemaining === 0) {
+        this.usingFallback = false;
+        this.forcedToFallback = false;
+        this.preferredIndex = 0;
+      }
+      this._updateGlobalState();
+    }
   };
 
   /**
@@ -542,18 +565,7 @@ var fallbackProvidersDefault = [
       
       return sendToProvider(provider, payload).then(function(response) {
         // On successful request, update cooldown state
-        if (self.usingFallback && self.fallbackCallsRemaining > 0) {
-          self.fallbackCallsRemaining--;
-          self.consecutiveFallbackFailures = 0;
-          
-          // If cooldown expired, go back to preferred providers
-          if (self.fallbackCallsRemaining === 0) {
-            self.usingFallback = false;
-            self.forcedToFallback = false;
-            self.preferredIndex = 0;
-          }
-          self._updateGlobalState();
-        }
+        self._updateCooldownOnSuccess();
         // EIP-1193 request() should return just the result value
         return response && response.result !== undefined ? response.result : response;
       }).catch(function(err) {
@@ -620,18 +632,7 @@ var fallbackProvidersDefault = [
         callback(err, null);
       } else {
         // On successful request, update cooldown state
-        if (self.usingFallback && self.fallbackCallsRemaining > 0) {
-          self.fallbackCallsRemaining--;
-          self.consecutiveFallbackFailures = 0;
-          
-          // If cooldown expired, go back to preferred providers
-          if (self.fallbackCallsRemaining === 0) {
-            self.usingFallback = false;
-            self.forcedToFallback = false;
-            self.preferredIndex = 0;
-          }
-          self._updateGlobalState();
-        }
+        self._updateCooldownOnSuccess();
         // Pass through the FULL response unchanged (whether success or JSON-RPC error)
         callback(null, result);
       }
