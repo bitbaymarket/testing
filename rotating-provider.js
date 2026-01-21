@@ -16,7 +16,7 @@ var preferredProvidersDefault = [
     url: "https://polygon.drpc.org/",
     limitPerMinute: 100,
     limitPerHour: 1000,
-    limitPerDay: 10000
+    limitPerDay: 25000
   },
   { 
     url: "https://1rpc.io/matic",

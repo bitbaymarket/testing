@@ -27,7 +27,13 @@
       }
     })();
   </script>
-  <script>fetch(`https://counterapi.com/api/${window.location.hostname}/view/?startNumber=1`).catch(() => {});</script>
+  <script>
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1' && host !== '') {
+      fetch(`https://counterapi.com/api/${host}/view/?startNumber=1`)
+        .catch(() => {});
+    }
+  </script>
 </head>
 
 <body>
@@ -6617,7 +6623,7 @@ async function depositToWETH(wethval, wethcont) {
     console.log("Success!");
 }
 
-setInterval(checkbalances, 90000);
+setInterval(checkbalances, 120000);
 
 function modalDialog(title, msg, content_type="") {
   if (content_type == "info") 
