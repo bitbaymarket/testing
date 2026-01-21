@@ -210,7 +210,7 @@ function initializeEarnTab() {
   earnState.ethWeb3 = new Web3(ethRpc);
   
   // Use custom Polygon RPC if available
-  const polRpc = RPC_ENDPOINTS[1]//typeof getPolygonRpc === 'function' ? getPolygonRpc() : RPC_ENDPOINTS[0];
+  const polRpc = new RotatingProvider(1);//typeof getPolygonRpc === 'function' ? getPolygonRpc() : RPC_ENDPOINTS[0];
   earnState.polWeb3 = new Web3(polRpc);
   
   // Load saved staking state
@@ -263,7 +263,7 @@ async function onEarnUserLogin() {
   }
   
   // Update web3 references with custom RPC if available
-  const polRpc = RPC_ENDPOINTS[1]//typeof getPolygonRpc === 'function' ? getPolygonRpc() : RPC_ENDPOINTS[0];
+  const polRpc = new RotatingProvider(1);
   const ethRpc = typeof getEthereumRpc === 'function' ? getEthereumRpc() : 'https://eth.drpc.org/';
   earnState.polWeb3 = new Web3(polRpc);
   earnState.ethWeb3 = new Web3(ethRpc);

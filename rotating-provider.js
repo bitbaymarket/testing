@@ -11,6 +11,40 @@
  * Global state available at window.RPCState
  */
 
+var preferredProvidersDefault = [
+  { 
+    url: "https://polygon.drpc.org/",
+    limitPerMinute: 100,
+    limitPerHour: 1000,
+    limitPerDay: 10000
+  },
+  { 
+    url: "https://1rpc.io/matic",
+    limitPerMinute: 70
+  },
+  { 
+    url: "https://polygon-rpc.com",
+    limitPerMinute: 70
+  },
+  { 
+    url: "https://polygon-bor.publicnode.com",
+    limitPerMinute: 100
+  }
+];
+
+// Fallback providers - used when all preferred providers fail
+var fallbackProvidersDefault = [
+  { url: "https://api.blockeden.xyz/polygon/67nCBdZQSH9z3YqDDjdm" },
+  { url: "https://polygon-mainnet.gateway.tatum.io/" },
+  { url: "https://go.getblock.us/6fc0e1edcb0a41dd8c7d729e67b97970" },
+  { url: "https://pol.leorpc.com/?api_key=FREE" },
+  { url: "https://api.noderpc.xyz/rpc-polygon-pos/public" },
+  { url: "https://endpoints.omniatech.io/v1/matic/mainnet/public" },
+  { url: "https://polygon.api.onfinality.io/public" },
+  { url: "https://poly.api.pocket.network/" },
+  { url: "https://polygon-public.nodies.app" },
+];
+
 (function(global) {
   'use strict';
 
@@ -115,7 +149,7 @@
    *   Each config: { url: string, limitPerMinute?: number, limitPerHour?: number, limitPerDay?: number }
    * @param {Array} fallbackProviders - Array of fallback provider configs (optional)
    */
-  function RotatingProvider(preferredProviders, fallbackProviders) {
+  function RotatingProvider(prefInx = 0, preferredProviders = preferredProvidersDefault, fallbackProviders = fallbackProvidersDefault) {
     var self = this;
     
     // Normalize inputs
@@ -134,7 +168,7 @@
     this.fallbackStats = [];
     
     // Track indices
-    this.preferredIndex = 0;
+    this.preferredIndex = prefInx;
     this.fallbackIndex = 0;
     this.usingFallback = false;
     
@@ -291,7 +325,15 @@
         return false;
       }
     }
-    
+    var stats = this._getCurrentStats();
+    if (stats) {
+      console.log(
+        '[RotatingProvider] Switched to',
+        this.usingFallback ? 'fallback' : 'preferred',
+        'provider:',
+        stats.url
+      );
+    }
     this._updateGlobalState();
     return true;
   };
@@ -324,7 +366,7 @@
           rpcError.data = result.error.data;
           reject(rpcError);
         } else {
-          resolve(result);
+          resolve(result.result);
         }
       });
     });
