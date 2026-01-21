@@ -2862,11 +2862,16 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
         if(parseInt(gasPrice2) < 250000000) {
           gasPrice2 = "250000000";
         }
+      } else {
+        // For non-switchNetworks transactions, rebuild contract with mmweb3
+        if(contract != "ETH") {
+          contract = new mmweb3.eth.Contract(contract.options.jsonInterface, contract.options.address);
+        }
       }
       if(contract == "ETH") {
         const value = method;       // value in wei
         const to = args[0];         // recipient
-        txPromise = web3.eth.sendTransaction({
+        txPromise = mmweb3.eth.sendTransaction({
           from: myaccounts,
           to,
           value,
