@@ -366,7 +366,9 @@ var fallbackProvidersDefault = [
           rpcError.data = result.error.data;
           reject(rpcError);
         } else {
-          resolve(result.result);
+          // Return the full JSON-RPC response object, not just result.result
+          // Web3.js expects the complete response with jsonrpc, id, and result fields
+          resolve(result);
         }
       });
     });
