@@ -354,6 +354,7 @@ var fallbackProvidersDefault = [
         }
         // Rotate within fallback providers
         this.fallbackIndex = (this.fallbackIndex + 1) % this.fallbackProviders.length;
+        console.log('[RotatingProvider] Switched to fallback provider: ' + this.fallbackIndex);
       } else {
         this.consecutiveFallbackFailures = 0;
       }
@@ -365,7 +366,7 @@ var fallbackProvidersDefault = [
     if (!this.usingFallback) {
       // Still in preferred tier
       this.preferredIndex++;
-      
+      console.log('[RotatingProvider] Switched to preferred provider: ' + this.preferredIndex);
       if (this.preferredIndex >= this.preferredProviders.length) {
         // Switch to fallback tier
         this.usingFallback = true;
@@ -384,9 +385,9 @@ var fallbackProvidersDefault = [
         }
       }
     } else {
-      // In fallback tier (not in cooldown mode)
+      // In fallback tier (not in cooldown mode)      
       this.fallbackIndex++;
-      
+      console.log('[RotatingProvider] Switched to fallback provider: ' + this.fallbackIndex);
       if (this.fallbackIndex >= this.fallbackProviders.length) {
         // All providers exhausted, check if we should retry preferred
         if (this.forcedToFallback) {
@@ -399,15 +400,6 @@ var fallbackProvidersDefault = [
           return false;
         }
       }
-    }
-    var stats = this._getCurrentStats();
-    if (stats) {
-      console.log(
-        '[RotatingProvider] Switched to',
-        this.usingFallback ? 'fallback' : 'preferred',
-        'provider:',
-        stats.url
-      );
     }
     this._updateGlobalState();
     return true;
