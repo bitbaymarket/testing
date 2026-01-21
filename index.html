@@ -2824,7 +2824,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
   }
   if(loginType == 1) {
     if(contract != "ETH") {
-      contract = new web3.eth.Contract(contract.options.jsonInterface, contract.options.address);  
+      contract = new mmweb3.eth.Contract(contract.options.jsonInterface, contract.options.address);  
     }
     var myaccounts2 = await mmweb3.eth.getAccounts();
     if (myaccounts2.length == 0) {
@@ -2866,7 +2866,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
       if(contract == "ETH") {
         const value = method;       // value in wei
         const to = args[0];         // recipient
-        txPromise = web3.eth.sendTransaction({
+        txPromise = mmweb3.eth.sendTransaction({
           from: myaccounts,
           to,
           value,
