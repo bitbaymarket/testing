@@ -349,33 +349,70 @@ var fallbackProvidersDefault = [
   };
 
   /**
+   * Generate a unique request ID
+   * Uses timestamp + random to ensure uniqueness across concurrent requests
+   */
+  function getNextRequestId() {
+    return Date.now() * 1000 + Math.floor(Math.random() * 1000);
+  }
+
+  /**
+   * Ensure payload has all required JSON-RPC 2.0 fields
+   * Some RPC providers are strict and require jsonrpc and id fields
+   * @param {Object} payload - The request payload
+   * @returns {Object} - Payload with required fields
+   */
+  function ensureJsonRpcFormat(payload) {
+    if (!payload) return payload;
+    
+    // If payload already has jsonrpc field, assume it's complete
+    if (payload.jsonrpc) {
+      return payload;
+    }
+    
+    // Add required JSON-RPC 2.0 fields
+    return {
+      jsonrpc: '2.0',
+      id: (payload.id !== null && payload.id !== undefined) ? payload.id : getNextRequestId(),
+      method: payload.method,
+      params: payload.params  // Preserve original params value
+    };
+  }
+
+  /**
    * Send a request to the underlying provider (wraps callback in Promise)
+   * Returns the FULL JSON-RPC response unchanged - true passthrough
    * @param {Object} provider - The HttpProvider to use
    * @param {Object} payload - JSON-RPC request payload
-   * @returns {Promise}
+   * @returns {Promise} - Resolves with full JSON-RPC response object
    */
   function sendToProvider(provider, payload) {
     return new Promise(function(resolve, reject) {
-      provider.send(payload, function(err, result) {
+      // Ensure payload has required JSON-RPC 2.0 fields
+      // Some RPC providers are strict and reject requests without jsonrpc/id
+      var formattedPayload = ensureJsonRpcFormat(payload);
+      
+      provider.send(formattedPayload, function(err, result) {
         if (err) {
           reject(err);
         } else if (result && result.error) {
-          // JSON-RPC error
+          // JSON-RPC error - pass through the error info
           var rpcError = new Error(result.error.message || 'RPC Error');
           rpcError.code = result.error.code;
           rpcError.data = result.error.data;
           reject(rpcError);
         } else {
-          resolve(result.result);
+          // Return the FULL response unchanged - true passthrough
+          resolve(result);
         }
       });
     });
   }
 
   /**
-   * Web3 provider interface - request method (Promise-based)
+   * Web3 provider interface - request method (Promise-based, EIP-1193)
    * @param {Object} payload - JSON-RPC request payload
-   * @returns {Promise}
+   * @returns {Promise} - Resolves with just the result value (per EIP-1193)
    */
   RotatingProvider.prototype.request = function(payload) {
     var self = this;
@@ -429,7 +466,10 @@ var fallbackProvidersDefault = [
       
       attempts++;
       
-      return sendToProvider(provider, payload).catch(function(err) {
+      return sendToProvider(provider, payload).then(function(response) {
+        // EIP-1193 request() should return just the result value
+        return response && response.result !== undefined ? response.result : response;
+      }).catch(function(err) {
         lastError = err;
         
         // Only rotate on rate limit errors
@@ -452,22 +492,50 @@ var fallbackProvidersDefault = [
 
   /**
    * Web3 provider interface - send method (legacy callback style)
+   * TRUE PASSTHROUGH - passes the response from HttpProvider unchanged
    * @param {Object} payload - JSON-RPC request payload
    * @param {Function} callback - Callback function(error, result)
    */
   RotatingProvider.prototype.send = function(payload, callback) {
-    if (typeof callback === 'function') {
-      this.request(payload)
-        .then(function(result) {
-          callback(null, result);
-        })
-        .catch(function(err) {
-          callback(err, null);
-        });
-    } else {
-      // Synchronous send not supported
+    var self = this;
+    
+    if (typeof callback !== 'function') {
       throw new Error('Synchronous send is not supported');
     }
+    
+    this._ensureInitialized();
+    
+    // Get the current provider and send directly
+    var provider = this._getCurrentProvider();
+    var stats = this._getCurrentStats();
+    
+    if (!provider) {
+      callback(new Error('No provider available'), null);
+      return;
+    }
+    
+    // Record the request
+    stats.recordRequest();
+    this._updateGlobalState();
+    
+    // Ensure payload has required JSON-RPC 2.0 fields
+    // Some RPC providers are strict and reject requests without jsonrpc/id
+    var formattedPayload = ensureJsonRpcFormat(payload);
+    
+    // TRUE PASSTHROUGH: Call the underlying HttpProvider's send directly
+    // Pass response unchanged
+    provider.send(formattedPayload, function(err, result) {
+      if (err) {
+        // Check if we should rotate on error
+        if (isRateLimitError(err)) {
+          self._rotateProvider();
+        }
+        callback(err, null);
+      } else {
+        // Pass through the FULL response unchanged (whether success or JSON-RPC error)
+        callback(null, result);
+      }
+    });
   };
 
   /**
