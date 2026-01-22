@@ -173,6 +173,11 @@
             <img class="swapSelectorLogo uil uil-link" src="./assets/images/buy.png">
             <div class="swapSelectorText">&nbsp&nbsp&nbsp&nbsp&nbspBuy BitBay&nbsp&nbsp&nbsp&nbsp&nbsp</div>
       </div>
+      
+      <!-- ROI Notification for Home Page (shows before login) -->
+      <div class="callout callout-success hidden" id="homeRoiNotification" style="margin-top: 10px; text-align: center; font-weight: bold;">
+        📈 Calculating ROI...
+      </div>
 
     </h2>
  
@@ -3972,6 +3977,151 @@ async function getBAYPrice() {
     return "error";
   }
 }
+
+// Get WETH/ETH price from Chainlink (ETH/USD on Polygon)
+async function getWETHPrice(tempWeb3 = null) {
+  try {
+    const w3 = tempWeb3 || web3;
+    const AggregatorV3ABI = [
+      {
+        "inputs": [],
+        "name": "latestRoundData",
+        "outputs": [
+          { "internalType": "uint80", "name": "roundId", "type": "uint80" },
+          { "internalType": "int256", "name": "answer", "type": "int256" },
+          { "internalType": "uint256", "name": "startedAt", "type": "uint256" },
+          { "internalType": "uint256", "name": "updatedAt", "type": "uint256" },
+          { "internalType": "uint80", "name": "answeredInRound", "type": "uint80" }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ];
+    // Chainlink ETH/USD on Polygon
+    const agg = new w3.eth.Contract(
+      AggregatorV3ABI,
+      "0xF9680D99D6C9589e2a93a78A04A279e509205945"
+    );
+    const roundData = JSON.parse(DOMPurify.sanitize(JSON.stringify(await agg.methods.latestRoundData().call())));
+    return roundData.answer.toString(); // 8 decimals
+  } catch (e) {
+    console.log('Error getting WETH price:', e);
+    return "error";
+  }
+}
+
+// Calculate and display ROI before login (for home page marketing)
+var cachedROIData = null;
+async function calculateAndDisplayROIPreLogin() {
+  try {
+    // Create temporary web3 instance for Polygon
+    const tempPolRpc = 'https://polygon-rpc.com';
+    const tempWeb3 = new Web3(tempPolRpc);
+    
+    // Treasury and related addresses
+    const BAYL_TREASURY = '0x8Ae919e6Aa571cF89de7fE2FB023B440e547A661';
+    const WETH_ADDRESS = '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619';
+    const DAI_ADDRESS = '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063';
+    const USDC_ADDRESS = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
+    
+    // Minimal treasury ABI for what we need
+    const minimalTreasuryABI = [
+      {"inputs":[],"name":"totalTokens","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+      {"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"weeklyRewards","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+    ];
+    
+    const baylTreasury = new tempWeb3.eth.Contract(minimalTreasuryABI, BAYL_TREASURY);
+    const totalTokens = DOMPurify.sanitize(await baylTreasury.methods.totalTokens().call());
+    
+    // Get current week
+    const currentWeek = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+    
+    // Get prices
+    const wethPriceRaw = await getWETHPrice(tempWeb3);
+    const bayPriceRaw = await getBAYPrice();
+    
+    // Calculate prices in USD
+    let wethPrice = 2000; // default fallback
+    if (wethPriceRaw !== "error") {
+      wethPrice = parseInt(wethPriceRaw) / 1e8;
+    }
+    
+    let bayPrice = 0.10; // default fallback
+    if (bayPriceRaw !== "error") {
+      bayPrice = parseInt(bayPriceRaw) / 1e8; // BAY price is in 8 decimals from DAI
+    }
+    
+    const daiPrice = 1;
+    const usdcPrice = 1;
+    
+    // Get weekly rewards
+    const wethRewards = DOMPurify.sanitize(await baylTreasury.methods.weeklyRewards(currentWeek, WETH_ADDRESS).call());
+    const daiRewards = DOMPurify.sanitize(await baylTreasury.methods.weeklyRewards(currentWeek, DAI_ADDRESS).call());
+    const usdcRewards = DOMPurify.sanitize(await baylTreasury.methods.weeklyRewards(currentWeek, USDC_ADDRESS).call());
+    
+    const BN = BigNumber;
+    const wethRewardsEther = new BN(wethRewards).dividedBy('1e18').toNumber();
+    const daiRewardsEther = new BN(daiRewards).dividedBy('1e18').toNumber();
+    const usdcRewardsFormatted = new BN(usdcRewards).dividedBy('1e6').toNumber();
+    
+    const weeklyRewardsUSD = (wethRewardsEther * wethPrice) + (daiRewardsEther * daiPrice) + (usdcRewardsFormatted * usdcPrice);
+    const yearlyRewardsUSD = weeklyRewardsUSD * 52;
+    
+    const totalStakedBAY = new BN(totalTokens).dividedBy('1e8').toNumber();
+    const totalStakedUSD = totalStakedBAY * bayPrice;
+    
+    let yearlyROI = 0;
+    if (totalStakedUSD > 0) {
+      yearlyROI = (yearlyRewardsUSD / totalStakedUSD) * 100;
+    }
+    
+    // Cache the data for earn.js to use later
+    cachedROIData = {
+      yearlyROI: yearlyROI,
+      weeklyRewardsUSD: weeklyRewardsUSD,
+      yearlyRewardsUSD: yearlyRewardsUSD,
+      totalStakedBAY: totalStakedBAY,
+      totalStakedUSD: totalStakedUSD,
+      wethPrice: wethPrice,
+      bayPrice: bayPrice,
+      timestamp: Date.now()
+    };
+    localStorage.setItem('cachedROIData', JSON.stringify(cachedROIData));
+    
+    // Display on both home page and earn page ROI elements if they exist
+    if (yearlyROI > 5) {
+      const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(yearlyROI.toFixed(2))}% (${translateThis('Based on current week rewards')})`;
+      
+      // Update earn tab display
+      const earnRoiText = document.getElementById('earnRoiText');
+      const earnRoiDisplay = document.getElementById('earnRoiDisplay');
+      if (earnRoiText) {
+        earnRoiText.textContent = roiText;
+      }
+      if (earnRoiDisplay) {
+        earnRoiDisplay.classList.remove('hidden');
+      }
+      
+      // Update home page notification if it exists
+      const homeRoiNotification = document.getElementById('homeRoiNotification');
+      if (homeRoiNotification) {
+        homeRoiNotification.innerHTML = roiText;
+        homeRoiNotification.classList.remove('hidden');
+      }
+    }
+    
+    console.log('ROI calculated:', yearlyROI.toFixed(2) + '%', 'WETH Price:', wethPrice, 'BAY Price:', bayPrice);
+    
+  } catch (error) {
+    console.error('Error calculating ROI before login:', error);
+  }
+}
+
+// Run ROI calculation on page load
+document.addEventListener('DOMContentLoaded', function() {
+  // Small delay to ensure all dependencies are loaded
+  setTimeout(calculateAndDisplayROIPreLogin, 1000);
+});
 
 async function buyBitBay(method=0) {
   if(method == 1) {
