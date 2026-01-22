@@ -239,40 +239,21 @@ function initDropDownMenu(elName, callBackEl="") {
          selectBtn = optionMenu.querySelector(".select-btn"),
          options = optionMenu.querySelectorAll(".option"),
          sBtn_text = optionMenu.querySelector(".sBtn-text");
-         sBtn_title = optionMenu.querySelector(".sBtn-title");
-
-
-         console.log('=======================');
-         console.log('element name: ' + elName);
-         console.log('sBtn_title: ', sBtn_title);
-   
-  selectBtn.addEventListener("click", () => optionMenu.classList.toggle("active"));       
+         sBtn_title = optionMenu.querySelector(".sBtn-title");   
+         selectBtn.addEventListener("click", () => optionMenu.classList.toggle("active"));       
    
   options.forEach(option =>{
       option.addEventListener("click", ()=>{
           var selectedOption = option.querySelector(".option-text").innerText;
-          //sBtn_text.innerText = selectedOption;
-          console.log('selectedOption: ' + selectedOption);
-
           optionMenu.classList.remove("active");
-
-
-          
           if(callBackEl != ""){
             if(document.getElementById(callBackEl) !== undefined)
               document.getElementById(callBackEl).innerText = selectedOption;
-          
               //set the select title text
             if (callBackEl.includes("buy") || callBackEl.includes("sell")) {
               sBtn_text.querySelector(".sBtn-title").innerText = selectedOption.split(' ')[0];
             }
           }
-
-          
-
-
-
-          
       });
   });
   
