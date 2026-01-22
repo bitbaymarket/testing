@@ -196,15 +196,11 @@ function formatUSDCAmount(amountString, decimals = 2) {
 // INITIALIZATION
 // ============================================================================
 
-function initializeEarnTab() {
-  console.log('Initializing Earn tab...');
-  
-  // Don't initialize if user is not logged in
+function initializeEarnTab() {  
   if (!myaccounts || loginType === 0) {
-    console.log('User not logged in, skipping Earn tab initialization');
     return;
   }
-  
+  console.log('Initializing Earn tab...');
   // Initialize Ethereum Web3 for Lido operations using custom RPC if available
   const ethRpc = typeof getEthereumRpc === 'function' ? getEthereumRpc() : 'https://eth.drpc.org/';
   earnState.ethWeb3 = new Web3(ethRpc);
@@ -874,7 +870,7 @@ async function loadStableVaultInfo() {
         yearlyRewardsDollars = totalWeeklyDollars.times(52).toFixed(2);
       }
       
-      document.getElementById('stableWeeklyRewards').textContent = `${yearlyRewardsDollars} ${dateRange}`;
+      document.getElementById('stableWeeklyRewards').textContent = `$${yearlyRewardsDollars} ${dateRange}`;
     } catch (weeklyError) {
       console.error('Error fetching weekly rewards:', weeklyError);
       document.getElementById('stableWeeklyRewards').textContent = 'N/A';
