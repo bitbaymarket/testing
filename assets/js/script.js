@@ -1,3 +1,6 @@
+// Tab indices
+const EARN_TAB_INDEX = 4;
+
 const DOM = {
   tabsNav: document.querySelector('.tabs__nav'),
   tabsNavItems: document.querySelectorAll('.tabs__nav-item'),
@@ -155,6 +158,36 @@ DOM.tabsNav.addEventListener('click', e => {
     setActivePanel(activeItemIndex);
 
     checkSlippageBox(activeItemIndex)
+
+    // Handle Earn tab - show Treasury subtab by default on first click
+    if (activeItemIndex === EARN_TAB_INDEX) {
+      const earnSubNav = document.querySelector('.earn-subnav');
+      if (earnSubNav) {
+        const subNavItems = earnSubNav.querySelectorAll('.tabs__nav-item');
+        const subPanels = document.querySelectorAll('.earn-subtabs .tabs__panels > .tabs__panel');
+        
+        // Check if any subtab is already active
+        const hasActiveSubtab = Array.from(subNavItems).some(item => item.classList.contains('js-active'));
+        
+        // If no subtab is active, set first one (Treasury) as active
+        if (!hasActiveSubtab) {
+          subNavItems.forEach((item, index) => {
+            if (index === 0) {
+              item.classList.add('js-active');
+            } else {
+              item.classList.remove('js-active');
+            }
+          });
+          subPanels.forEach((panel, index) => {
+            if (index === 0) {
+              panel.classList.add('js-active');
+            } else {
+              panel.classList.remove('js-active');
+            }
+          });
+        }
+      }
+    }
 
   }
 
