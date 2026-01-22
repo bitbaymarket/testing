@@ -845,7 +845,7 @@ async function loadStableVaultInfo() {
     
     // Calculate weekly rewards
     const currentWeek = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
-    // We'd need to iterate through recent weeks to calculate this
+    // Iterate through the last week to calculate this
     document.getElementById('stableWeeklyRewards').textContent = 'Calculating...';
     
     // Load user position if logged in
@@ -1625,9 +1625,10 @@ async function loadStakingInfo() {
           rewardsHTML += `<div>${coinName}: ${pendingDisplay}</div>`;
         }
       }
-      document.getElementById('userPendingRewards').innerHTML = rewardsHTML || 'No pending rewards';
+      document.getElementById('userPendingRewards').innerHTML = rewardsHTML || translateThis('No pending rewards');
     } else {
-      document.getElementById('userTrackingCoins').textContent = 'None set';
+      document.getElementById('userPendingRewards').innerHTML = translateThis('No pending rewards');
+      document.getElementById('userTrackingCoins').textContent = translateThis('None set');
     }
     
     // Display total rewards from localStorage
@@ -1635,7 +1636,7 @@ async function loadStakingInfo() {
     for (const [coin, amount] of Object.entries(earnState.userTotalRewards)) {
       totalRewardsHTML += `<div>${coin}: ${amount}</div>`;
     }
-    document.getElementById('userTotalRewards').innerHTML = totalRewardsHTML || 'No rewards collected yet';
+    document.getElementById('userTotalRewards').innerHTML = totalRewardsHTML || translateThis('No rewards collected yet');
     
     // Load BAYL and BAYR balances at vault
     if (earnState.userVaultAddress) {
@@ -2170,10 +2171,9 @@ async function calculateAndDisplayROI() {
     if (cachedData) {
       const parsed = JSON.parse(cachedData);
       if (Date.now() - parsed.timestamp < 1440 * 60 * 1000) {
-        const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(parsed.yearlyROI.toFixed(2))}% (${translateThis('Based on weekly rewards')})`;
-        document.getElementById('stableWeeklyRewards').innerHTML = stripZeros(parsed.yearlyROI.toFixed(2));
-        //document.getElementById('earnRoiText').textContent = roiText;
-        //document.getElementById('earnRoiDisplay').classList.remove('hidden');
+        const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(parsed.yearlyROI.toFixed(2))}%`;
+        document.getElementById('earnRoiText').textContent = roiText;
+        document.getElementById('earnRoiDisplay').classList.remove('hidden');
         return;
       }
     }
@@ -2218,13 +2218,13 @@ async function calculateAndDisplayROI() {
     
     const totalStakedBAY = new BN(totalTokens).dividedBy('1e8').toNumber();
     const totalStakedUSD = totalStakedBAY * bayPrice;
-    
+    let yearlyROI = 0;
     if (totalStakedUSD > 0) {
-      let yearlyROI = (yearlyRewardsUSD / totalStakedUSD) * 100;
-      const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(yearlyROI.toFixed(2))}% (${translateThis('Based on weekly rewards')})`;
-      document.getElementById('stableWeeklyRewards').innerHTML = stripZeros(yearlyROI.toFixed(2));
+      yearlyROI = (yearlyRewardsUSD / totalStakedUSD) * 100;
     }
-    
+    const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(yearlyROI.toFixed(2))}%`;
+    document.getElementById('earnRoiText').textContent = roiText;
+    document.getElementById('earnRoiDisplay').classList.remove('hidden');
   } catch (error) {
     console.error('Error calculating ROI:', error);
   }

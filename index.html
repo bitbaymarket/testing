@@ -632,13 +632,6 @@
           <!--earn panel-->
           <div class="tabs__panel">
             <div class="swapBody">
-              
-              <!-- Yearly ROI Display (shown at top if > 5%) -->
-              <div id="earnRoiDisplay" class="callout callout-info hidden">
-                <div class="boxTitle2">💰 Staking ROI</div>
-                <div id="earnRoiText">Calculating...</div>
-              </div>
-
               <!-- Sub-tabs for Earn sections -->
               <div class="tabs earn-subtabs">
                 <div class="tabs__nav earn-subnav">
@@ -646,6 +639,10 @@
                     <li class="tabs__nav-item js-active" id="treasury-tab">Treasury Profits</li>
                     <li class="tabs__nav-item">Staking Yield</li>
                   </ul>
+                </div>
+
+                <div id="earnRoiDisplay" class="callout callout-info hidden">
+                  <div id="earnRoiText">Calculating...</div>
                 </div>
 
                 <div class="tabs__panels">
@@ -1770,8 +1767,8 @@
 
   #earnRoiDisplay {
     text-align: center;
-    font-size: 1.2em;
-    margin-bottom: 20px;
+    font-size: 14px;
+    margin-bottom: 5px;
   }
 </style>
 
@@ -4086,28 +4083,21 @@ async function calculateAndDisplayROIPreLogin() {
       timestamp: Date.now()
     };
     localStorage.setItem('cachedROIData', JSON.stringify(cachedROIData));
-    
-    // Display on both home page and earn page ROI elements if they exist
-    if (yearlyROI > 5) {
-      const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(yearlyROI.toFixed(2))}% (${translateThis('Based on weekly rewards')})`;
-      document.getElementById('stableWeeklyRewards').innerHTML = stripZeros(yearlyROI.toFixed(2));
-      // Update earn tab display
-      //const earnRoiText = document.getElementById('earnRoiText');
-      //const earnRoiDisplay = document.getElementById('earnRoiDisplay');      
-      //if (earnRoiText) {
-        //earnRoiText.textContent = roiText;
-      //}
-      //if (earnRoiDisplay) {
-        //earnRoiDisplay.classList.remove('hidden');
-      //}      
-      // Update home page notification if it exists
-      const homeRoiNotification = document.getElementById('homeRoiNotification');
-      if (homeRoiNotification) {
-        homeRoiNotification.innerHTML = roiText;
-        homeRoiNotification.classList.remove('hidden');
-      }
+    const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(yearlyROI.toFixed(2))}% (${translateThis('Based on weekly rewards')})`;
+    const earnRoiText = document.getElementById('earnRoiText');
+    const earnRoiDisplay = document.getElementById('earnRoiDisplay');
+    if (earnRoiText) {
+      const roiText2 = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(yearlyROI.toFixed(2))}%`;
+      earnRoiText.textContent = roiText2;
     }
-    
+    if (earnRoiDisplay) {
+      earnRoiDisplay.classList.remove('hidden');
+    }
+    const homeRoiNotification = document.getElementById('homeRoiNotification');
+    if (homeRoiNotification) {
+      homeRoiNotification.innerHTML = roiText;
+      homeRoiNotification.classList.remove('hidden');
+    }    
     console.log('ROI calculated:', yearlyROI.toFixed(2) + '%', 'WETH Price:', wethPrice, 'BAY Price:', bayPrice);
     
   } catch (error) {
