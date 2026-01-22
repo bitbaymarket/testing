@@ -868,14 +868,13 @@ async function loadStableVaultInfo() {
       const usdcDollars = new BN(usdcRewards).dividedBy('1e6');
       const totalWeeklyDollars = daiDollars.plus(usdcDollars);
       
-      // Calculate yearly ROI estimate based on previous week's rewards and pool size
-      const poolValueDollars = new BN(totalShares).dividedBy('1e18');
-      let yearlyROI = '0';
-      if (poolValueDollars.gt(0) && totalWeeklyDollars.gt(0)) {
-        yearlyROI = totalWeeklyDollars.times(52).toFixed(2);
+      // Calculate estimated yearly rewards in dollars based on previous week's data
+      let yearlyRewardsDollars = '0';
+      if (totalWeeklyDollars.gt(0)) {
+        yearlyRewardsDollars = totalWeeklyDollars.times(52).toFixed(2);
       }
       
-      document.getElementById('stableWeeklyRewards').textContent = `${yearlyROI} ${dateRange}`;
+      document.getElementById('stableWeeklyRewards').textContent = `${yearlyRewardsDollars} ${dateRange}`;
     } catch (weeklyError) {
       console.error('Error fetching weekly rewards:', weeklyError);
       document.getElementById('stableWeeklyRewards').textContent = 'N/A';
