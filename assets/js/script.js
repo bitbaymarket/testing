@@ -1,3 +1,6 @@
+// Tab indices
+const EARN_TAB_INDEX = 4;
+
 const DOM = {
   tabsNav: document.querySelector('.tabs__nav'),
   tabsNavItems: document.querySelectorAll('.tabs__nav-item'),
@@ -156,8 +159,8 @@ DOM.tabsNav.addEventListener('click', e => {
 
     checkSlippageBox(activeItemIndex)
 
-    // Handle Earn tab (index 4) - show Treasury subtab by default on first click
-    if (activeItemIndex === 4) {
+    // Handle Earn tab - show Treasury subtab by default on first click
+    if (activeItemIndex === EARN_TAB_INDEX) {
       const earnSubNav = document.querySelector('.earn-subnav');
       if (earnSubNav) {
         const subNavItems = earnSubNav.querySelectorAll('.tabs__nav-item');
