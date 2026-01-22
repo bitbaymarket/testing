@@ -1902,8 +1902,8 @@ function saveSettings() {
   if (polygonRpc !== '' && !polygonRpc.startsWith('http')) {
     Swal.fire({
       icon: 'error',
-      title: 'Invalid RPC URL',
-      text: 'Polygon RPC URL must start with http:// or https://'
+      title: translateThis('Invalid RPC URL'),
+      text: translateThis('Polygon RPC URL must start with http:// or https://')
     });
     return;
   }
@@ -1911,8 +1911,8 @@ function saveSettings() {
   if (ethereumRpc !== '' && !ethereumRpc.startsWith('http')) {
     Swal.fire({
       icon: 'error',
-      title: 'Invalid RPC URL',
-      text: 'Ethereum RPC URL must start with http:// or https://'
+      title: translateThis('Invalid RPC URL'),
+      text: translateThis('Ethereum RPC URL must start with http:// or https://')
     });
     return;
   }
@@ -1968,8 +1968,8 @@ function resetSettings() {
       
       Swal.fire({
         icon: 'success',
-        title: 'Reset Complete',
-        text: 'Settings have been reset to defaults.',
+        title: translateThis('Reset Complete'),
+        text: translateThis('Settings have been reset to defaults.'),
         timer: 2000
       });
     }
@@ -2117,8 +2117,8 @@ if(merkleProof != '') {
   document.getElementById("jsonproof").value = merkleProof;
   Swal.fire({
     icon: 'success',
-    title: 'Receipt pending',
-    text: 'The site has detected a merkle proof in the URL. The text was filled into the minting form. Once logged in, you can attempt to redeem it by clicking "Mint".',
+    title: translateThis('Receipt pending'),
+    text: translateThis('The site has detected a merkle proof in the URL. The text was filled into the minting form. Once logged in, you can attempt to redeem it by clicking "Mint".'),
   });
 }
 
@@ -2819,7 +2819,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", confirmBox = false, switchNetworks = false, confCheck = true) {
   if(netSwitch) {
-    await Swal.fire("Switched network. Please refresh the page.");
+    await Swal.fire(translateThis("Switched network. Please refresh the page."));
     return;
   }
   if(loginType == 1) {
@@ -2839,7 +2839,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
       if (switchNetworks) {
         const chainId2 = await mmweb3.eth.net.getId();
         if(chainId2 == "11155111") {
-          Swal.fire("Can not perform this action on testnet");
+          Swal.fire(translateThis("Can not perform this action on testnet"));
           throw new Error("Transaction failed");
         }        
         netSwitch = true;
@@ -2898,7 +2898,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
           });
           mmweb3 = new Web3(window.ethereum);
         } catch (switchBackErr) {
-          await Swal.fire('Network Switch Required','Unable to switch back to Polygon. Page will reload.');
+          await Swal.fire(translateThis('Network Switch Required'), translateThis('Unable to switch back to Polygon. Page will reload.'));
           location.reload();
           return;
         }
@@ -2963,17 +2963,17 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
       }
       const { isConfirmed } = await Swal.fire({
         icon: "question",
-        title: "Confirm Transaction",
+        title: translateThis("Confirm Transaction"),
         html: `
-          <b>Method:</b> ${displayMethod}<br>
+          <b>${translateThis('Method')}:</b> ${displayMethod}<br>
           ${argsHtml}
-          <b>Gas Limit:</b> ${glimit}<br>
-          <b>Gas Price:</b> ${gasPrice}<br>
+          <b>${translateThis('Gas Limit')}:</b> ${glimit}<br>
+          <b>${translateThis('Gas Price')}:</b> ${gasPrice}<br>
           ${valLine}
         `,
         showCancelButton: true,
-        confirmButtonText: "Send",
-        cancelButtonText: "Cancel"
+        confirmButtonText: translateThis("Send"),
+        cancelButtonText: translateThis("Cancel")
       });
 
       if (!isConfirmed) {
@@ -3025,8 +3025,8 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
     // Show waiting Swal
     if(confCheck) {
       Swal.fire({
-        title: `Transaction sent...`,
-        html: "Waiting for confirmation on chain...",
+        title: translateThis(`Transaction sent...`),
+        html: translateThis("Waiting for confirmation on chain..."),
         didOpen: () => Swal.showLoading(),
         allowOutsideClick: false,
         showConfirmButton: false
@@ -3052,16 +3052,16 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
       if (Date.now() - startTime > 120_000) { // 2 minutes
         await Swal.fire({
           icon: "info",
-          title: "Confirmation pending",
+          title: translateThis("Confirmation pending"),
           html: `
-            Transaction may take longer to confirm. Please check that it confirms on a block explorer.<br><br>
+            ${translateThis('Transaction may take longer to confirm. Please check that it confirms on a block explorer.')}<br><br>
             TXID: <code id="txid">${txHash}</code><br>
             <button id="copyTxBtn" style="
               margin-top:8px;
               padding:6px 12px;
               font-size:14px;
               cursor:pointer;
-            ">Copy TXID</button>
+            ">${translateThis('Copy TXID')}</button>
           `,
           showConfirmButton: true,
           didOpen: async () => {
@@ -3078,9 +3078,9 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
               textarea.select();
               try {
                 document.execCommand("copy");
-                await Swal.fire("Copied!", "TXID copied to clipboard.", "success");
+                await Swal.fire(translateThis("Copied!"), translateThis("TXID copied to clipboard."), "success");
               } catch (err) {
-                await Swal.fire("Error", "Failed to copy TXID", "error");
+                await Swal.fire(translateThis("Error"), translateThis("Failed to copy TXID"), "error");
               }
               document.body.removeChild(textarea);
             });
@@ -3108,7 +3108,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
         netSwitch = false;
       } catch (e) {
         // If we can't switch back, reload the page
-        await Swal.fire('Provider Switch Error','Unable to switch back to Polygon RPC. Page will reload.');
+        await Swal.fire(translateThis('Provider Switch Error'), translateThis('Unable to switch back to Polygon RPC. Page will reload.'));
         location.reload();
         return;
       }
@@ -3187,9 +3187,9 @@ async function checkbalances() {
         //document.getElementById("text1").innerHTML = "Unsupported network";
         Swal.fire({
             icon: 'warning',
-            title: 'Error',
-            text: 'Unsupported network.',
-            confirmButtonText: 'Close'
+            title: translateThis('Error'),
+            text: translateThis('Unsupported network.'),
+            confirmButtonText: translateThis('Close')
         });
         //modalDialog('Connect', "Unsupported network.", "danger");
         return;
@@ -3456,26 +3456,26 @@ function copyAddress(address) {
     const successful = document.execCommand("copy");
     if (successful) {
       Swal.fire({
-        title: 'Copied!',
-        text: 'Address copied to clipboard.',
+        title: translateThis('Copied!'),
+        text: translateThis('Address copied to clipboard.'),
         icon: 'success',
         timer: 1500,
         showConfirmButton: false
       });
     } else {
       Swal.fire({
-        title: 'Copy Failed',
-        text: 'Please copy the address manually.',
+        title: translateThis('Copy Failed'),
+        text: translateThis('Please copy the address manually.'),
         icon: 'error',
-        confirmButtonText: 'OK'
+        confirmButtonText: translateThis('OK')
       });
     }
   } catch (err) {
     Swal.fire({
-      title: 'Error',
-      text: 'Clipboard access error. Try manually copying.',
+      title: translateThis('Error'),
+      text: translateThis('Clipboard access error. Try manually copying.'),
       icon: 'error',
-      confirmButtonText: 'OK'
+      confirmButtonText: translateThis('OK')
     });
   }
 
@@ -3877,15 +3877,15 @@ async function checkAutomaticTradingAccount() {
     console.log('Automatic trade error:', e);
     await Swal.fire({
       icon: 'error',
-      title: 'Automated trade failed',
+      title: translateThis('Automated trade failed'),
       html: `
-        <p><strong>Error Details:</strong></p>
+        <p><strong>${translateThis('Error Details')}:</strong></p>
         <pre style="background:#1e1e1e;color:#fff;padding:10px;border-radius:5px;overflow:auto;">${DOMPurify.sanitize(errorText)}</pre>
-        <p>You may wait for the trade to be attempted again or manage the account independently using MetaMask by importing your private key.</p>
+        <p>${translateThis('You may wait for the trade to be attempted again or manage the account independently using MetaMask by importing your private key.')}</p>
       `,
       showCancelButton: true,
-      confirmButtonText: 'Copy private key for later use',
-      cancelButtonText: 'Will wait for trade to execute',
+      confirmButtonText: translateThis('Copy private key for later use'),
+      cancelButtonText: translateThis('Will wait for trade to execute'),
       preConfirm: () => {
         const el = document.createElement('textarea');
         el.value = myaccountsV2PK; // your private key variable
@@ -3893,7 +3893,7 @@ async function checkAutomaticTradingAccount() {
         el.select();
         document.execCommand('copy');
         document.body.removeChild(el);
-        Swal.fire({ icon: 'success', title: 'Private key copied to clipboard', timer: 3000 });
+        Swal.fire({ icon: 'success', title: translateThis('Private key copied to clipboard'), timer: 3000 });
       }
     });
   }
@@ -3975,11 +3975,11 @@ async function getBAYPrice() {
 
 async function buyBitBay(method=0) {
   if(method == 1) {
-    await Swal.fire({'title':"Create your account","text":"Before purchasing BitBay you must create/access your wallet to receive funds. You will first be asked to login and then you may proceed with the different purchase options."});
+    await Swal.fire({'title':translateThis("Create your account"),"text":translateThis("Before purchasing BitBay you must create/access your wallet to receive funds. You will first be asked to login and then you may proceed with the different purchase options.")});
     await login();    
   }
   const { value: choice } = await Swal.fire({
-    title: 'Choose How to Get BitBay (BAY)',
+    title: translateThis('Choose How to Get BitBay (BAY)'),
     html: `
       <div style="display:grid; gap:15px; text-align:left; font-size:15px;">
         <button id="moonpayBtn" class="swal2-confirm swal2-styled" 
@@ -4059,19 +4059,19 @@ async function buyMoonPay() {
   let bayUSD = null;
   
   const { value: userAmount } = await Swal.fire({
-    title: 'Buy BAY via MoonPay',
+    title: translateThis('Buy BAY via MoonPay'),
     html: `
-      <p>Current POL Price: <strong>$${polPrice}</strong></p>
-      <p>Current BAY Price: <strong>$${bayPrice}</strong></p>
-      <p>Enter the amount of <strong>BAY</strong> you want to buy in <strong>USD</strong>:</p>
-      <input type="number" id="bayAmount" class="swal2-input" placeholder="USD amount">
+      <p>${translateThis('Current POL Price')}: <strong>$${polPrice}</strong></p>
+      <p>${translateThis('Current BAY Price')}: <strong>$${bayPrice}</strong></p>
+      <p>${translateThis('Enter the amount of')} <strong>BAY</strong> ${translateThis('you want to buy in')} <strong>USD</strong>:</p>
+      <input type="number" id="bayAmount" class="swal2-input" placeholder="${translateThis('USD amount')}">
       <p id="calcOutput" style="margin-top:10px;font-weight:bold;"></p>
-      <p style="font-size:0.9em;color:gray;">*Estimated BAY amount at spot price (±10% depending on slippage)</p>
-      <p style="font-size:0.9em;color:gray;">*Actual POL amount used for trade will vary based on payment processor</p>
+      <p style="font-size:0.9em;color:gray;">*${translateThis('Estimated BAY amount at spot price (±10% depending on slippage)')}</p>
+      <p style="font-size:0.9em;color:gray;">*${translateThis('Actual POL amount used for trade will vary based on payment processor')}</p>
     `,
     width: 500,
     showCancelButton: true,
-    confirmButtonText: 'Confirm',
+    confirmButtonText: translateThis('Confirm'),
     didOpen: () => {
       const input = Swal.getPopup().querySelector('#bayAmount');
       const output = Swal.getPopup().querySelector('#calcOutput');
@@ -4079,7 +4079,7 @@ async function buyMoonPay() {
       const updateOutput = () => {
         const usdEntered = parseFloat(input.value);
         if (isNaN(usdEntered) || usdEntered <= 0) {
-          output.textContent = 'POL amount: 0';
+          output.textContent = translateThis('POL amount') + ': 0';
           bayUSD = null;
           return;
         }
@@ -4128,22 +4128,22 @@ async function buyMoonPay() {
   }
   const displayAddy = `${myaccountsV2.slice(0, 5)}...${myaccountsV2.slice(-4)}`
   res = await Swal.fire({
-    title: 'Redirecting to MoonPay',
+    title: translateThis('Redirecting to MoonPay'),
     html: `
       <div style="max-height:60vh; overflow-y:auto;">
-        <p>You will now be redirected to MoonPay to complete the purchase. After going through their registration process you should supply your wallets automated trading account to complete the Swap.</p>
-        <p><strong>Wallet Address:</strong> <span id="wallet-address">`+displayAddy+`</span> 
+        <p>${translateThis('You will now be redirected to MoonPay to complete the purchase. After going through their registration process you should supply your wallets automated trading account to complete the Swap.')}</p>
+        <p><strong>${translateThis('Wallet Address')}:</strong> <span id="wallet-address">`+displayAddy+`</span> 
           <span class="no-invert" style="cursor:pointer;" onclick="copyAddress('`+myaccountsV2+`')">📋</span></p>
-        <p><strong>How to change address during checkout:</strong></p>
+        <p><strong>${translateThis('How to change address during checkout')}:</strong></p>
         <ol>
-          <li>STEP 1: <img src="./assets/images/step-1.png" style="max-width:100%;"></li>
-          <li>STEP 2: <img src="./assets/images/step-2.png" style="max-width:100%;"></li>
+          <li>${translateThis('STEP 1')}: <img src="./assets/images/step-1.png" style="max-width:100%;"></li>
+          <li>${translateThis('STEP 2')}: <img src="./assets/images/step-2.png" style="max-width:100%;"></li>
         </ol>
       </div>
     `,
     width: 500,
     showCancelButton: true,
-    confirmButtonText: 'Copy & Continue',
+    confirmButtonText: translateThis('Copy & Continue'),
     didRender: async () => {
       await new Promise(r => setTimeout(r, 250));
       const popup = Swal.getPopup();
@@ -4837,11 +4837,11 @@ async function showFrozen() {
       }
       hideSpinner();
       if(ftext == "") {
-          ftext = "You currently have no frozen coins."
-          modalDialog('Frozen Coins', DOMPurify.sanitize(ftext));
+          ftext = translateThis("You currently have no frozen coins.")
+          modalDialog(translateThis('Frozen Coins'), DOMPurify.sanitize(ftext));
           return false;
       }            
-      modalDialog('Frozen Coins', DOMPurify.sanitize(ftext));      
+      modalDialog(translateThis('Frozen Coins'), DOMPurify.sanitize(ftext));      
     } catch (e) {
       console.log(e);
       hideSpinner();
@@ -4854,10 +4854,10 @@ async function sendLiquid() {
     var BAYLBal;
     BAYLBal = stripZeros((new BigNumber(DOMPurify.sanitize(await baylcontract.methods.balanceOf(myaccounts).call())).dividedBy('1e8')).toFixed());
     const { value: formValues } = await Swal.fire({
-      title: 'Send BAY Liquid',
+      title: translateThis('Send BAY Liquid'),
       html:
-        '<input id="recipient" class="swal2-input" placeholder="Recipient Address">' +
-        '<input id="amount" class="swal2-input" placeholder="Amount to Send">',
+        '<input id="recipient" class="swal2-input" placeholder="' + translateThis('Recipient Address') + '">' +
+        '<input id="amount" class="swal2-input" placeholder="' + translateThis('Amount to Send') + '">',
       focusConfirm: false,
       showCancelButton: true,
       preConfirm: () => {
@@ -4870,34 +4870,34 @@ async function sendLiquid() {
     if (!formValues) return; // cancelled
     const [addy, amt] = formValues;
     if (!web3.utils.isAddress(addy)) {
-      return Swal.fire('Error', 'Invalid Ethereum address.', 'error');
+      return Swal.fire(translateThis('Error'), translateThis('Invalid Ethereum address.'), 'error');
     }
     if (!/^(\d+(\.\d+)?|\.\d+)$/.test(amt)) {
-      return Swal.fire('Error', 'Invalid amount format.', 'error');
+      return Swal.fire(translateThis('Error'), translateThis('Invalid amount format.'), 'error');
     }
     const amountBN = new BigNumber(amt).times(1e8);
     const balanceBN = new BigNumber(BAYLBal).times(1e8); // should be BN or BigInt from Web3
     if ((amountBN).gt(balanceBN)) {
-      return Swal.fire('Error', 'Insufficient BAY Liquid balance.', 'error');
+      return Swal.fire(translateThis('Error'), translateThis('Insufficient BAY Liquid balance.'), 'error');
     }
     const confirm = await Swal.fire({
-      title: 'Confirm Transfer',
-      html: `Send <b>${amt} BAYL</b> to <code style="font-size:7pt">${addy}</code>`,
+      title: translateThis('Confirm Transfer'),
+      html: translateThis('Send') + ` <b>${amt} BAYL</b> ` + translateThis('to') + ` <code style="font-size:7pt">${addy}</code>`,
       showCancelButton: true,
-      confirmButtonText: 'Confirm',
+      confirmButtonText: translateThis('Confirm'),
     });
     if (!confirm.isConfirmed) return;
     try {
       showSpinner();
       await sendTx(baylcontract, "transfer", [addy, amountBN.toFixed()], 2500000);
       hideSpinner();
-      Swal.fire('Success', 'Transfer complete.', 'success');
+      Swal.fire(translateThis('Success'), translateThis('Transfer complete.'), 'success');
       checkbalances();
     } catch (e) { 
       hideSpinner();
-      const message = 'Transaction failed: ' + e.message;
+      const message = translateThis('Transaction failed:') + ' ' + e.message;
       const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-      Swal.fire('Error', `Transaction failed: ${output}`, 'error');
+      Swal.fire(translateThis('Error'), output, 'error');
     }
 }
 
@@ -4906,10 +4906,10 @@ async function sendReserve() {
     var BAYRBal;
     BAYRBal = stripZeros((new BigNumber(DOMPurify.sanitize(await bayrcontract.methods.balanceOf(myaccounts).call())).dividedBy('1e8')).toFixed());
     const { value: formValues } = await Swal.fire({
-      title: 'Send BAY Reserve',
+      title: translateThis('Send BAY Reserve'),
       html:
-        '<input id="recipient" class="swal2-input" placeholder="Recipient Address">' +
-        '<input id="amount" class="swal2-input" placeholder="Amount to Send">',
+        '<input id="recipient" class="swal2-input" placeholder="' + translateThis('Recipient Address') + '">' +
+        '<input id="amount" class="swal2-input" placeholder="' + translateThis('Amount to Send') + '">',
       focusConfirm: false,
       showCancelButton: true,
       preConfirm: () => {
@@ -4922,34 +4922,34 @@ async function sendReserve() {
     if (!formValues) return; // cancelled
     const [addy, amt] = formValues;
     if (!web3.utils.isAddress(addy)) {
-      return Swal.fire('Error', 'Invalid Ethereum address.', 'error');
+      return Swal.fire(translateThis('Error'), translateThis('Invalid Ethereum address.'), 'error');
     }
     if (!/^(\d+(\.\d+)?|\.\d+)$/.test(amt)) {
-      return Swal.fire('Error', 'Invalid amount format.', 'error');
+      return Swal.fire(translateThis('Error'), translateThis('Invalid amount format.'), 'error');
     }
     const amountBN = new BigNumber(amt).times(1e8);
     const balanceBN = new BigNumber(BAYRBal).times(1e8); // should be BN or BigInt from Web3
     if ((amountBN).gt(balanceBN)) {
-      return Swal.fire('Error', 'Insufficient BAY Reserve balance.', 'error');
+      return Swal.fire(translateThis('Error'), translateThis('Insufficient BAY Reserve balance.'), 'error');
     }
     const confirm = await Swal.fire({
-      title: 'Confirm Transfer',
-      html: `Send <b>${amt} BAYR</b> to <code style="font-size:7pt">${addy}</code>`,
+      title: translateThis('Confirm Transfer'),
+      html: translateThis('Send') + ` <b>${amt} BAYR</b> ` + translateThis('to') + ` <code style="font-size:7pt">${addy}</code>`,
       showCancelButton: true,
-      confirmButtonText: 'Confirm',
+      confirmButtonText: translateThis('Confirm'),
     });
     if (!confirm.isConfirmed) return;
     try {
       showSpinner();
       await sendTx(bayrcontract, "transfer", [addy, amountBN.toFixed()], 2500000);
       hideSpinner();
-      Swal.fire('Success', 'Transfer complete.', 'success');
+      Swal.fire(translateThis('Success'), translateThis('Transfer complete.'), 'success');
       checkbalances();
     } catch (e) { 
       hideSpinner();
-      const message = 'Transaction failed: ' + e.message;
+      const message = translateThis('Transaction failed:') + ' ' + e.message;
       const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-      Swal.fire('Error', `Transaction failed: ${output}`, 'error');      
+      Swal.fire(translateThis('Error'), output, 'error');      
     }
 }
 
@@ -4967,10 +4967,10 @@ async function sendALT() {
     var MYBal;
     MYBal = stripZeros((new BigNumber(DOMPurify.sanitize(await altcontract.methods.balanceOf(myaccounts).call())).dividedBy('1e18')).toFixed());
     const { value: formValues } = await Swal.fire({
-      title: 'Send'+' '+coinName,
+      title: translateThis('Send')+' '+coinName,
       html:
-        '<input id="recipient" class="swal2-input" placeholder="Recipient Address">' +
-        '<input id="amount" class="swal2-input" placeholder="Amount to Send">',
+        '<input id="recipient" class="swal2-input" placeholder="' + translateThis('Recipient Address') + '">' +
+        '<input id="amount" class="swal2-input" placeholder="' + translateThis('Amount to Send') + '">',
       focusConfirm: false,
       showCancelButton: true,
       preConfirm: () => {
@@ -4983,34 +4983,34 @@ async function sendALT() {
     if (!formValues) return; // cancelled
     const [addy, amt] = formValues;
     if (!web3.utils.isAddress(addy)) {
-      return Swal.fire('Error', 'Invalid Ethereum address.', 'error');
+      return Swal.fire(translateThis('Error'), translateThis('Invalid Ethereum address.'), 'error');
     }
     if (!/^(\d+(\.\d+)?|\.\d+)$/.test(amt)) {
-      return Swal.fire('Error', 'Invalid amount format.', 'error');
+      return Swal.fire(translateThis('Error'), translateThis('Invalid amount format.'), 'error');
     }
     const amountBN = new BigNumber(amt).times(1e18);
     const balanceBN = new BigNumber(MYBal).times(1e18); // should be BN or BigInt from Web3
     if ((amountBN).gt(balanceBN)) {
-      return Swal.fire('Error', 'Insufficient'+' '+coinName+' '+'balance.', 'error');
+      return Swal.fire(translateThis('Error'), translateThis('Insufficient')+' '+coinName+' '+translateThis('balance.'), 'error');
     }
     const confirm = await Swal.fire({
-      title: 'Confirm Transfer',
-      html: `Send <b>${amt} ${coinName}</b> to <code style="font-size:7pt">${addy}</code>`,
+      title: translateThis('Confirm Transfer'),
+      html: translateThis('Send') + ` <b>${amt} ${coinName}</b> ` + translateThis('to') + ` <code style="font-size:7pt">${addy}</code>`,
       showCancelButton: true,
-      confirmButtonText: 'Confirm',
+      confirmButtonText: translateThis('Confirm'),
     });
     if (!confirm.isConfirmed) return;
     try {
       showSpinner();
       await sendTx(altcontract, "transfer", [addy, amountBN.toFixed()], 2500000);
       hideSpinner();
-      Swal.fire('Success', 'Transfer complete.', 'success');
+      Swal.fire(translateThis('Success'), translateThis('Transfer complete.'), 'success');
       checkbalances();
     } catch (e) { 
       hideSpinner();
-      const message = 'Transaction failed: ' + e.message;
+      const message = translateThis('Transaction failed:') + ' ' + e.message;
       const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-      Swal.fire('Error', `Transaction failed: ${output}`, 'error');
+      Swal.fire(translateThis('Error'), output, 'error');
     }
 }
 
@@ -5025,10 +5025,10 @@ async function sendBase() {
     var MYBal;
     MYBal = stripZeros((new BigNumber(DOMPurify.sanitize(await window.web3.eth.getBalance(myaccounts))).dividedBy('1e18')).toFixed());
     const { value: formValues } = await Swal.fire({
-      title: 'Send'+' '+coinName,
+      title: translateThis('Send')+' '+coinName,
       html:
-        '<input id="recipient" class="swal2-input" placeholder="Recipient Address">' +
-        '<input id="amount" class="swal2-input" placeholder="Amount to Send">',
+        '<input id="recipient" class="swal2-input" placeholder="' + translateThis('Recipient Address') + '">' +
+        '<input id="amount" class="swal2-input" placeholder="' + translateThis('Amount to Send') + '">',
       focusConfirm: false,
       showCancelButton: true,
       preConfirm: () => {
@@ -5041,34 +5041,34 @@ async function sendBase() {
     if (!formValues) return; // cancelled
     const [addy, amt] = formValues;
     if (!web3.utils.isAddress(addy)) {
-      return Swal.fire('Error', 'Invalid Ethereum address.', 'error');
+      return Swal.fire(translateThis('Error'), translateThis('Invalid Ethereum address.'), 'error');
     }
     if (!/^(\d+(\.\d+)?|\.\d+)$/.test(amt)) {
-      return Swal.fire('Error', 'Invalid amount format.', 'error');
+      return Swal.fire(translateThis('Error'), translateThis('Invalid amount format.'), 'error');
     }
     const amountBN = new BigNumber(amt).times(1e18);
     const balanceBN = new BigNumber(MYBal).times(1e18); // should be BN or BigInt from Web3
     if ((amountBN).gt(balanceBN)) {
-      return Swal.fire('Error', 'Insufficient'+' '+coinName+' '+'balance.', 'error');
+      return Swal.fire(translateThis('Error'), translateThis('Insufficient')+' '+coinName+' '+translateThis('balance.'), 'error');
     }
     const confirm = await Swal.fire({
-      title: 'Confirm Transfer',
-      html: `Send <b>${amt} ${coinName}</b> to <code style="font-size:7pt">${addy}</code>`,
+      title: translateThis('Confirm Transfer'),
+      html: translateThis('Send') + ` <b>${amt} ${coinName}</b> ` + translateThis('to') + ` <code style="font-size:7pt">${addy}</code>`,
       showCancelButton: true,
-      confirmButtonText: 'Confirm',
+      confirmButtonText: translateThis('Confirm'),
     });
     if (!confirm.isConfirmed) return;
     try {
       showSpinner();
       await sendTx("ETH",amountBN.toString(),[addy],1000000);
       hideSpinner();
-      Swal.fire('Success', 'Transfer complete.', 'success');
+      Swal.fire(translateThis('Success'), translateThis('Transfer complete.'), 'success');
       checkbalances();
     } catch (e) { 
       hideSpinner();
-      const message = 'Transaction failed: ' + e.message;
+      const message = translateThis('Transaction failed:') + ' ' + e.message;
       const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-      Swal.fire('Error', `Transaction failed: ${output}`, 'error');
+      Swal.fire(translateThis('Error'), output, 'error');
     }
 }
 
@@ -5081,22 +5081,22 @@ async function sendFrozen() {
         if(loginType == 1) {
           Swal.fire({
               icon: 'info',
-              title: 'Frozen coins',
-              text: 'Attempting to Release frozen coins. Please approve the transaction...',
-              confirmButtonText: 'Close'
+              title: translateThis('Frozen coins'),
+              text: translateThis('Attempting to Release frozen coins. Please approve the transaction...'),
+              confirmButtonText: translateThis('Close')
           });
         }
         try {
           showSpinner();
           await sendTx(baydatacontract, "ReleaseFrozenFunds", [myaccounts], 2500000, "0", true);
           hideSpinner();
-          Swal.fire('Success', 'Transfer complete.', 'success');
+          Swal.fire(translateThis('Success'), translateThis('Transfer complete.'), 'success');
           checkbalances();
         } catch (e) { 
           hideSpinner();
-          const message = 'Transaction failed: ' + e.message;
+          const message = translateThis('Transaction failed:') + ' ' + e.message;
           const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-          Swal.fire('Error', `Transaction failed: ${output}`, 'error');
+          Swal.fire(translateThis('Error'), output, 'error');
         }
     }
 }
@@ -5302,37 +5302,37 @@ async function mintFromBitBay(jsondata2="") {
       }
       var status = parseInt(DOMPurify.sanitize(await bayadmincontract.methods.MerkleConfirm(jsondata['root']).call()))
       if(status == 0) {
-        await Swal.fire({"text":"Merkle has not yet been posted to the chain. Please try again later."});
+        await Swal.fire({"text":translateThis("Merkle has not yet been posted to the chain. Please try again later.")});
         return
       }
       var blocktime = parseInt(JSON.parse(DOMPurify.sanitize(JSON.stringify(await web3.eth.getBlock(await web3.eth.getBlockNumber())))).timestamp);
       if(blocktime < status) {
-        await Swal.fire({"text":"Merkle root hash will be confirmed in approximately: " + ((status-blocktime)/60).toFixed(2) + " minutes"});
+        await Swal.fire({"text":translateThis("Merkle root hash will be confirmed in approximately:") + " " + ((status-blocktime)/60).toFixed(2) + " " + translateThis("minutes")});
         return
       }
       if(loginType==2) {
         const confirm = await Swal.fire({
-          title: 'Confirm Transaction',
-          text: "Would you like to redeem this merkle receipt?",
+          title: translateThis('Confirm Transaction'),
+          text: translateThis("Would you like to redeem this merkle receipt?"),
           showCancelButton: true,
-          confirmButtonText: 'Confirm',
+          confirmButtonText: translateThis('Confirm'),
         });
         if (!confirm.isConfirmed) return;
       }
       showSpinner();
       await sendTx(bayadmincontract, "redeemTX", [jsondata['root'],jsondata['proof'],jsondata['reserve'],jsondata['txid']], 2500000);
       hideSpinner();
-      await Swal.fire("Minting succesful");
+      await Swal.fire(translateThis("Minting succesful"));
       checkbalances();
     } catch (e) {
       hideSpinner();
       console.log(e);
-      const message = 'Transaction failed: ' + e.message;
+      const message = translateThis('Transaction failed:') + ' ' + e.message;
       const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
       await Swal.fire({
           icon: 'error',
           text: output,
-          confirmButtonText: 'Close'
+          confirmButtonText: translateThis('Close')
       });
     }
 }
@@ -5354,7 +5354,7 @@ async function registerBitBay(regaddy) {
         //    title: 'Invalid BitBay address',
         //    confirmButtonText: 'Close'
         //});
-        modalDialog('Connect', "Invalid BitBay address.", "danger");
+        modalDialog(translateThis('Connect'), translateThis("Invalid BitBay address."), "danger");
         return;
     }
     var found = 1;
@@ -5368,7 +5368,7 @@ async function registerBitBay(regaddy) {
             //    title: 'A BitBay address is already registered to your address.',
             //    confirmButtonText: 'Close'
             //});
-            modalDialog('Connect', "A BitBay address is already registered to your address.", "danger");
+            modalDialog(translateThis('Connect'), translateThis("A BitBay address is already registered to your address."), "danger");
             return;
         }    
     });
@@ -5377,25 +5377,25 @@ async function registerBitBay(regaddy) {
     }
     try {
       const confirm = await Swal.fire({
-        title: 'Confirm Transaction',
-        html: "Register BitBay address: " + "<br>" + regaddy,
+        title: translateThis('Confirm Transaction'),
+        html: translateThis("Register BitBay address:") + " " + "<br>" + regaddy,
         showCancelButton: true,
-        confirmButtonText: 'Confirm',
+        confirmButtonText: translateThis('Confirm'),
       });
       if (!confirm.isConfirmed) return;
       showSpinner();
       await sendTx(bayadmincontract, "register", [regaddy], 500000);
       hideSpinner();
-      await Swal.fire("Success!");
+      await Swal.fire(translateThis("Success!"));
     } catch (e) {
       console.log(e)
       hideSpinner();
-      const message = 'Transaction failed: ' + e.message;
+      const message = translateThis('Transaction failed:') + ' ' + e.message;
       const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
       await Swal.fire({
           icon: 'error',
           text: output,
-          confirmButtonText: 'Close'
+          confirmButtonText: translateThis('Close')
       });      
     } 
 }
@@ -5412,7 +5412,7 @@ async function burnToBitBay(burnamount) {
         //    title: 'The selected chain was recently changed or you are not logged in, please log in again.',
         //    confirmButtonText: 'Close'
         //});
-        modalDialog('Connect', "The selected chain was recently changed or you are not logged in, please log in again.", "danger");
+        modalDialog(translateThis('Connect'), translateThis("The selected chain was recently changed or you are not logged in, please log in again."), "danger");
         return;
     }
     var orgamount = burnamount;
@@ -5435,7 +5435,7 @@ async function burnToBitBay(burnamount) {
             //    title: 'You need to register your BitBay address before burning.',
             //    confirmButtonText: 'Close'
             //});
-            modalDialog('Connect', "You need to register your BitBay address before burning.", "danger");
+            modalDialog(translateThis('Connect'), translateThis("You need to register your BitBay address before burning."), "danger");
             found = 0;
         }
     });
@@ -5449,7 +5449,7 @@ async function burnToBitBay(burnamount) {
         //    title: 'Burn address does not match known admin contract.',
         //    confirmButtonText: 'Close'
         //});
-        modalDialog('Connect', "Burn address does not match known admin contract.", "danger");
+        modalDialog(translateThis('Connect'), translateThis("Burn address does not match known admin contract."), "danger");
         return;
     }
     console.log(burnamount);
@@ -5770,9 +5770,9 @@ async function addLiquidity() {
               //document.getElementById("addliquidtext").innerHTML = 'Syncing AMM...';
               Swal.fire({
                   icon: 'info',
-                  title: 'Syncing pair',
-                  text: 'Attempting to Sync AMM for this pair...',
-                  confirmButtonText: 'Close'
+                  title: translateThis('Syncing pair'),
+                  text: translateThis('Attempting to Sync AMM for this pair...'),
+                  confirmButtonText: translateThis('Close')
               });
               //modalDialog('Connect', "Syncing AMM...", "warning");
               try {
@@ -5782,8 +5782,8 @@ async function addLiquidity() {
                   //document.getElementById("addliquidtext").innerHTML = 'Syncing failed';
                   Swal.fire({
                       icon: 'error',
-                      text: 'Syncing failed',
-                      confirmButtonText: 'Close'
+                      text: translateThis('Syncing failed'),
+                      confirmButtonText: translateThis('Close')
                   });
                   //modalDialog('Connect', "Syncing failed", "danger");
                   hideSpinner();
@@ -5800,9 +5800,9 @@ async function addLiquidity() {
           hideSpinner();
           await Swal.fire({
               icon: 'info',
-              title: 'Pair in sync',
-              text: 'This pair is now in sync. Please recalculate your deposit.',
-              confirmButtonText: 'Close'
+              title: translateThis('Pair in sync'),
+              text: translateThis('This pair is now in sync. Please recalculate your deposit.'),
+              confirmButtonText: translateThis('Close')
           });
           //modalDialog('Connect', "This pair is now in sync. Please recalculate your deposit.", "success");          
           return;
@@ -5812,8 +5812,8 @@ async function addLiquidity() {
           //document.getElementById("addliquidtext").innerHTML = 'Amount can not be zero';
           Swal.fire({
               icon: 'warning',
-              text: 'Amount can not be zero',
-              confirmButtonText: 'Close'
+              text: translateThis('Amount can not be zero'),
+              confirmButtonText: translateThis('Close')
           });
           //modalDialog('Connect', "Amount can not be zero", "warning");
           hideSpinner();
@@ -5823,8 +5823,8 @@ async function addLiquidity() {
           //document.getElementById("addliquidtext").innerHTML = 'Amount can not be zero';
           Swal.fire({
               icon: 'warning',
-              text: 'Amount can not be zero',
-              confirmButtonText: 'Close'
+              text: translateThis('Amount can not be zero'),
+              confirmButtonText: translateThis('Close')
           });
           //modalDialog('Connect', "Amount can not be zero", "warning");
           hideSpinner();
@@ -5834,10 +5834,10 @@ async function addLiquidity() {
           //document.getElementById("addliquidtext").innerHTML = 'Percentage incorrect, usually 1-5% is recommended';
           Swal.fire({
               icon: 'warning',
-              text: 'Percentage incorrect, usually 1-5% is recommended',
-              confirmButtonText: 'Close'
+              text: translateThis('Percentage incorrect, usually 1-5% is recommended'),
+              confirmButtonText: translateThis('Close')
           });
-          modalDialog('Connect', "Percentage incorrect, usually 1-5% is recommended", "danger");
+          modalDialog(translateThis('Connect'), translateThis("Percentage incorrect, usually 1-5% is recommended"), "danger");
           hideSpinner();
           return;
       }
@@ -5867,8 +5867,8 @@ async function addLiquidity() {
               //document.getElementById("addliquidtext").innerHTML = 'Not enough liquid funds for deposit';
               Swal.fire({
                   icon: 'warning',
-                  text: 'Not enough liquid funds for deposit',
-                  confirmButtonText: 'Close'
+                  text: translateThis('Not enough liquid funds for deposit'),
+                  confirmButtonText: translateThis('Close')
               });
               //modalDialog('Connect', "Not enough liquid funds for deposit", "danger");
               returnthis = 1;
@@ -5879,8 +5879,8 @@ async function addLiquidity() {
               //document.getElementById("addliquidtext").innerHTML = 'Not enough reserve funds for deposit';
               Swal.fire({
                   icon: 'warning',
-                  text: 'Not enough reserve funds for deposit',
-                  confirmButtonText: 'Close'
+                  text: translateThis('Not enough reserve funds for deposit'),
+                  confirmButtonText: translateThis('Close')
               });
               //modalDialog('Connect', "Not enough reserve funds for deposit", "danger");
               returnthis = 1;
@@ -5892,8 +5892,8 @@ async function addLiquidity() {
                   //document.getElementById("addliquidtext").innerHTML = 'Not enough coins for deposit';
                   Swal.fire({
                       icon: 'warning',
-                      text: 'Not enough coins for deposit',
-                      confirmButtonText: 'Close'
+                      text: translateThis('Not enough coins for deposit'),
+                      confirmButtonText: translateThis('Close')
                   });
                   //modalDialog('Connect', "Not enough coins for deposit", "danger");
                   returnthis = 1;
@@ -5905,8 +5905,8 @@ async function addLiquidity() {
                   //document.getElementById("addliquidtext").innerHTML = 'Not enough coins for deposit';
                   Swal.fire({
                       icon: 'warning',
-                      text: 'Not enough coins for deposit',
-                      confirmButtonText: 'Close'
+                      text: translateThis('Not enough coins for deposit'),
+                      confirmButtonText: translateThis('Close')
                   });
                   //modalDialog('Connect', "Not enough coins for deposit", "danger");
                   returnthis = 1;
@@ -5933,17 +5933,17 @@ async function addLiquidity() {
       if(loginType == 1) {
         Swal.fire({
             icon: 'info',
-            title: 'Adding liquidity',
-            text: 'Attempting to add liquidity, please approve the transaction...',
-            confirmButtonText: 'Close'
+            title: translateThis('Adding liquidity'),
+            text: translateThis('Attempting to add liquidity, please approve the transaction...'),
+            confirmButtonText: translateThis('Close')
         });
       } else {
         hideSpinner();
         const confirm = await Swal.fire({
-          title: 'Confirm Transaction',
-          html: "Would you like to add liquidity to the trading pair?",
+          title: translateThis('Confirm Transaction'),
+          html: translateThis("Would you like to add liquidity to the trading pair?"),
           showCancelButton: true,
-          confirmButtonText: 'Confirm',
+          confirmButtonText: translateThis('Confirm'),
         });
         if (!confirm.isConfirmed) {
           return;
@@ -5962,12 +5962,12 @@ async function addLiquidity() {
           //document.getElementById("addliquidtext").innerHTML = 'Transaction failed';
           //modalDialog('Connect', "Transaction failed", "danger");
           hideSpinner();
-          const message = 'Transaction failed: ' + e.message;
+          const message = translateThis('Transaction failed:') + ' ' + e.message;
           const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
           Swal.fire({
               icon: 'error',
               text: output,
-              confirmButtonText: 'Close'
+              confirmButtonText: translateThis('Close')
           });
           return;
       }
@@ -5978,8 +5978,8 @@ async function addLiquidity() {
       checkbalances();
       Swal.fire({
           icon: 'success',
-          title: 'Deposit Successful',
-          confirmButtonText: 'Close'
+          title: translateThis('Deposit Successful'),
+          confirmButtonText: translateThis('Close')
       });
       hideSpinner();
     } catch (e) {
@@ -6001,11 +6001,11 @@ async function Swap() {
     if(lastSelect != 'SwapAmount' && lastSelect != 'SwapAmount2') {
         Swal.fire({
             icon: 'warning',
-            title: 'Price Slippage Warning',
-            text: 'You will have to increase the min/max price fluctuation to higher than ' + stripZeros(slippage.toFixed(4)) + ' to complete this trade.',
-            confirmButtonText: 'Close'
+            title: translateThis('Price Slippage Warning'),
+            text: translateThis('You will have to increase the min/max price fluctuation to higher than') + ' ' + stripZeros(slippage.toFixed(4)) + ' ' + translateThis('to complete this trade.'),
+            confirmButtonText: translateThis('Close')
         });
-        document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-danger" >You will have to increase the min/max price fluctuation to higher than ' + stripZeros(slippage.toFixed(4)) + ' to complete this trade.</div>';
+        document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-danger" >' + translateThis('You will have to increase the min/max price fluctuation to higher than') + ' ' + stripZeros(slippage.toFixed(4)) + ' ' + translateThis('to complete this trade.') + '</div>';
         document.getElementById("SwapAmount").value = '';
         document.getElementById("SwapAmount2").value = '';
         return;
@@ -6074,11 +6074,11 @@ async function Swap() {
           if(parseInt(allowance) == 0 || new BN(allowance).lt(new BN("999999999999999999999999999999"))) {
               Swal.fire({
                   icon: 'info',
-                  title: 'Allowance',
-                  text: 'Authorizing allowance for first coin...',
-                  confirmButtonText: 'Close'
+                  title: translateThis('Allowance'),
+                  text: translateThis('Authorizing allowance for first coin...'),
+                  confirmButtonText: translateThis('Close')
               });
-              document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >Waiting for router allowance authorization on the blockchain for the first coin...</div><br>' + prevtext;
+              document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >' + translateThis('Waiting for router allowance authorization on the blockchain for the first coin...') + '</div><br>' + prevtext;
               await sendTx(coin1contract, "approve", [myrouter, "9999999999999999999999999999999999999999999999999999999999999999999999"], 2500000);
           }
           allowance = 0;
@@ -6088,11 +6088,11 @@ async function Swap() {
           if(parseInt(allowance) == 0 || new BN(allowance).lt(new BN("999999999999999999999999999999"))) {
               Swal.fire({
                   icon: 'info',
-                  title: 'Allowance',
-                  text: 'Authorizing allowance for BAY...',
-                  confirmButtonText: 'Close'
+                  title: translateThis('Allowance'),
+                  text: translateThis('Authorizing allowance for BAY...'),
+                  confirmButtonText: translateThis('Close')
               });
-              document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >Waiting for router allowance authorization on the blockchain for BAY...</div><br>' + prevtext;
+              document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >' + translateThis('Waiting for router allowance authorization on the blockchain for BAY...') + '</div><br>' + prevtext;
               await sendTx(baylcontract, "approve", [myrouter, "9999999999999999999999999999999999999999999999999999999999999999999999"], 2500000);
           }
           allowance = 0;
@@ -6102,11 +6102,11 @@ async function Swap() {
           if(parseInt(allowance) == 0 || new BN(allowance).lt(new BN("999999999999999999999999999999"))) {
               Swal.fire({
                   icon: 'info',
-                  title: 'Allowance',
-                  text: 'Authorizing allowance for BAYR...',
-                  confirmButtonText: 'Close'
+                  title: translateThis('Allowance'),
+                  text: translateThis('Authorizing allowance for BAYR...'),
+                  confirmButtonText: translateThis('Close')
               });
-              document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >Waiting for router allowance authorization on the blockchain for BAYR...</div><br>' + prevtext;
+              document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >' + translateThis('Waiting for router allowance authorization on the blockchain for BAYR...') + '</div><br>' + prevtext;
               await sendTx(bayrcontract, "approve", [myrouter, "9999999999999999999999999999999999999999999999999999999999999999999999"], 2500000);
           }
       } catch (e) {
@@ -6115,8 +6115,8 @@ async function Swap() {
           //modalDialog('Connect', "Approval failed", "danger");
           Swal.fire({
               icon: 'error',
-              text: 'Approval failed',
-              confirmButtonText: 'Close'
+              text: translateThis('Approval failed'),
+              confirmButtonText: translateThis('Close')
           });
           hideSpinner();
           return;
@@ -6129,21 +6129,21 @@ async function Swap() {
           if(myhighkey != section) {
               Swal.fire({
                   icon: 'info',
-                  title: 'Syncing AMM',
-                  text: 'Attempting to sync AMM pair...',
-                  confirmButtonText: 'Close'
+                  title: translateThis('Syncing AMM'),
+                  text: translateThis('Attempting to sync AMM pair...'),
+                  confirmButtonText: translateThis('Close')
               });
-              document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >Syncing AMM...</div><br>' + prevtext;
+              document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >' + translateThis('Syncing AMM...') + '</div><br>' + prevtext;
               try {
                   await sendTx(liquiditypool, "syncAMM", [mypair], 2500000);
               } catch (e) {
                   console.log(e);
                   //document.getElementById("SwapSummary").innerHTML = 'Syncing failed';
-                  document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-danger" >Error: Syncing failed!</div>';
+                  document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-danger" >' + translateThis('Error: Syncing failed!') + '</div>';
                   Swal.fire({
                       icon: 'error',
-                      title: 'Syncing failed',
-                      confirmButtonText: 'Close'
+                      title: translateThis('Syncing failed'),
+                      confirmButtonText: translateThis('Close')
                   });
                   hideSpinner();
                   return;
@@ -6154,43 +6154,43 @@ async function Swap() {
               lastchecked2 = 0;
           }
       } else {
-          document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-danger" >Pair does not exist yet. Please deposit liquidity to the pair.</div>';
+          document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-danger" >' + translateThis('Pair does not exist yet. Please deposit liquidity to the pair.') + '</div>';
           hideSpinner();
           await Swal.fire({
               icon: 'warning',
-              title: 'AMM pair',
-              text: 'Pair does not exist yet. Please deposit liquidity to the pair.',
-              confirmButtonText: 'Close'
+              title: translateThis('AMM pair'),
+              text: translateThis('Pair does not exist yet. Please deposit liquidity to the pair.'),
+              confirmButtonText: translateThis('Close')
           });
           return;
       }
       if(myhighkey != section) {        
-          document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >This pair is now in sync. Please recalculate your swap.</div>';
+          document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >' + translateThis('This pair is now in sync. Please recalculate your swap.') + '</div>';
           hideSpinner();
           await Swal.fire({
               icon: 'info',
-              text: 'This pair is now in sync. Please recalculate your swap.',
-              confirmButtonText: 'Close'
+              text: translateThis('This pair is now in sync. Please recalculate your swap.'),
+              confirmButtonText: translateThis('Close')
           });
           return;
       }
       if(parseFloat(swapval) == 0) {
-          document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >Amount can not be zero</div>';
+          document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >' + translateThis('Amount can not be zero') + '</div>';
           hideSpinner();
           await Swal.fire({
               icon: 'warning',
-              text: 'Amount can not be zero',
-              confirmButtonText: 'Close'
+              text: translateThis('Amount can not be zero'),
+              confirmButtonText: translateThis('Close')
           });
           return;
       }
       if(perc == 0 || perc > 1000) {        
-          document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >Percentage incorrect, usually 1-10% is recommended</div>';
+          document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >' + translateThis('Percentage incorrect, usually 1-10% is recommended') + '</div>';
           hideSpinner();
           await Swal.fire({
               icon: 'warning',
-              text: 'Percentage incorrect, usually 1-10% is recommended',
-              confirmButtonText: 'Close'
+              text: translateThis('Percentage incorrect, usually 1-10% is recommended'),
+              confirmButtonText: translateThis('Close')
           });
           return;
       }
@@ -6204,10 +6204,10 @@ async function Swap() {
                       console.log(myliquid2.toFixed())
                       Swal.fire({
                           icon: 'warning',
-                          text: 'Not enough coins for deposit',
-                          confirmButtonText: 'Close'
+                          text: translateThis('Not enough coins for deposit'),
+                          confirmButtonText: translateThis('Close')
                       });
-                      document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >Not enough coins for deposit</div>';
+                      document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >' + translateThis('Not enough coins for deposit') + '</div>';
                       returnthis = 1;
                   }
               });
@@ -6216,10 +6216,10 @@ async function Swap() {
                   if (org2.gt(new BN(DOMPurify.sanitize(myliquid2)))) {
                       Swal.fire({
                           icon: 'warning',
-                          text: 'Not enough coins for deposit',
-                          confirmButtonText: 'Close'
+                          text: translateThis('Not enough coins for deposit'),
+                          confirmButtonText: translateThis('Close')
                       });
-                      document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >Not enough coins for deposit</div>';
+                      document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >' + translateThis('Not enough coins for deposit') + '</div>';
                       returnthis = 1;
                   }
               });
@@ -6230,10 +6230,10 @@ async function Swap() {
                   if (org1.gt(new BN(DOMPurify.sanitize(myliquid2)))) {
                       Swal.fire({
                           icon: 'warning',
-                          text: 'Not enough liquid BAYL coins for deposit',
-                          confirmButtonText: 'Close'
+                          text: translateThis('Not enough liquid BAYL coins for deposit'),
+                          confirmButtonText: translateThis('Close')
                       });
-                      document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >Not enough liquid funds for deposit</div>';
+                      document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >' + translateThis('Not enough liquid funds for deposit') + '</div>';
                       returnthis = 1;
                   }
               });
@@ -6242,10 +6242,10 @@ async function Swap() {
                   if (org1.gt(new BN(DOMPurify.sanitize(myrval2)))) {
                       Swal.fire({
                           icon: 'warning',
-                          text: 'Not enough reserve BAYR coins for deposit',
-                          confirmButtonText: 'Close'
+                          text: translateThis('Not enough reserve BAYR coins for deposit'),
+                          confirmButtonText: translateThis('Close')
                       });
-                      document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >Not enough reserve funds for deposit</div>';
+                      document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >' + translateThis('Not enough reserve funds for deposit') + '</div>';
                       returnthis = 1;
                   }
               });
@@ -6271,13 +6271,13 @@ async function Swap() {
       console.log(deadline);
       console.log(coin1);
       console.log(bayaddy);
-      document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >Attempting to perform the swap, please approve the transaction...</div><br>' + prevtext;
+      document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-warning" >' + translateThis('Attempting to perform the swap, please approve the transaction...') + '</div><br>' + prevtext;
       if(loginType == 1) {
         Swal.fire({
             icon: 'info',
-            title: 'Swap',
-            text: 'Attempting to perform the swap, please approve the transaction...',
-            confirmButtonText: 'Close'
+            title: translateThis('Swap'),
+            text: translateThis('Attempting to perform the swap, please approve the transaction...'),
+            confirmButtonText: translateThis('Close')
         });
       }
       try {
@@ -6381,24 +6381,24 @@ async function Swap() {
           console.log(e);
           hideSpinner();
           //document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-danger" >Error: Swap failed!</div>';
-          const message = 'Swap failed: ' + e.message;
+          const message = translateThis('Swap failed:') + ' ' + e.message;
           const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
           await Swal.fire({
               icon: 'error',
-              title: 'Transaction failed',
+              title: translateThis('Transaction failed'),
               text: output,
-              confirmButtonText: 'Close'
+              confirmButtonText: translateThis('Close')
           });
           return;
       }
-      document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-success" >Success!</div><br>' + prevtext;
+      document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-success" >' + translateThis('Success!') + '</div><br>' + prevtext;
       document.getElementById("SwapAmount").value = '';
       document.getElementById("SwapAmount2").value = '';
       checkbalances();
       Swal.fire({
           icon: 'success',
-          title: 'Swap Successful!',
-          confirmButtonText: 'Close'
+          title: translateThis('Swap Successful!'),
+          confirmButtonText: translateThis('Close')
       });
       hideSpinner();
     } catch (e) {
@@ -6459,20 +6459,20 @@ async function withdrawLP() {
           if(parseInt(allowance) == 0 || new BN(allowance).lt(new BN("999999999999999999999999999999"))) {
               Swal.fire({
                   icon: 'info',
-                  title: 'Allowance',
-                  text: 'Authorizing allowance for LP Tokens...',
-                  confirmButtonText: 'Close'
+                  title: translateThis('Allowance'),
+                  text: translateThis('Authorizing allowance for LP Tokens...'),
+                  confirmButtonText: translateThis('Close')
               });
-              document.getElementById("LPdetails1").innerHTML = 'Waiting for router allowance authorization on the blockchain for the LP Tokens...<br><br>' + prevtext;
+              document.getElementById("LPdetails1").innerHTML = translateThis('Waiting for router allowance authorization on the blockchain for the LP Tokens...') + '<br><br>' + prevtext;
               await sendTx(paircontract, "approve", [myrouter, "9999999999999999999999999999999999999999999999999999999999999999999999"], 2500000);
           }
       } catch (e) {
           console.log(e);
-          document.getElementById("LPdetails1").innerHTML = 'Approval failed';
+          document.getElementById("LPdetails1").innerHTML = translateThis('Approval failed');
           Swal.fire({
               icon: 'error',
-              title: 'Approval failed',
-              confirmButtonText: 'Close'
+              title: translateThis('Approval failed'),
+              confirmButtonText: translateThis('Close')
           });
           hideSpinner();
           return;
@@ -6485,20 +6485,20 @@ async function withdrawLP() {
           if(myhighkey != section) {
               Swal.fire({
                   icon: 'info',
-                  title: 'Syncing AMM',
-                  text: 'Attempting to sync AMM pair...',
-                  confirmButtonText: 'Close'
+                  title: translateThis('Syncing AMM'),
+                  text: translateThis('Attempting to sync AMM pair...'),
+                  confirmButtonText: translateThis('Close')
               });
-              document.getElementById("LPdetails1").innerHTML = 'Syncing AMM...<br><br>' + prevtext;
+              document.getElementById("LPdetails1").innerHTML = translateThis('Syncing AMM...') + '<br><br>' + prevtext;
               try {
                   await sendTx(liquiditypool, "syncAMM", [mypair], 2500000);
               } catch (e) {
                   console.log(e);
-                  document.getElementById("LPdetails1").innerHTML = 'Syncing failed';
+                  document.getElementById("LPdetails1").innerHTML = translateThis('Syncing failed');
                   Swal.fire({
                       icon: 'error',
-                      title: 'Syncing failed',
-                      confirmButtonText: 'Close'
+                      title: translateThis('Syncing failed'),
+                      confirmButtonText: translateThis('Close')
                   });
                   hideSpinner();
                   return;
@@ -6508,32 +6508,32 @@ async function withdrawLP() {
               lastchecked2 = 0;
           }
       } else {
-          document.getElementById("LPdetails1").innerHTML = 'Pair does not exist yet. Please deposit liquidity to the pair.';
+          document.getElementById("LPdetails1").innerHTML = translateThis('Pair does not exist yet. Please deposit liquidity to the pair.');
           hideSpinner();
           await Swal.fire({
               icon: 'info',
-              text: 'Pair does not exist yet. Please deposit liquidity to the pair.',
-              confirmButtonText: 'Close'
+              text: translateThis('Pair does not exist yet. Please deposit liquidity to the pair.'),
+              confirmButtonText: translateThis('Close')
           });
           return;
       }
       if(myhighkey != section) {
-          document.getElementById("LPdetails1").innerHTML = 'This pair is now in sync. Please recalculate your withdrawal.';
+          document.getElementById("LPdetails1").innerHTML = translateThis('This pair is now in sync. Please recalculate your withdrawal.');
           hideSpinner();          
           await Swal.fire({
               icon: 'info',
-              text: 'This pair is now in sync. Please recalculate your withdrawal.',
-              confirmButtonText: 'Close'
+              text: translateThis('This pair is now in sync. Please recalculate your withdrawal.'),
+              confirmButtonText: translateThis('Close')
           });
           return;
       }
       if(parseFloat(wval) == 0) {
-          document.getElementById("LPdetails1").innerHTML = 'Amount can not be zero';
+          document.getElementById("LPdetails1").innerHTML = translateThis('Amount can not be zero');
           hideSpinner();
           await Swal.fire({
               icon: 'warning',
-              text: 'Amount can not be zero',
-              confirmButtonText: 'Close'
+              text: translateThis('Amount can not be zero'),
+              confirmButtonText: translateThis('Close')
           });
           return;
       }
@@ -6542,10 +6542,10 @@ async function withdrawLP() {
           if(new BN(wval).gt(wval2)) {
               Swal.fire({
                   icon: 'warning',
-                  text: 'Not enough LP tokens for withdrawal',
-                  confirmButtonText: 'Close'
+                  text: translateThis('Not enough LP tokens for withdrawal'),
+                  confirmButtonText: translateThis('Close')
               });
-              document.getElementById("LPdetails1").innerHTML = 'Not enough LP tokens for withdrawal';
+              document.getElementById("LPdetails1").innerHTML = translateThis('Not enough LP tokens for withdrawal');
               returnthis = 1;
           }
       })
@@ -6559,24 +6559,24 @@ async function withdrawLP() {
       if(loginType == 1) {
         Swal.fire({
             icon: 'info',
-            title: 'Withdrawal',
-            text: 'Attempting to perform the withdrawal, please approve the transaction...',          
-            confirmButtonText: 'Close'
+            title: translateThis('Withdrawal'),
+            text: translateThis('Attempting to perform the withdrawal, please approve the transaction...'),          
+            confirmButtonText: translateThis('Close')
         });
       } else {
         hideSpinner();
         const confirm = await Swal.fire({
-          title: 'Confirm Transaction',
-          html: "Would you like to remove liquidity from the trading pair?",
+          title: translateThis('Confirm Transaction'),
+          html: translateThis("Would you like to remove liquidity from the trading pair?"),
           showCancelButton: true,
-          confirmButtonText: 'Confirm',
+          confirmButtonText: translateThis('Confirm'),
         });
         if (!confirm.isConfirmed) {          
           return;
         }
         showSpinner();
       }
-      document.getElementById("LPdetails1").innerHTML = 'Attempting to perform the withdrawal, please approve the transaction...<br><br>' + prevtext;
+      document.getElementById("LPdetails1").innerHTML = translateThis('Attempting to perform the withdrawal, please approve the transaction...') + '<br><br>' + prevtext;
       try {
           if(weth) {
               await sendTx(routercontract, "removeLiquidityETH", [bayaddy,wval,withdrawMin1,withdrawMin2,waccount,deadline,exchange], 9000000);
@@ -6587,22 +6587,22 @@ async function withdrawLP() {
           console.log(e);
           hideSpinner();
           //document.getElementById("LPdetails1").innerHTML = 'Withdrawal failed';
-          const message = 'Withdrawal failed: ' + e.message;
+          const message = translateThis('Withdrawal failed:') + ' ' + e.message;
           const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
           Swal.fire({
               icon: 'error',
-              title: 'Transaction failed',
+              title: translateThis('Transaction failed'),
               text: output,
-              confirmButtonText: 'Close'
+              confirmButtonText: translateThis('Close')
           });          
           return;
       }
-      document.getElementById("LPdetails1").innerHTML = 'Success!<br><br>' + prevtext;
+      document.getElementById("LPdetails1").innerHTML = translateThis('Success!') + '<br><br>' + prevtext;
       checkbalances();
       Swal.fire({
           icon: 'success',
-          title: 'Withdrawal Successful!',
-          confirmButtonText: 'Close'
+          title: translateThis('Withdrawal Successful!'),
+          confirmButtonText: translateThis('Close')
       });
       hideSpinner();
     } catch (e) {
