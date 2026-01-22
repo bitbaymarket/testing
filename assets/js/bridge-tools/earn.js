@@ -906,7 +906,7 @@ async function loadUserStablePosition(stableContract, totalShares) {
 
 async function depositStableVault() {
   if (!earnState.polWeb3 || !myaccounts) {
-    Swal.fire('Error', 'Please connect your wallet first', 'error');
+    Swal.fire(translateThis('Error'), translateThis('Please connect your wallet first'), 'error');
     return;
   }
   
@@ -915,28 +915,28 @@ async function depositStableVault() {
   
   const BN = BigNumber;
   if (!amount || new BN(amount).lte(new BN('0'))) {
-    Swal.fire('Error', 'Please enter a valid DAI amount', 'error');
+    Swal.fire(translateThis('Error'), translateThis('Please enter a valid DAI amount'), 'error');
     return;
   }
   
   // Show trading disclaimer first
   const result = await Swal.fire({
-    title: 'StableVault Deposit',
+    title: translateThis('StableVault Deposit'),
     html: `
-      <p><strong>Disclaimer:</strong></p>
+      <p><strong>${translateThis('Disclaimer')}:</strong></p>
       <ul style="text-align: left;">
-        <li>Stablecoin pairs are very low risk but you should always audit the code</li>
-        <li>BitBay is a community-driven project and not responsible for bugs, errors, or omissions</li>
-        <li>The position is managed by stakers within very tight ranges</li>
-        <li>Impermanent loss is very unlikely due to tight ranges pegged at $1</li>
-        <li>DAI and USDC are bridged tokens - understand their risks</li>
-        <li>UniSwap V4 risks apply - do your due diligence</li>
+        <li>${translateThis('Stablecoin pairs are very low risk but you should always audit the code')}</li>
+        <li>${translateThis('BitBay is a community-driven project and not responsible for bugs, errors, or omissions')}</li>
+        <li>${translateThis('The position is managed by stakers within very tight ranges')}</li>
+        <li>${translateThis('Impermanent loss is very unlikely due to tight ranges pegged at $1')}</li>
+        <li>${translateThis('DAI and USDC are bridged tokens - understand their risks')}</li>
+        <li>${translateThis('UniSwap V4 risks apply - do your due diligence')}</li>
       </ul>
     `,
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: 'I Understand, Continue',
-    cancelButtonText: 'Cancel'
+    confirmButtonText: translateThis('I Understand, Continue'),
+    cancelButtonText: translateThis('Cancel')
   });
   
   if (!result.isConfirmed) return;
@@ -967,8 +967,8 @@ async function depositStableVault() {
     if (needsUpdate && profitDestination !== 'user') {
       Swal.fire({
         icon: 'info',
-        title: 'Setting Profit Destination',
-        text: 'Configuring where your profits will be sent...',
+        title: translateThis('Setting Profit Destination'),
+        text: translateThis('Configuring where your profits will be sent...'),
         showConfirmButton: false
       });
       await delay(500);
@@ -992,8 +992,8 @@ async function depositStableVault() {
     
     Swal.fire({
       icon: 'info',
-      title: 'Allowance',
-      text: 'Authorizing DAI allowance...',
+      title: translateThis('Allowance'),
+      text: translateThis('Authorizing DAI allowance...'),
       showConfirmButton: false
     });
     
@@ -1001,8 +1001,8 @@ async function depositStableVault() {
     
     Swal.fire({
       icon: 'info',
-      title: 'Depositing',
-      text: 'Depositing DAI to StableVault...',
+      title: translateThis('Depositing'),
+      text: translateThis('Depositing DAI to StableVault...'),
       showConfirmButton: false
     });
     await delay(500);
@@ -1012,19 +1012,19 @@ async function depositStableVault() {
     await sendTx(stableContract, "deposit", [amountWei, deadline], 500000, "0", true, false);
     
     hideSpinner();
-    await Swal.fire('Success', 'Deposit successful!', 'success');
+    await Swal.fire(translateThis('Success'), translateThis('Deposit successful!'), 'success');
     await refreshEarnTab();
     
   } catch (error) {
     hideSpinner();
     console.error('Error depositing to StableVault:', error);
-    await Swal.fire('Error', error.message || 'Deposit failed', 'error');
+    await Swal.fire(translateThis('Error'), error.message || translateThis('Deposit failed'), 'error');
   }
 }
 
 async function collectStableFees() {
   if (!earnState.polWeb3 || !myaccounts) {
-    await Swal.fire('Error', 'Please connect your wallet first', 'error');
+    await Swal.fire(translateThis('Error'), translateThis('Please connect your wallet first'), 'error');
     return;
   }
   
@@ -1037,32 +1037,32 @@ async function collectStableFees() {
     await sendTx(stableContract, "collectFees", [deadline], 500000, "0", true, false);
     
     hideSpinner();
-    await Swal.fire('Success', 'Fees collected!', 'success');
+    await Swal.fire(translateThis('Success'), translateThis('Fees collected!'), 'success');
     await refreshEarnTab();
     
   } catch (error) {
     hideSpinner();
     console.error('Error collecting fees:', error);
-    await Swal.fire('Error', error.message || 'Fee collection failed', 'error');
+    await Swal.fire(translateThis('Error'), error.message || translateThis('Fee collection failed'), 'error');
   }
 }
 
 async function withdrawStableVault() {
   if (!earnState.polWeb3 || !myaccounts || loginType !== 2) {
-    await Swal.fire('Error', 'Please login with password to withdraw', 'error');
+    await Swal.fire(translateThis('Error'), translateThis('Please login with password to withdraw'), 'error');
     return;
   }
   
   const result = await Swal.fire({
-    title: 'Withdraw from StableVault',
+    title: translateThis('Withdraw from StableVault'),
     input: 'number',
-    inputLabel: 'Percentage to withdraw (1-100)',
+    inputLabel: translateThis('Percentage to withdraw (1-100)'),
     inputPlaceholder: '100',
     showCancelButton: true,
     inputValidator: (value) => {
       const BN = BigNumber;
       if (!value || new BN(value).lte(new BN('0')) || new BN(value).gt(new BN('100'))) {
-        return 'Please enter a valid percentage (1-100)';
+        return translateThis('Please enter a valid percentage (1-100)');
       }
     }
   });
@@ -1085,13 +1085,13 @@ async function withdrawStableVault() {
     await sendTx(stableContract, "withdraw", [withdrawShares.toString(), deadline, true], 700000, "0", true, false);
     
     hideSpinner();
-    await Swal.fire('Success', 'Withdrawal successful!', 'success');
+    await Swal.fire(translateThis('Success'), translateThis('Withdrawal successful!'), 'success');
     await refreshEarnTab();
     
   } catch (error) {
     hideSpinner();
     console.error('Error withdrawing from StableVault:', error);
-    await Swal.fire('Error', error.message || 'Withdrawal failed', 'error');
+    await Swal.fire(translateThis('Error'), error.message || translateThis('Withdrawal failed'), 'error');
   }
 }
 
@@ -1279,7 +1279,7 @@ async function checkStakingConditions() {
       earnState.stakingEnabled = false;
       document.getElementById('stakingEnabledCheckbox').checked = false;
       localStorage.setItem(myaccounts+'earnStakingEnabled', 'false');
-      Swal.fire('Warning', 'Staking paused due to low POL balance (< 10)', 'warning');
+      Swal.fire(translateThis('Warning'), translateThis('Staking paused due to low POL balance (< 10)'), 'warning');
       return;
     }
     
@@ -1711,19 +1711,19 @@ async function loadTopStakers() {
 
 async function depositStake() {
   if (!earnState.polWeb3 || !myaccounts || loginType !== 2) {
-    await Swal.fire('Error', 'Please login with password to stake', 'error');
+    await Swal.fire(translateThis('Error'), translateThis('Please login with password to stake'), 'error');
     return;
   }
   const result = await Swal.fire({
-    title: 'Staking Disclaimer',
+    title: translateThis('Staking Disclaimer'),
     html: `
       <p>`+translateThis("Rewards are not guaranteed and are based on users who opt-in. This system is not a security because users volunteer, there is no common enterprise and stakers do tasks for the rewards. In exchange for protocol fees, you are doing work by securing the blockchain, managing the stablecoin position, and voting on important protocol decisions.")+translateThis(" Additionally, your node will be tasked with occasionally covering gas fees in order to manage these positions and redeem rewards. Please make sure that you monitor your account and understand the source code.")+`</p>
       <p><a href="https://bitbay.market/downloads/whitepapers/Protocol-owned-assets.pdf" target="_blank"> `+translateThis("Click here to learn more about BitBay staking.")+`</a></p>
     `,
     icon: 'info',
     showCancelButton: true,
-    confirmButtonText: 'I Understand, Continue',
-    cancelButtonText: 'Cancel'
+    confirmButtonText: translateThis('I Understand, Continue'),
+    cancelButtonText: translateThis('Cancel')
   });
   if (!result.isConfirmed) return;
   var amount = document.getElementById('stakingDepositAmount').value;
@@ -1746,7 +1746,7 @@ async function depositStake() {
         TREASURY_ADDRESSES.DAI, // DAI on Polygon
         TREASURY_ADDRESSES.USDC
       ];
-      Swal.fire("Transaction Processing...", "Setting the coins to track when checking for rewards: WETH, DAI, USDC");
+      Swal.fire(translateThis("Transaction Processing..."), translateThis("Setting the coins to track when checking for rewards: WETH, DAI, USDC"));
       await delay(500);
       await sendTx(baylTreasury, "setCoins", [coins], 200000, "0", false, false);
     }
@@ -1768,38 +1768,38 @@ async function depositStake() {
     // Approve BAYL to vault
     Swal.fire({
       icon: 'info',
-      title: 'Allowance',
-      text: 'Authorizing BAYL allowance...',
+      title: translateThis('Allowance'),
+      text: translateThis('Authorizing BAYL allowance...'),
       showConfirmButton: false
     });
     await sendTx(baylContract, "approve", [TREASURY_ADDRESSES.VAULT, amount], 100000, "0", false, false);
     // Deposit to vault (which will stake to treasury)
     await sendTx(vaultContract, "depositLiquid", [amount], 1500000, "0", true, false);
     hideSpinner();
-    await Swal.fire('Success', 'BAYL staked successfully!', 'success');
+    await Swal.fire(translateThis('Success'), translateThis('BAYL staked successfully!'), 'success');
     await refreshEarnTab();
   } catch (error) {
     hideSpinner();
     console.error('Error staking BAYL:', error);
-    await Swal.fire('Error', error.message || 'Staking failed', 'error');
+    await Swal.fire(translateThis('Error'), error.message || translateThis('Staking failed'), 'error');
   }
 }
 
 async function unstakeBAYL() {
   if (!earnState.polWeb3 || !myaccounts || loginType !== 2) {
-    await Swal.fire('Error', 'Please login with password to unstake', 'error');
+    await Swal.fire(translateThis('Error'), translateThis('Please login with password to unstake'), 'error');
     return;
   }
   const BN = BigNumber;
   const result = await Swal.fire({
-    title: 'Unstake BAYL',
+    title: translateThis('Unstake BAYL'),
     input: 'number',
-    inputLabel: 'Amount to unstake',
+    inputLabel: translateThis('Amount to unstake'),
     inputPlaceholder: '0.0',
     showCancelButton: true,
     inputValidator: (value) => {
       if (!value || new BN(value).lte(new BN('0'))) {
-        return 'Please enter a valid amount';
+        return translateThis('Please enter a valid amount');
       }
     }
   });
@@ -1810,19 +1810,19 @@ async function unstakeBAYL() {
     const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
     await sendTx(vaultContract, "withdrawLiquid", [amount], 1000000, "0", true, false);
     hideSpinner();
-    await Swal.fire('Success', 'BAYL unstaked successfully!', 'success');
+    await Swal.fire(translateThis('Success'), translateThis('BAYL unstaked successfully!'), 'success');
     await refreshEarnTab();
   } catch (error) {
     hideSpinner();
     console.error('Error unstaking BAYL:', error);
-    await Swal.fire('Error', error.message || 'Unstaking failed', 'error');
+    await Swal.fire(translateThis('Error'), error.message || translateThis('Unstaking failed'), 'error');
   }
 }
 
 async function claimStakingRewards(showSwal = false) {
   if (!earnState.polWeb3 || !myaccounts || loginType !== 2) {
     if(showSwal) {
-      await Swal.fire('Error', 'Please login with password to claim rewards', 'error');
+      await Swal.fire(translateThis('Error'), translateThis('Please login with password to claim rewards'), 'error');
     }
     return;
   }
@@ -1908,14 +1908,14 @@ async function claimStakingRewards(showSwal = false) {
       logToConsole(message+` -- tx: ${showResult(tx)}`);
     }
     if(showSwal) {
-      await Swal.fire('Success', message, 'success');
+      await Swal.fire(translateThis('Success'), message, 'success');
     }
     await refreshEarnTab();
   } catch (error) {
     hideSpinner();
     console.error('Error claiming rewards:', error);
     if(showSwal) {
-      await Swal.fire('Error', error.message || 'Claiming rewards failed', 'error');
+      await Swal.fire(translateThis('Error'), error.message || translateThis('Claiming rewards failed'), 'error');
     }
   }
 }
@@ -2111,7 +2111,7 @@ async function createVoteFromDialog() {
   savedVotes.push(newVote);
   localStorage.setItem(myaccounts+'earnUserVotes', JSON.stringify(savedVotes));
   
-  await Swal.fire('Success', 'Vote created! It will be cast during your next reward claim.', 'success');
+  await Swal.fire(translateThis('Success'), translateThis('Vote created! It will be cast during your next reward claim.'), 'success');
   return true;
 }
 
@@ -2121,7 +2121,7 @@ async function showVoteDetailsDialog() {
   let html = '<div style="text-align: left;">';
   
   if (savedVotes.length === 0) {
-    html += '<p>You have not created any votes yet.</p>';
+    html += '<p>' + translateThis('You have not created any votes yet.') + '</p>';
   } else {
     html += '<p><strong>Your Created Votes:</strong></p>';
     savedVotes.forEach((vote, index) => {
@@ -2353,7 +2353,7 @@ async function loadTokenBalances() {
 
 async function copyDepositAddress(coinType) {
   if (!myaccounts) {
-    await Swal.fire('Error', 'Please connect your wallet first', 'error');
+    await Swal.fire(translateThis('Error'), translateThis('Please connect your wallet first'), 'error');
     return;
   }
   
@@ -2362,39 +2362,39 @@ async function copyDepositAddress(coinType) {
   // Copy to clipboard
   navigator.clipboard.writeText(address).then(async() => {
     await Swal.fire({
-      title: `${coinType} Deposit Address`,
+      title: `${coinType} ` + translateThis('Deposit Address'),
       html: `
-        <p>Address copied to clipboard!</p>
+        <p>${translateThis('Address copied to clipboard!')}</p>
         <p style="word-break: break-all; font-family: monospace; background: #f5f5f5; padding: 10px; border-radius: 5px;">
           ${address}
         </p>
         <p style="margin-top: 10px; font-size: 0.9em; color: #777;">
-          ${coinType === 'ETH' || coinType === 'Lido' ? 'Network: Ethereum Mainnet' : 'Network: Polygon'}
+          ${coinType === 'ETH' || coinType === 'Lido' ? translateThis('Network: Ethereum Mainnet') : translateThis('Network: Polygon')}
         </p>
       `,
       icon: 'success',
-      confirmButtonText: 'OK'
+      confirmButtonText: translateThis('OK')
     });
   }).catch(async() => {
     await Swal.fire({
-      title: `${coinType} Deposit Address`,
+      title: `${coinType} ` + translateThis('Deposit Address'),
       html: `
         <p style="word-break: break-all; font-family: monospace; background: #f5f5f5; padding: 10px; border-radius: 5px;">
           ${address}
         </p>
         <p style="margin-top: 10px; font-size: 0.9em; color: #777;">
-          ${coinType === 'ETH' || coinType === 'Lido' ? 'Network: Ethereum Mainnet' : 'Network: Polygon'}
+          ${coinType === 'ETH' || coinType === 'Lido' ? translateThis('Network: Ethereum Mainnet') : translateThis('Network: Polygon')}
         </p>
       `,
       icon: 'info',
-      confirmButtonText: 'OK'
+      confirmButtonText: translateThis('OK')
     });
   });
 }
 
 async function showWithdrawDialog() {
   if (!earnState.polWeb3 || !myaccounts) {
-    await Swal.fire('Error', 'Please connect your wallet first', 'error');
+    await Swal.fire(translateThis('Error'), translateThis('Please connect your wallet first'), 'error');
     return;
   }
   
@@ -2465,7 +2465,7 @@ async function showWithdrawDialog() {
     }
     
     if (balances.length === 0) {
-      await Swal.fire('Info', 'No available balances to withdraw', 'info');
+      await Swal.fire(translateThis('Info'), translateThis('No available balances to withdraw'), 'info');
       return;
     }
     
@@ -2475,35 +2475,35 @@ async function showWithdrawDialog() {
     ).join('');
     
     const result = await Swal.fire({
-      title: 'Withdraw Coins',
+      title: translateThis('Withdraw Coins'),
       html: `
         <div style="text-align: left;">
-          <label style="display: block; margin-bottom: 5px;">Select coin to withdraw:</label>
+          <label style="display: block; margin-bottom: 5px;">${translateThis('Select coin to withdraw')}:</label>
           <select id="withdrawCoinSelect" class="swal2-select" style="width: 100%;">
             ${optionsHTML}
           </select>
           
-          <label style="display: block; margin-top: 15px; margin-bottom: 5px;">Amount to withdraw:</label>
-          <input type="number" id="withdrawAmount" class="swal2-input" placeholder="Enter amount" step="0.0001" style="width: 100%;" />
+          <label style="display: block; margin-top: 15px; margin-bottom: 5px;">${translateThis('Amount to withdraw')}:</label>
+          <input type="number" id="withdrawAmount" class="swal2-input" placeholder="${translateThis('Enter amount')}" step="0.0001" style="width: 100%;" />
           
-          <label style="display: block; margin-top: 15px; margin-bottom: 5px;">Recipient address:</label>
+          <label style="display: block; margin-top: 15px; margin-bottom: 5px;">${translateThis('Recipient address')}:</label>
           <input type="text" id="withdrawAddress" class="swal2-input" placeholder="0x..." style="width: 100%;" />
           
           <div style="margin-top: 10px; font-size: 0.9em; color: #777;">
-            Leave amount empty to withdraw full balance
+            ${translateThis('Leave amount empty to withdraw full balance')}
           </div>
         </div>
       `,
       showCancelButton: true,
-      confirmButtonText: 'Withdraw',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: translateThis('Withdraw'),
+      cancelButtonText: translateThis('Cancel'),
       preConfirm: () => {
         const coinIdx = parseInt(document.getElementById('withdrawCoinSelect').value);
         const amount = document.getElementById('withdrawAmount').value;
         const address = document.getElementById('withdrawAddress').value;
         
         if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
-          Swal.showValidationMessage('Please enter a valid Ethereum address');
+          Swal.showValidationMessage(translateThis('Please enter a valid Ethereum address'));
           return false;
         }
         
@@ -2517,7 +2517,7 @@ async function showWithdrawDialog() {
     
   } catch (error) {
     console.error('Error in withdraw dialog:', error);
-    await Swal.fire('Error', error.message, 'error');
+    await Swal.fire(translateThis('Error'), error.message, 'error');
   }
 }
 
@@ -2592,12 +2592,12 @@ async function executeWithdrawal(withdrawData) {
       }
     }
     hideSpinner();
-    await Swal.fire('Success', `${coin.coin} withdrawn successfully!`, 'success');
+    await Swal.fire(translateThis('Success'), `${coin.coin} ` + translateThis('withdrawn successfully!'), 'success');
     await refreshEarnTab();
   } catch (error) {
     hideSpinner();
     console.error('Error withdrawing:', error);
-    await Swal.fire('Error', error.message || 'Withdrawal failed', 'error');
+    await Swal.fire(translateThis('Error'), error.message || translateThis('Withdrawal failed'), 'error');
   }
 }
 
