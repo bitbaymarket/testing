@@ -843,10 +843,42 @@ async function loadStableVaultInfo() {
     const isBaylTreasury = treasury.toLowerCase() === TREASURY_ADDRESSES.BAYL_TREASURY.toLowerCase();
     document.getElementById('stableSendsTo').textContent = isBaylTreasury ? 'BAYL Liquid' : 'BAYR Reserve';
     
-    // Calculate weekly rewards
-    const currentWeek = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
-    // Iterate through the last week to calculate this
-    document.getElementById('stableWeeklyRewards').textContent = 'Calculating...';
+    // Calculate weekly rewards - fetch previous week's rewards for USDC and DAI
+    const WEEK_SECONDS = 7 * 24 * 60 * 60;
+    const currentWeek = Math.floor(Date.now() / 1000 / WEEK_SECONDS);
+    const previousWeek = currentWeek - 1;
+    
+    // Calculate date range for the previous week
+    const prevWeekStart = new Date(previousWeek * WEEK_SECONDS * 1000);
+    const prevWeekEnd = new Date((previousWeek + 1) * WEEK_SECONDS * 1000 - 1);
+    const formatDate = (date) => {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${months[date.getUTCMonth()]} ${date.getUTCDate()}`;
+    };
+    const dateRange = `(${formatDate(prevWeekStart)} → ${formatDate(prevWeekEnd)})`;
+    
+    try {
+      // Get previous week's rewards for DAI and USDC
+      const BN = BigNumber;
+      const daiRewards = await stableContract.methods.weeklyRewards(previousWeek, TREASURY_ADDRESSES.DAI).call();
+      const usdcRewards = await stableContract.methods.weeklyRewards(previousWeek, TREASURY_ADDRESSES.USDC).call();
+      
+      // Convert to dollar amounts (DAI is 18 decimals, USDC is 6 decimals, both = $1)
+      const daiDollars = new BN(daiRewards).dividedBy('1e18');
+      const usdcDollars = new BN(usdcRewards).dividedBy('1e6');
+      const totalWeeklyDollars = daiDollars.plus(usdcDollars);
+      
+      // Calculate estimated yearly rewards in dollars based on previous week's data
+      let yearlyRewardsDollars = '0';
+      if (totalWeeklyDollars.gt(0)) {
+        yearlyRewardsDollars = totalWeeklyDollars.times(52).toFixed(2);
+      }
+      
+      document.getElementById('stableWeeklyRewards').textContent = `${yearlyRewardsDollars} ${dateRange}`;
+    } catch (weeklyError) {
+      console.error('Error fetching weekly rewards:', weeklyError);
+      document.getElementById('stableWeeklyRewards').textContent = 'N/A';
+    }
     
     // Load user position if logged in
     if (myaccounts) {
