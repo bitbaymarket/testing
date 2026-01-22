@@ -872,7 +872,7 @@ async function loadUserStablePosition(stableContract, totalShares) {
       
       // Calculate anticipated weekly profit (rough estimate)
       // This would be percent of weekly rewards minus commission
-      document.getElementById('userStableWeeklyProfit').textContent = '0.00';
+      //document.getElementById('userStableWeeklyProfit').textContent = '0.00';
       
       // Get pending fees
       const feeVault = DOMPurify.sanitize(await stableContract.methods.feeVault().call());
@@ -2169,13 +2169,11 @@ async function calculateAndDisplayROI() {
     const cachedData = localStorage.getItem('cachedROIData');
     if (cachedData) {
       const parsed = JSON.parse(cachedData);
-      if (Date.now() - parsed.timestamp < 5 * 60 * 1000) {
-        // Use cached data
-        if (parsed.yearlyROI > 5) {
-          const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(parsed.yearlyROI.toFixed(2))}% (${translateThis('Based on current week rewards')})`;
-          document.getElementById('earnRoiText').textContent = roiText;
-          document.getElementById('earnRoiDisplay').classList.remove('hidden');
-        }
+      if (Date.now() - parsed.timestamp < 1440 * 60 * 1000) {
+        const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(parsed.yearlyROI.toFixed(2))}% (${translateThis('Based on weekly rewards')})`;
+        document.getElementById('stableWeeklyRewards').innerHTML = stripZeros(parsed.yearlyROI.toFixed(2));
+        //document.getElementById('earnRoiText').textContent = roiText;
+        //document.getElementById('earnRoiDisplay').classList.remove('hidden');
         return;
       }
     }
@@ -2186,29 +2184,17 @@ async function calculateAndDisplayROI() {
     // Get current week
     const currentWeek = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
     
-    // Get prices from Chainlink/Uniswap
-    let wethPrice = 2000; // default fallback
-    let bayPrice = 0.10; // default fallback
-    
-    // Try to get WETH price from Chainlink
-    try {
-      const wethPriceRaw = await getWETHPrice(earnState.polWeb3);
-      if (wethPriceRaw !== "error") {
-        wethPrice = parseInt(wethPriceRaw) / 1e8;
-      }
-    } catch (e) {
-      console.log('Failed to fetch WETH price, using default');
+    // Get prices
+    const wethPriceRaw = await getWETHPrice(tempWeb3);
+    if (wethPriceRaw == "error") {
+      throw new Error("Error getting WETH price");
     }
-    
-    // Try to get BAY price from Uniswap
-    try {
-      const bayPriceRaw = await getBAYPrice();
-      if (bayPriceRaw !== "error") {
-        bayPrice = parseInt(bayPriceRaw) / 1e8;
-      }
-    } catch (e) {
-      console.log('Failed to fetch BAY price, using default');
+    const bayPriceRaw = await getBAYPrice();
+    if (bayPriceRaw == "error") { 
+      throw new Error("Error getting BAYL price");
     }
+    var wethPrice = parseInt(wethPriceRaw) / 1e8;
+    var bayPrice = parseInt(bayPriceRaw) / 1e8;
     
     const daiPrice = 1;
     const usdcPrice = 1;
@@ -2235,15 +2221,8 @@ async function calculateAndDisplayROI() {
     
     if (totalStakedUSD > 0) {
       let yearlyROI = (yearlyRewardsUSD / totalStakedUSD) * 100;
-      
-      // Only display if ROI > 5%
-      if (yearlyROI > 5) {
-        const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(yearlyROI.toFixed(2))}% (${translateThis('Based on current week rewards')})`;
-        document.getElementById('earnRoiText').textContent = roiText;
-        document.getElementById('earnRoiDisplay').classList.remove('hidden');
-      } else {
-        document.getElementById('earnRoiDisplay').classList.add('hidden');
-      }
+      const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(yearlyROI.toFixed(2))}% (${translateThis('Based on weekly rewards')})`;
+      document.getElementById('stableWeeklyRewards').innerHTML = stripZeros(yearlyROI.toFixed(2));
     }
     
   } catch (error) {

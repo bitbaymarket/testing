@@ -175,7 +175,7 @@
       </div>
       
       <!-- ROI Notification for Home Page (shows before login) -->
-      <div class="callout callout-success hidden" id="homeRoiNotification" style="margin-top: 10px; text-align: center; font-weight: bold;">
+      <div class="callout callout-success hidden" id="homeRoiNotification" style="margin-top: 10px; text-align: center; font-size: 16px;">
         📈 Calculating ROI...
       </div>
 
@@ -754,14 +754,14 @@
                         <div><strong>In Range:</strong> <span id="stableInRange">Checking...</span></div>
                         <div><strong>Fee Tier:</strong> 0.005%</div>
                         <div><strong>Commission:</strong> <span id="stableCommission">Loading...</span>%</div>
-                        <div><strong>Weekly Rewards:</strong> $<span id="stableWeeklyRewards">Loading...</span></div>
+                        <div><strong>Yearly ROI Rewards:</strong> ~ $<span id="stableWeeklyRewards">Loading...</span></div>
                         <div><strong>Sends To:</strong> <span id="stableSendsTo">Loading...</span></div>
                       </div>
 
-                      <!-- User's StableVault Position -->
+                      <!-- User's StableVault Position   -->
                       <div id="userStablePosition" class="callout logged-in hidden" style="margin-top: 10px;">
                         <div><strong>Your Position:</strong> <span id="userStableDAI">0</span> DAI (<span id="userStablePercent">0</span>%)</div>
-                        <div><strong>Anticipated Weekly Profit:</strong> $<span id="userStableWeeklyProfit">0</span></div>
+                        <!-- <div><strong>Anticipated Weekly Profit:</strong> $<span id="userStableWeeklyProfit">0</span></div>  -->
                         <div><strong>Pending Fees:</strong> $<span id="userStablePendingFees">0</span></div>
                       </div>
 
@@ -3936,37 +3936,39 @@ async function getPOLPrice() {
   }
 }
 
-async function getBAYPrice() {
+async function getBAYPrice(tempWeb3 = null) {
   try {
-    const BN2 = web3.utils.BN;
-    const bayAddr = BAYLaddy;
-    const pairToken = Object.values(pairs[0])[0];  // DAI
-    const routerV2 = Object.values(routers[0])[0];
+    const w3 = tempWeb3 || web3;
+    const BN2 = w3.utils.BN;
+
+    const bayAddr = "0x5119E704BCDF8e81229E19d0794C33A12caCc7Ce";
+    const pairToken = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
+    const routerV2 = "0x418fBc4E6B5C694495c90C7cDE1f293EE444F10B";
 
     var mypair = '';
-    var exchange = Object.values(exchanges[0])[0];
-    var exchangecontract = new web3.eth.Contract(FactoryABI, exchange);
+    var exchange = "0x9e5A52f57b3038F1B8EeE45F28b3C1967e22799C";
+    var exchangecontract = new w3.eth.Contract(FactoryABI, exchange);
     await exchangecontract.methods.getPair(bayAddr, pairToken).call().then(function (thisresult) {
         mypair = DOMPurify.sanitize(thisresult);
     });
     var myreserves = '';
     var assumedPriceBAY = '';
     if(/^0x0+$/.test(mypair) == false) {
-        paircontract = new web3.eth.Contract(PairABI, mypair);
+        paircontract = new w3.eth.Contract(PairABI, mypair);
         await paircontract.methods.getReserves().call().then(function (thisresult) {
             myreserves = JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult)));
         });
         const token0 = DOMPurify.sanitize(await paircontract.methods.token0().call());
         let reserveBase, reserveBAY;
 
-        if (token0.toLowerCase() === BAYLaddy.toLowerCase()) {
+        if (token0.toLowerCase() === bayAddr.toLowerCase()) {          
           reserveBAY = new BN2(myreserves._reserve0.toString());
           reserveBase = new BN2(myreserves._reserve1.toString());
         } else {
           reserveBAY = new BN2(myreserves._reserve1.toString());
           reserveBase = new BN2(myreserves._reserve0.toString());
         }
-        assumedPriceBAY = reserveBase.mul(new BN2("100000000")).div(reserveBAY).div(new BN2("10000000000"));
+        assumedPriceBAY = (reserveBase.mul(new BN2("100000000")).div(reserveBAY)).div(new BN2("10000000000"));
     } else {
       console.log("invalid pair");
       return "error";
@@ -4015,8 +4017,7 @@ var cachedROIData = null;
 async function calculateAndDisplayROIPreLogin() {
   try {
     // Create temporary web3 instance for Polygon
-    const tempPolRpc = 'https://polygon-rpc.com';
-    const tempWeb3 = new Web3(tempPolRpc);
+    const tempWeb3 = new Web3(getPolygonRpc());
     
     // Treasury and related addresses
     const BAYL_TREASURY = '0x8Ae919e6Aa571cF89de7fE2FB023B440e547A661';
@@ -4038,19 +4039,15 @@ async function calculateAndDisplayROIPreLogin() {
     
     // Get prices
     const wethPriceRaw = await getWETHPrice(tempWeb3);
-    const bayPriceRaw = await getBAYPrice();
-    
-    // Calculate prices in USD
-    let wethPrice = 2000; // default fallback
-    if (wethPriceRaw !== "error") {
-      wethPrice = parseInt(wethPriceRaw) / 1e8;
+    if (wethPriceRaw == "error") {
+      throw new Error("Error getting WETH price");
     }
-    
-    let bayPrice = 0.10; // default fallback
-    if (bayPriceRaw !== "error") {
-      bayPrice = parseInt(bayPriceRaw) / 1e8; // BAY price is in 8 decimals from DAI
+    const bayPriceRaw = await getBAYPrice(tempWeb3);
+    if (bayPriceRaw == "error") { 
+      throw new Error("Error getting BAYL price");
     }
-    
+    var wethPrice = parseInt(wethPriceRaw) / 1e8;
+    var bayPrice = parseInt(bayPriceRaw) / 1e8;
     const daiPrice = 1;
     const usdcPrice = 1;
     
@@ -4065,9 +4062,11 @@ async function calculateAndDisplayROIPreLogin() {
     const usdcRewardsFormatted = new BN(usdcRewards).dividedBy('1e6').toNumber();
     
     const weeklyRewardsUSD = (wethRewardsEther * wethPrice) + (daiRewardsEther * daiPrice) + (usdcRewardsFormatted * usdcPrice);
-    const yearlyRewardsUSD = weeklyRewardsUSD * 52;
+    var yearlyRewardsUSD = weeklyRewardsUSD * 52;
     
-    const totalStakedBAY = new BN(totalTokens).dividedBy('1e8').toNumber();
+    var totalStakedBAY = new BN(totalTokens).dividedBy('1e8').toNumber();
+    //totalStakedBAY = 10;
+    //yearlyRewardsUSD = 1000;
     const totalStakedUSD = totalStakedBAY * bayPrice;
     
     let yearlyROI = 0;
@@ -4090,18 +4089,17 @@ async function calculateAndDisplayROIPreLogin() {
     
     // Display on both home page and earn page ROI elements if they exist
     if (yearlyROI > 5) {
-      const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(yearlyROI.toFixed(2))}% (${translateThis('Based on current week rewards')})`;
-      
+      const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(yearlyROI.toFixed(2))}% (${translateThis('Based on weekly rewards')})`;
+      document.getElementById('stableWeeklyRewards').innerHTML = stripZeros(yearlyROI.toFixed(2));
       // Update earn tab display
-      const earnRoiText = document.getElementById('earnRoiText');
-      const earnRoiDisplay = document.getElementById('earnRoiDisplay');
-      if (earnRoiText) {
-        earnRoiText.textContent = roiText;
-      }
-      if (earnRoiDisplay) {
-        earnRoiDisplay.classList.remove('hidden');
-      }
-      
+      //const earnRoiText = document.getElementById('earnRoiText');
+      //const earnRoiDisplay = document.getElementById('earnRoiDisplay');      
+      //if (earnRoiText) {
+        //earnRoiText.textContent = roiText;
+      //}
+      //if (earnRoiDisplay) {
+        //earnRoiDisplay.classList.remove('hidden');
+      //}      
       // Update home page notification if it exists
       const homeRoiNotification = document.getElementById('homeRoiNotification');
       if (homeRoiNotification) {

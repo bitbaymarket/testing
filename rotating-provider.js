@@ -75,8 +75,7 @@ var fallbackProvidersDefault = [
       code === -32005 ||
       message.includes('rate limit') ||
       message.includes('too many requests') ||
-      message.includes('exceeded') ||
-      message.includes('throttl')
+      message.includes('throttle')
     );
   }
 
