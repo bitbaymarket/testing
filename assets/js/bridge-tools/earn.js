@@ -62,7 +62,7 @@ function resetEarnState() {
     clearInterval(earnState.stakingInterval);
   }
   
-  // Reset all state values
+  // Reset all state values explicitly
   earnState.stakingEnabled = false;
   earnState.stakingInterval = null;
   earnState.nextStakeTime = null;
@@ -76,35 +76,87 @@ function resetEarnState() {
   earnState.userTotalRewards = {};
   earnState.consoleLog = [];
   
-  // Reset UI elements
+  // Reset UI checkbox
   const stakingCheckbox = document.getElementById('stakingEnabledCheckbox');
   if (stakingCheckbox) {
     stakingCheckbox.checked = false;
   }
   
-  // Clear displayed data
-  const elementsToReset = [
-    'lidoPrincipal', 'lidoYield', 'lidoCurrentUnlock', 'lidoNextUnlock',
-    'stablePoolSize', 'stableTick', 'stableInRange', 'stableCommission', 
-    'stableROI', 'stableSendsTo', 'userLidoPosition', 'userStablePosition',
-    'userStakingInfo', 'vaultBalances', 'ethBalances', 'bayrPreviousVotes', 
-    'bayrPendingVotes', 'stakingConsoleContent', 'earnRoiDisplay',
-    'stakingStakedAmount', 'stakingVaultAddress', 'stakingEpoch', 'stakingNextClaim',
-    'vaultBaylBalance', 'vaultBayrBalance', 'vaultPolBalance',
-    'ethBalanceDisplay', 'stethBalanceDisplay'
+  // Reset each UI element explicitly to avoid destroying HTML structure
+  // Balance displays (spans) - reset to "0.0"
+  const balanceElements = [
+    'ethBalance', 'lidoBalance', 'vaultBaylBalance', 'vaultBayrBalance', 
+    'daiBalanceAmount', 'usdcBalanceAmount', 'wethBalanceAmount', 'polBalanceAmount'
   ];
-  
-  elementsToReset.forEach(id => {
+  balanceElements.forEach(id => {
     const el = document.getElementById(id);
-    if (el) {
-      if (el.classList.contains('hidden') === false && id.includes('user') || id.includes('vault') || id.includes('eth')) {
-        // Keep structure but clear content for info divs
-      }
-      if (el.tagName === 'DIV' && el.id.includes('Balance')) {
-        el.textContent = 'Loading...';
-      }
-    }
+    if (el) el.textContent = '0.0';
   });
+  
+  // Staking POL balance
+  const stakingPolBalance = document.getElementById('stakingPolBalance');
+  if (stakingPolBalance) stakingPolBalance.textContent = '0';
+  
+  // User position elements - reset to default values
+  const userLidoAmount = document.getElementById('userLidoAmount');
+  if (userLidoAmount) userLidoAmount.textContent = '0';
+  
+  const userLidoUnlockDate = document.getElementById('userLidoUnlockDate');
+  if (userLidoUnlockDate) userLidoUnlockDate.textContent = 'N/A';
+  
+  const userStableDAI = document.getElementById('userStableDAI');
+  if (userStableDAI) userStableDAI.textContent = '0';
+  
+  const userStablePercent = document.getElementById('userStablePercent');
+  if (userStablePercent) userStablePercent.textContent = '0';
+  
+  const userStablePendingFees = document.getElementById('userStablePendingFees');
+  if (userStablePendingFees) userStablePendingFees.textContent = '0';
+  
+  // User staking info elements
+  const userVaultAddress = document.getElementById('userVaultAddress');
+  if (userVaultAddress) userVaultAddress.textContent = 'Loading...';
+  
+  const userShares = document.getElementById('userShares');
+  if (userShares) userShares.textContent = '0';
+  
+  const userLastRefresh = document.getElementById('userLastRefresh');
+  if (userLastRefresh) userLastRefresh.textContent = 'N/A';
+  
+  const userTrackingCoins = document.getElementById('userTrackingCoins');
+  if (userTrackingCoins) userTrackingCoins.textContent = 'None';
+  
+  const userPendingRewards = document.getElementById('userPendingRewards');
+  if (userPendingRewards) userPendingRewards.textContent = 'Loading...';
+  
+  const userTotalRewards = document.getElementById('userTotalRewards');
+  if (userTotalRewards) userTotalRewards.textContent = 'Loading...';
+  
+  // Vote elements
+  const bayrPreviousVotes = document.getElementById('bayrPreviousVotes');
+  if (bayrPreviousVotes) bayrPreviousVotes.textContent = 'Not Active';
+  
+  const bayrPendingVotes = document.getElementById('bayrPendingVotes');
+  if (bayrPendingVotes) bayrPendingVotes.textContent = 'Not Active';
+  
+  // Console content
+  const stakingConsoleContent = document.getElementById('stakingConsoleContent');
+  if (stakingConsoleContent) stakingConsoleContent.textContent = '';
+  
+  // ROI display text
+  const earnRoiText = document.getElementById('earnRoiText');
+  if (earnRoiText) earnRoiText.textContent = 'Calculating...';
+  
+  // Input fields - clear values
+  const inputsToClear = ['lidoDepositAmount', 'lidoLockDays', 'stableDepositAmount', 'stakingDepositAmount'];
+  inputsToClear.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  
+  // Lock estimate
+  const lidoLockEstimate = document.getElementById('lidoLockEstimate');
+  if (lidoLockEstimate) lidoLockEstimate.textContent = '0m';
   
   console.log('Earn state reset');
 }
