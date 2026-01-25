@@ -1379,7 +1379,7 @@ async function checkStakingConditions() {
 async function checkAndDripFlow() {
   try {
     const flowContract = new earnState.polWeb3.eth.Contract(flowABI, TREASURY_ADDRESSES.FLOW_BAYL);
-    const wethContract = new earnState.polWeb3.eth.Contract(erc20ABI, TREASURY_ADDRESSES.WETH);
+    const wethContract = new earnState.polWeb3.eth.Contract(ERC20ABI, TREASURY_ADDRESSES.WETH);
     
     // Check WETH balance in flow contract
     const wethBalance = DOMPurify.sanitize(await wethContract.methods.balanceOf(TREASURY_ADDRESSES.FLOW_BAYL).call());
@@ -1851,8 +1851,8 @@ async function unstakeBAYL() {
     const blocksRemaining = Math.max(0, intervalEndBlock - currentBlock);
     await Swal.fire(
       translateThis('Cannot Unstake'),
-      translateThis('You are currently staking in interval') + ' ' + userInterval + '. ' +
-      translateThis('Please wait') + ' ' + blocksRemaining + ' ' + translateThis('blocks until interval ends to withdraw.'),
+      translateThis('You are currently staking at interval') + ' ' + userInterval + '. ' +
+      translateThis('Please wait') + ' ' + blocksRemaining + ' ' + translateThis('blocks until the interval ends to withdraw.'),
       'warning'
     );
     return;
@@ -1866,7 +1866,7 @@ async function unstakeBAYL() {
   }
   
   const baylAddress = DOMPurify.sanitize(await vaultContract.methods.BAYL().call());
-  const baylContract = new earnState.polWeb3.eth.Contract(erc20ABI, baylAddress);
+  const baylContract = new earnState.polWeb3.eth.Contract(ERC20ABI, baylAddress);
   const vaultBaylBalance = DOMPurify.sanitize(await baylContract.methods.balanceOf(userVaultAddress).call());
   const vaultBaylBalanceFormatted = displayBAYAmount(vaultBaylBalance, 4);
   
