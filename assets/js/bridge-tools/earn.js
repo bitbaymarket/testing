@@ -1848,7 +1848,7 @@ async function unstakeBAYL() {
   if (userInterval >= currentInterval) {
     // User is in current staking interval, calculate when they can withdraw
     const intervalEndBlock = (userInterval + 1) * claimRate;
-    const blocksRemaining = intervalEndBlock - currentBlock;
+    const blocksRemaining = Math.max(0, intervalEndBlock - currentBlock);
     await Swal.fire(
       translateThis('Cannot Unstake'),
       translateThis('You are currently staking in interval') + ' ' + userInterval + '. ' +
