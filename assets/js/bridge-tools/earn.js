@@ -126,19 +126,22 @@ async function showVotePayload(hash) {
         
         // 3. Decode arguments blob
         let decodedArgs = [];
+        let decodeError = null;
         if (typesArray.length > 0 && argsBlob !== '0x') {
           try {
             decodedArgs = earnState.polWeb3.eth.abi.decodeParameters(typesArray, argsBlob);
           } catch (e) {
             console.error('Error decoding arguments:', e);
-            decodedArgs = ['<decode error>'];
+            decodeError = e.message;
+            decodedArgs = [];
           }
         }
         
         actions.push({
           function: sig,
           target: target,
-          arguments: decodedArgs
+          arguments: decodedArgs,
+          decodeError: decodeError
         });
       }
       
@@ -154,7 +157,11 @@ async function showVotePayload(hash) {
         const typesString = action.function.substring(action.function.indexOf('(') + 1, action.function.lastIndexOf(')'));
         const typesArray = typesString === "" ? [] : typesString.split(',').map(t => t.trim()).filter(t => t);
         
-        if (typesArray.length > 0) {
+        if (action.decodeError) {
+          html += `<div style="margin-top: 5px; background: #fff3cd; padding: 5px; border-radius: 3px;">`;
+          html += `<strong style="color: #856404;">⚠ Decode Error:</strong> ${DOMPurify.sanitize(action.decodeError)}`;
+          html += `</div>`;
+        } else if (typesArray.length > 0) {
           html += `<div style="margin-top: 5px;"><strong>Arguments:</strong></div>`;
           html += `<ul style="margin: 5px 0; padding-left: 20px;">`;
           typesArray.forEach((type, argIdx) => {
@@ -1994,6 +2001,7 @@ async function claimStakingRewards(showSwal = false) {
     // Get user's saved votes
     const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
     const votesToCast = [];
+    let skippedOldVotes = 0;
     for (const vote of savedVotes) {
       // Support both old format (with repeat) and new format (no repeat)
       const maxCasts = vote.repeat || 1;
@@ -2022,7 +2030,7 @@ async function claimStakingRewards(showSwal = false) {
               // Element 3: arguments blob as encoded bytes
               // Encode all arguments together using encodeParameters
               let argsBlob = '0x';
-              if (action.arguments.length > 0) {
+              if (action.arguments.length > 0 && argTypes.length > 0) {
                 const argValues = action.arguments.map(arg => arg.value);
                 argsBlob = earnState.polWeb3.eth.abi.encodeParameters(argTypes, argValues);
               }
@@ -2036,6 +2044,7 @@ async function claimStakingRewards(showSwal = false) {
         } else if (vote.functions) {
           // Old format - skip encoding as it's not compatible with new contract
           console.warn('Skipping old format vote - please recreate using new voting interface');
+          skippedOldVotes++;
         }
         // Increment times cast
         vote.timesCast++;
@@ -2083,6 +2092,9 @@ async function claimStakingRewards(showSwal = false) {
     let message = 'Stake claimed successfully';
     if (votesToCast.length > 0) {
       message += ` -- ${votesToCast.length} vote(s) cast.`;
+    }
+    if (skippedOldVotes > 0) {
+      message += ` Note: ${skippedOldVotes} old format vote(s) skipped - please recreate using new voting interface.`;
     }
     if(!showSwal) {
       logToConsole(message+` -- tx: ${showResult(tx)}`);
