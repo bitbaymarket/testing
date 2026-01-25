@@ -1311,10 +1311,16 @@ async function checkStakingConditions() {
       return;
     }
     
-    // Check if user needs to refresh (if lastRefresh == 1, they are paused)
-    if (userInfo.lastRefresh == 1 && parseInt(userInfo.shares) > 0) {
-      console.log('User is paused, refreshing vault...');
-      logToConsole('User is paused, refreshing vault...');
+    // Get refresh rate and check if user needs to refresh their vault
+    const refreshRate = DOMPurify.sanitize(await baylTreasury.methods.refreshRate().call());
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const timeSinceRefresh = currentTimestamp - parseInt(userInfo.lastRefresh);
+    const refreshThreshold = parseInt(refreshRate) * 0.85; // 85% of refresh period
+    
+    // Check if user is close to needing a refresh (85% into their refresh period)
+    if (timeSinceRefresh >= refreshThreshold && parseInt(userInfo.shares) > 0) {
+      console.log('User is close to refresh deadline, refreshing vault...');
+      logToConsole('Refreshing vault before deadline...');
       const res = await sendTx(baylTreasury, "refreshVault", [myaccounts], 300000, "0", false, false, false);
       logToConsole(showResult(res));
       return;
@@ -1587,9 +1593,15 @@ async function loadStakingInfo() {
       const lastRefreshDate = new Date(userInfo.lastRefresh * 1000);
       document.getElementById('userLastRefresh').textContent = lastRefreshDate.toLocaleString();
       
-      // Check if user is stale (lastRefresh == 1 means paused)
-      if (userInfo.lastRefresh == 1) {
-        document.getElementById('userLastRefresh').innerHTML += ' <span style="color: red;">(Paused)</span>';
+      // Check if user is close to needing a refresh
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const timeSinceRefresh = currentTimestamp - parseInt(userInfo.lastRefresh);
+      const refreshThreshold = parseInt(refreshRate) * 0.85;
+      
+      if (timeSinceRefresh >= parseInt(refreshRate)) {
+        document.getElementById('userLastRefresh').innerHTML += ' <span style="color: red;">(Refresh required)</span>';
+      } else if (timeSinceRefresh >= refreshThreshold) {
+        document.getElementById('userLastRefresh').innerHTML += ' <span style="color: orange;">(Refresh soon)</span>';
       }
     }
     
