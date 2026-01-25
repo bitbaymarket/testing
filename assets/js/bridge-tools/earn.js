@@ -2214,6 +2214,9 @@ async function showCreateVoteDialog() {
       </div>
     `,
     width: '500px',
+    customClass: {
+      popup: 'scrollable-swal-popup'
+    },
     showCancelButton: true,
     confirmButtonText: 'Create Vote',
     cancelButtonText: 'Cancel',
@@ -2412,6 +2415,9 @@ async function showVoteDetailsDialog() {
     title: 'Your Votes',
     html: html,
     width: '500px',
+    customClass: {
+      popup: 'scrollable-swal-popup'
+    },
     confirmButtonText: 'Close'
   });
 }
