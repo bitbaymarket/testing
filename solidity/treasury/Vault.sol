@@ -10,6 +10,8 @@ interface IERC20 {
 interface ITreasury {
     function depositVault(address to, uint256 amount) external;
     function withdrawVault(address from, uint256 amount) external;
+    function claimRate() external view returns (uint256);
+    function accessPool(address user) external view returns (uint256 shares, uint256 staked, uint256 interval, uint256 lastRefresh);
 }
 
 interface IDataContract {
@@ -133,10 +135,28 @@ contract MainController {
     }
 
     function withdrawLiquid(uint256 amount) external returns (bool) {
-        require(amount > 0);
+        require(amount > 0, "Amount must be greater than 0");
         address user = msg.sender;
         address vault = vaultOf[user];
-        require(vault != address(0));
+        require(vault != address(0), "No vault exists for user");
+        
+        // Check if vault has enough BAYL balance
+        uint256 vaultBalance = IERC20(BAYL).balanceOf(vault);
+        require(vaultBalance >= amount, "Insufficient BAYL balance in vault");
+        
+        // Check if user is currently in a staking interval
+        (,, uint256 userInterval,) = ITreasury(TreasuryLiquid).accessPool(user);
+        uint256 claimRate = ITreasury(TreasuryLiquid).claimRate();
+        uint256 currentInterval = block.number / claimRate;
+        if (userInterval >= currentInterval) {
+            uint256 blocksRemaining = ((userInterval + 1) * claimRate) - block.number;
+            revert(string(abi.encodePacked(
+                "Cannot withdraw while staking. Wait ",
+                _toString(blocksRemaining),
+                " blocks until interval ends"
+            )));
+        }
+        
         ITreasury(TreasuryLiquid).withdrawVault(user, amount);
         UserVault(vault).withdrawLiquid(user, amount);
         emit Withdraw(user, amount);
@@ -144,13 +164,50 @@ contract MainController {
     }
 
     function withdrawReserve(uint256 amount) external returns (bool) {
-        require(amount > 0);
+        require(amount > 0, "Amount must be greater than 0");
         address user = msg.sender;
         address vault = vaultOf[user];
-        require(vault != address(0));
+        require(vault != address(0), "No vault exists for user");
+        
+        // Check if vault has enough BAYR balance
+        uint256 vaultBalance = IERC20(BAYR).balanceOf(vault);
+        require(vaultBalance >= amount, "Insufficient BAYR balance in vault");
+        
+        // Check if user is currently in a staking interval
+        (,, uint256 userInterval,) = ITreasury(TreasuryReserve).accessPool(user);
+        uint256 claimRate = ITreasury(TreasuryReserve).claimRate();
+        uint256 currentInterval = block.number / claimRate;
+        if (userInterval >= currentInterval) {
+            uint256 blocksRemaining = ((userInterval + 1) * claimRate) - block.number;
+            revert(string(abi.encodePacked(
+                "Cannot withdraw while staking. Wait ",
+                _toString(blocksRemaining),
+                " blocks until interval ends"
+            )));
+        }
+        
         ITreasury(TreasuryReserve).withdrawVault(user, amount);
         UserVault(vault).withdrawReserve(user, amount);
         emit Withdraw(user, amount);
         return true;
+    }
+    
+    function _toString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
     }
 }
