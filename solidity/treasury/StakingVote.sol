@@ -116,17 +116,24 @@ contract StakingVote {
             if (w < lweight) {
                 lweight = w;
                 index = i;
-            }            
+            }
             if (w > bestWeight) {
                 bestWeight = w;
                 winner = hash2;
             }
         }
+        if (newitem) {
+             uint256 currentWeight = proposals[hash].weight;
+             if (currentWeight > lweight) {
+                 e.hashes[index] = hash;
+                 if (currentWeight > bestWeight) {
+                     winner = hash;
+                     bestWeight = currentWeight;
+                 }
+             }
+        }
         e.winner = winner;
         e.weight = bestWeight;
-        if (proposals[hash].weight > lweight && newitem) {
-            e.hashes[index] = hash;
-        }
     }
 
     //Users should only run proposals they trust. Stakers should automatically vote on some null proposal if nothing is being voted on.
@@ -147,24 +154,17 @@ contract StakingVote {
     function _executePayload(bytes[] storage payload) internal {
         uint256 i = 0;
         while (i < payload.length) {
-            //0 = external call
-            uint256 opcode = abi.decode(payload[i], (uint256));
-            require(opcode == 0, "bad opcode");
-            i++;
             // function signature (human-readable)
             string memory sig = abi.decode(payload[i], (string));
             i++;
+            // target address
             address target = abi.decode(payload[i], (address));
             i++;
-            bytes memory args;
-            // collect args until next opcode or end
-            while (i < payload.length) {
-                opcode = abi.decode(payload[i], (uint256));
-                if (opcode == 0) break;
-                args = bytes.concat(args, payload[i]);
-                i++;
-            }
-            (bool ok, ) = target.call(abi.encodePacked(bytes4(keccak256(bytes(sig))),args));
+            // arguments blob
+            bytes memory args = abi.decode(payload[i], (bytes));
+            i++;
+            // We hash the signature string to get the selector (first 4 bytes)
+            (bool ok, ) = target.call(abi.encodePacked(bytes4(keccak256(bytes(sig))), args));
             require(ok, "call failed");
         }
     }
