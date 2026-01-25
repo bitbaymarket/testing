@@ -55,6 +55,60 @@ var earnState = {
   consoleLog: [] // Console log for transactions (max 100)
 };
 
+// Reset earnState to default values - called when switching accounts or logging out
+function resetEarnState() {
+  // Stop any running automation
+  if (earnState.stakingInterval) {
+    clearInterval(earnState.stakingInterval);
+  }
+  
+  // Reset all state values
+  earnState.stakingEnabled = false;
+  earnState.stakingInterval = null;
+  earnState.nextStakeTime = null;
+  earnState.randomDelaySeconds = 0;
+  earnState.ethWeb3 = null;
+  earnState.polWeb3 = null;
+  earnState.userVaultAddress = null;
+  earnState.isPasswordLogin = false;
+  earnState.lastEthCheck = 0;
+  earnState.lastPolCheck = 0;
+  earnState.userTotalRewards = {};
+  earnState.consoleLog = [];
+  
+  // Reset UI elements
+  const stakingCheckbox = document.getElementById('stakingEnabledCheckbox');
+  if (stakingCheckbox) {
+    stakingCheckbox.checked = false;
+  }
+  
+  // Clear displayed data
+  const elementsToReset = [
+    'lidoPrincipal', 'lidoYield', 'lidoCurrentUnlock', 'lidoNextUnlock',
+    'stablePoolSize', 'stableTick', 'stableInRange', 'stableCommission', 
+    'stableROI', 'stableSendsTo', 'userLidoPosition', 'userStablePosition',
+    'userStakingInfo', 'vaultBalances', 'ethBalances', 'bayrPreviousVotes', 
+    'bayrPendingVotes', 'stakingConsoleContent', 'earnRoiDisplay',
+    'stakingStakedAmount', 'stakingVaultAddress', 'stakingEpoch', 'stakingNextClaim',
+    'vaultBaylBalance', 'vaultBayrBalance', 'vaultPolBalance',
+    'ethBalanceDisplay', 'stethBalanceDisplay'
+  ];
+  
+  elementsToReset.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      if (el.classList.contains('hidden') === false && id.includes('user') || id.includes('vault') || id.includes('eth')) {
+        // Keep structure but clear content for info divs
+      }
+      if (el.tagName === 'DIV' && el.id.includes('Balance')) {
+        el.textContent = 'Loading...';
+      }
+    }
+  });
+  
+  console.log('Earn state reset');
+}
+
 // ============================================================================
 // CONSOLE LOGGING FOR AUTOMATION
 // ============================================================================

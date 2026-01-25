@@ -2813,6 +2813,11 @@ function defaultvars() {
     document.getElementById("LPdetails1").innerHTML = '';
     document.getElementById("LPdetails2").innerHTML = '';
     document.getElementById("WithdrawAmount").value = '';
+    
+    // Reset earn tab state when switching accounts
+    if (typeof resetEarnState === 'function') {
+      resetEarnState();
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
