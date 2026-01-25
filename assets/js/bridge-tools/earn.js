@@ -84,8 +84,10 @@ function resetEarnState() {
   
   // Reset each UI element explicitly to avoid destroying HTML structure
   // Balance displays (spans) - reset to "0.0"
-  const balanceElements = ['ethBalance', 'lidoBalance', 'vaultBaylBalance', 'vaultBayrBalance', 
-    'daiBalanceAmount', 'usdcBalanceAmount', 'wethBalanceAmount', 'polBalanceAmount'];
+  const balanceElements = [
+    'ethBalance', 'lidoBalance', 'vaultBaylBalance', 'vaultBayrBalance', 
+    'daiBalanceAmount', 'usdcBalanceAmount', 'wethBalanceAmount', 'polBalanceAmount'
+  ];
   balanceElements.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = '0.0';
