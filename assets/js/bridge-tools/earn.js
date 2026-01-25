@@ -105,7 +105,7 @@ async function showVotePayload(hash) {
   
   voteContract.methods.getProposalPayload(hash).call().then(async (payload) => {
     let html = `<div style="text-align: left; font-family: monospace; font-size: 0.85em;">`;
-    html += `<p><strong>Hash:</strong> ${hash}</p>`;
+    html += `<p><strong>Hash:</strong> ${DOMPurify.sanitize(hash)}</p>`;
     html += `<p><strong>Decoded Actions:</strong></p>`;
     
     try {
@@ -2001,50 +2001,44 @@ async function claimStakingRewards(showSwal = false) {
     // Get user's saved votes
     const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
     const votesToCast = [];
-    let skippedOldVotes = 0;
+    
+    // Process votes in the order they are stored
+    // Each vote can be cast multiple times if user specified (via repeat field)
     for (const vote of savedVotes) {
-      // Support both old format (with repeat) and new format (no repeat)
       const maxCasts = vote.repeat || 1;
       if (vote.timesCast < maxCasts) {
-        // Check if vote uses new format with actions
-        if (vote.actions) {
-          // Build the vote payload array per new StakingVote.sol spec
-          // For each action, payload must contain 3 items:
-          // 1. Encoded string (Function Signature)
-          // 2. Encoded address (Target Contract)
-          // 3. Encoded bytes (Arguments Blob)
-          for (const action of vote.actions) {
-            try {
-              const payload = [];
-              
-              // Build function signature from function name and argument types
-              const argTypes = action.arguments.map(arg => arg.type);
-              const functionSignature = `${action.functionName}(${argTypes.join(',')})`;
-              
-              // Element 1: function signature as encoded string
-              payload.push(earnState.polWeb3.eth.abi.encodeParameter('string', functionSignature));
-              
-              // Element 2: target contract address as encoded address
-              payload.push(earnState.polWeb3.eth.abi.encodeParameter('address', action.target));
-              
-              // Element 3: arguments blob as encoded bytes
-              // Encode all arguments together using encodeParameters
-              let argsBlob = '0x';
-              if (action.arguments.length > 0 && argTypes.length > 0) {
-                const argValues = action.arguments.map(arg => arg.value);
-                argsBlob = earnState.polWeb3.eth.abi.encodeParameters(argTypes, argValues);
-              }
-              payload.push(earnState.polWeb3.eth.abi.encodeParameter('bytes', argsBlob));
-              
-              votesToCast.push(payload);
-            } catch (e) {
-              console.error('Error encoding vote action:', e);
+        // Build the vote payload array per StakingVote.sol spec
+        // For each action, payload must contain 3 items:
+        // 1. Encoded string (Function Signature)
+        // 2. Encoded address (Target Contract)
+        // 3. Encoded bytes (Arguments Blob)
+        for (const action of vote.actions) {
+          try {
+            const payload = [];
+            
+            // Build function signature from function name and argument types
+            const argTypes = action.arguments.map(arg => arg.type);
+            const functionSignature = `${action.functionName}(${argTypes.join(',')})`;
+            
+            // Element 1: function signature as encoded string
+            payload.push(earnState.polWeb3.eth.abi.encodeParameter('string', functionSignature));
+            
+            // Element 2: target contract address as encoded address
+            payload.push(earnState.polWeb3.eth.abi.encodeParameter('address', action.target));
+            
+            // Element 3: arguments blob as encoded bytes
+            // Encode all arguments together using encodeParameters
+            let argsBlob = '0x';
+            if (action.arguments.length > 0 && argTypes.length > 0) {
+              const argValues = action.arguments.map(arg => arg.value);
+              argsBlob = earnState.polWeb3.eth.abi.encodeParameters(argTypes, argValues);
             }
+            payload.push(earnState.polWeb3.eth.abi.encodeParameter('bytes', argsBlob));
+            
+            votesToCast.push(payload);
+          } catch (e) {
+            console.error('Error encoding vote action:', e);
           }
-        } else if (vote.functions) {
-          // Old format - skip encoding as it's not compatible with new contract
-          console.warn('Skipping old format vote - please recreate using new voting interface');
-          skippedOldVotes++;
         }
         // Increment times cast
         vote.timesCast++;
@@ -2092,9 +2086,6 @@ async function claimStakingRewards(showSwal = false) {
     let message = 'Stake claimed successfully';
     if (votesToCast.length > 0) {
       message += ` -- ${votesToCast.length} vote(s) cast.`;
-    }
-    if (skippedOldVotes > 0) {
-      message += ` Note: ${skippedOldVotes} old format vote(s) skipped - please recreate using new voting interface.`;
     }
     if(!showSwal) {
       logToConsole(message+` -- tx: ${showResult(tx)}`);
@@ -2220,7 +2211,7 @@ async function showCreateVoteDialog() {
         <button onclick="addVoteAction()" class="swal2-confirm swal2-styled" style="margin-top: 8px; padding: 5px 10px; font-size: 0.85em;">+ Add Action</button>
       </div>
     `,
-    width: '600px',
+    width: '500px',
     showCancelButton: true,
     confirmButtonText: 'Create Vote',
     cancelButtonText: 'Cancel',
@@ -2386,39 +2377,26 @@ async function showVoteDetailsDialog() {
     savedVotes.forEach((vote, index) => {
       html += `<div style="margin-bottom: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">`;
       
-      // Handle both old and new vote formats
-      if (vote.actions) {
-        // New format
-        html += `<p><strong>Vote ${index + 1}</strong> (Cast ${vote.timesCast} time(s))</p>`;
-        html += '<ul>';
-        vote.actions.forEach((action, actionIndex) => {
-          html += `<li style="margin-bottom: 10px;">`;
-          html += `<strong>Action ${actionIndex + 1}:</strong><br>`;
-          html += `<strong>Target:</strong> ${DOMPurify.sanitize(action.target)}<br>`;
-          html += `<strong>Function:</strong> ${DOMPurify.sanitize(action.functionName)}(`;
-          html += action.arguments.map(arg => DOMPurify.sanitize(arg.type)).join(', ');
-          html += `)<br>`;
-          if (action.arguments.length > 0) {
-            html += `<strong>Arguments:</strong><ul style="margin-left: 20px;">`;
-            action.arguments.forEach((arg, argIndex) => {
-              html += `<li>${DOMPurify.sanitize(arg.type)}: ${DOMPurify.sanitize(String(arg.value))}</li>`;
-            });
-            html += `</ul>`;
-          }
-          html += `</li>`;
-        });
-        html += '</ul>';
-      } else if (vote.functions) {
-        // Old format (backwards compatibility)
-        html += `<p><strong>Vote ${index + 1}</strong> (Cast ${vote.timesCast}/${vote.repeat || 1} times)</p>`;
-        html += `<p><strong>Target Contract:</strong> ${vote.targetContract || 'N/A'}</p>`;
-        html += '<ul>';
-        vote.functions.forEach(func => {
-          html += `<li><strong>Function:</strong> ${func.signature}</li>`;
-          html += `<li style="margin-left: 20px;"><strong>Parameter:</strong> ${func.paramValue} (${func.paramType})</li>`;
-        });
-        html += '</ul>';
-      }
+      const maxCasts = vote.repeat || 1;
+      html += `<p><strong>Vote ${index + 1}</strong> (Cast ${vote.timesCast}/${maxCasts} time(s))</p>`;
+      html += '<ul>';
+      vote.actions.forEach((action, actionIndex) => {
+        html += `<li style="margin-bottom: 10px;">`;
+        html += `<strong>Action ${actionIndex + 1}:</strong><br>`;
+        html += `<strong>Target:</strong> ${DOMPurify.sanitize(action.target)}<br>`;
+        html += `<strong>Function:</strong> ${DOMPurify.sanitize(action.functionName)}(`;
+        html += action.arguments.map(arg => DOMPurify.sanitize(arg.type)).join(', ');
+        html += `)<br>`;
+        if (action.arguments.length > 0) {
+          html += `<strong>Arguments:</strong><ul style="margin-left: 20px;">`;
+          action.arguments.forEach((arg, argIndex) => {
+            html += `<li>${DOMPurify.sanitize(arg.type)}: ${DOMPurify.sanitize(String(arg.value))}</li>`;
+          });
+          html += `</ul>`;
+        }
+        html += `</li>`;
+      });
+      html += '</ul>';
       
       html += `<button onclick="deleteVote(${vote.id})" class="swal2-cancel swal2-styled">Delete</button>`;
       html += `</div>`;
@@ -2430,7 +2408,7 @@ async function showVoteDetailsDialog() {
   await Swal.fire({
     title: 'Your Votes',
     html: html,
-    width: '600px',
+    width: '500px',
     confirmButtonText: 'Close'
   });
 }
