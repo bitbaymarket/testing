@@ -1349,17 +1349,10 @@ async function checkStakingConditions() {
       }
     }
     
-    // Calculate timing for tasks - aim for ~85% into registration period for maintenance tasks
-    const targetBlockInInterval = Math.floor(registrationEndBlock * 0.85) + (earnState.randomDelaySeconds / 2);
-    
-    if (blockInInterval < targetBlockInInterval && isInRegistrationPeriod) {
-      console.log(`Not time for maintenance tasks yet. Block in interval: ${blockInInterval}, target: ${targetBlockInInterval}`);
-      return;
-    }
-    
     console.log('Time to execute staking tasks!');
     
     // Registration period tasks (first 75%): maintenance, calling profits, refresh
+    // Each task has its own internal checks to prevent spamming (pending amounts, time limits, etc.)
     if (isInRegistrationPeriod) {
       // 1. Check Flow contract for pending ETH
       await checkAndDripFlow();
