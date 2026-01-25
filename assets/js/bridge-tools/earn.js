@@ -55,6 +55,60 @@ var earnState = {
   consoleLog: [] // Console log for transactions (max 100)
 };
 
+// Reset earnState to default values - called when switching accounts or logging out
+function resetEarnState() {
+  // Stop any running automation
+  if (earnState.stakingInterval) {
+    clearInterval(earnState.stakingInterval);
+  }
+  
+  // Reset all state values
+  earnState.stakingEnabled = false;
+  earnState.stakingInterval = null;
+  earnState.nextStakeTime = null;
+  earnState.randomDelaySeconds = 0;
+  earnState.ethWeb3 = null;
+  earnState.polWeb3 = null;
+  earnState.userVaultAddress = null;
+  earnState.isPasswordLogin = false;
+  earnState.lastEthCheck = 0;
+  earnState.lastPolCheck = 0;
+  earnState.userTotalRewards = {};
+  earnState.consoleLog = [];
+  
+  // Reset UI elements
+  const stakingCheckbox = document.getElementById('stakingEnabledCheckbox');
+  if (stakingCheckbox) {
+    stakingCheckbox.checked = false;
+  }
+  
+  // Clear displayed data
+  const elementsToReset = [
+    'lidoPrincipal', 'lidoYield', 'lidoCurrentUnlock', 'lidoNextUnlock',
+    'stablePoolSize', 'stableTick', 'stableInRange', 'stableCommission', 
+    'stableROI', 'stableSendsTo', 'userLidoPosition', 'userStablePosition',
+    'userStakingInfo', 'vaultBalances', 'ethBalances', 'bayrPreviousVotes', 
+    'bayrPendingVotes', 'stakingConsoleContent', 'earnRoiDisplay',
+    'stakingStakedAmount', 'stakingVaultAddress', 'stakingEpoch', 'stakingNextClaim',
+    'vaultBaylBalance', 'vaultBayrBalance', 'vaultPolBalance',
+    'ethBalanceDisplay', 'stethBalanceDisplay'
+  ];
+  
+  elementsToReset.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      if (el.classList.contains('hidden') === false && id.includes('user') || id.includes('vault') || id.includes('eth')) {
+        // Keep structure but clear content for info divs
+      }
+      if (el.tagName === 'DIV' && el.id.includes('Balance')) {
+        el.textContent = 'Loading...';
+      }
+    }
+  });
+  
+  console.log('Earn state reset');
+}
+
 // ============================================================================
 // CONSOLE LOGGING FOR AUTOMATION
 // ============================================================================
@@ -2188,25 +2242,27 @@ async function showCreateVoteDialog() {
       <div style="text-align: left; font-size: 0.9em;">
         <p style="margin-bottom: 10px; font-size: 0.85em;">Create a vote with multiple actions to execute if it passes.</p>
         
-        <div id="voteActions">
-          <div class="vote-action-item" data-action-index="0" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px;">
-            <h4 style="margin: 0 0 10px 0; font-size: 0.9em;">Action 1</h4>
-            
-            <div style="margin-bottom: 8px;">
-              <label style="font-size: 0.85em;"><strong>Target Contract:</strong></label>
-              <input type="text" id="actionTarget0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="0x..." />
+        <div id="voteActionsContainer" style="max-height: 50vh; overflow-y: auto; padding-right: 5px;">
+          <div id="voteActions">
+            <div class="vote-action-item" data-action-index="0" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px;">
+              <h4 style="margin: 0 0 10px 0; font-size: 0.9em;">Action 1</h4>
+              
+              <div style="margin-bottom: 8px;">
+                <label style="font-size: 0.85em;"><strong>Target Contract:</strong></label>
+                <input type="text" id="actionTarget0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="0x..." />
+              </div>
+              
+              <div style="margin-bottom: 8px;">
+                <label style="font-size: 0.85em;"><strong>Function Name:</strong></label>
+                <input type="text" id="actionFuncName0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="e.g., setMinDays" />
+              </div>
+              
+              <div id="actionArgs0" style="margin-bottom: 8px;">
+                <label style="font-size: 0.85em;"><strong>Arguments:</strong></label>
+              </div>
+              
+              <button onclick="addArgumentField(0)" class="swal2-confirm swal2-styled" style="margin-top: 5px; padding: 4px 8px; font-size: 0.8em;">+ Add Argument</button>
             </div>
-            
-            <div style="margin-bottom: 8px;">
-              <label style="font-size: 0.85em;"><strong>Function Name:</strong></label>
-              <input type="text" id="actionFuncName0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="e.g., setMinDays" />
-            </div>
-            
-            <div id="actionArgs0" style="margin-bottom: 8px;">
-              <label style="font-size: 0.85em;"><strong>Arguments:</strong></label>
-            </div>
-            
-            <button onclick="addArgumentField(0)" class="swal2-confirm swal2-styled" style="margin-top: 5px; padding: 4px 8px; font-size: 0.8em;">+ Add Argument</button>
           </div>
         </div>
         
@@ -2214,6 +2270,9 @@ async function showCreateVoteDialog() {
       </div>
     `,
     width: '500px',
+    customClass: {
+      popup: 'scrollable-swal-popup'
+    },
     showCancelButton: true,
     confirmButtonText: 'Create Vote',
     cancelButtonText: 'Cancel',
@@ -2371,7 +2430,7 @@ async function createVoteFromDialog() {
 async function showVoteDetailsDialog() {
   const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
   
-  let html = '<div style="text-align: left;">';
+  let html = '<div style="text-align: left; max-height: 50vh; overflow-y: auto; padding-right: 5px;">';
   
   if (savedVotes.length === 0) {
     html += '<p>' + translateThis('You have not created any votes yet.') + '</p>';
@@ -2412,6 +2471,9 @@ async function showVoteDetailsDialog() {
     title: 'Your Votes',
     html: html,
     width: '500px',
+    customClass: {
+      popup: 'scrollable-swal-popup'
+    },
     confirmButtonText: 'Close'
   });
 }
