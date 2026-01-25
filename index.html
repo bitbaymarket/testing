@@ -1710,8 +1710,37 @@
     border: 2px solid #3d0064;
   }
   .scrollable-swal-popup {
-    max-height: 80vh; /* Prevents the modal from overflowing vertically */
-    overflow-y: auto; /* Enables scrolling within the modal */
+    max-height: 90vh; /* Prevents the modal from overflowing vertically */
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important; /* Prevent popup itself from scrolling, scroll happens in content area */
+  }
+  .scrollable-swal-popup .swal2-html-container {
+    flex: 1 1 auto;
+    max-height: calc(90vh - 180px); /* Account for title, buttons and padding */
+    overflow-y: auto !important;
+    padding-right: 10px; /* Space for scrollbar */
+  }
+  .scrollable-swal-popup .swal2-actions {
+    flex-shrink: 0; /* Keep buttons fixed at bottom */
+    margin-top: auto;
+  }
+  /* Mobile-specific styles for scrollable swal */
+  @media screen and (max-width: 600px) {
+    .scrollable-swal-popup {
+      max-height: 85vh;
+      width: 95vw !important;
+      max-width: 95vw !important;
+      margin: 0 auto;
+    }
+    .scrollable-swal-popup .swal2-html-container {
+      max-height: calc(85vh - 160px); /* Adjusted for mobile */
+      font-size: 0.9em;
+    }
+    .scrollable-swal-popup .swal2-title {
+      font-size: 1.2em;
+      padding: 0.5em;
+    }
   }
   #background-image {
     position: fixed;
