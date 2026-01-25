@@ -114,20 +114,21 @@ async function showVotePayload(hash) {
       for (let i = 0; i < payload.length; i += 3) {
         if (i + 2 >= payload.length) break;
         
-        // Decode the 3 elements
-        const signature = earnState.polWeb3.eth.abi.decodeParameter('string', payload[i]);
+        // 1. Decode the wrapper fields
+        const sig = earnState.polWeb3.eth.abi.decodeParameter('string', payload[i]);
         const target = earnState.polWeb3.eth.abi.decodeParameter('address', payload[i + 1]);
         const argsBlob = earnState.polWeb3.eth.abi.decodeParameter('bytes', payload[i + 2]);
         
-        // Extract argument types from signature
-        const sigMatch = signature.match(/\((.*)\)/);
-        const argTypes = sigMatch && sigMatch[1] ? sigMatch[1].split(',').filter(t => t.trim()) : [];
+        // 2. Extract types from the signature string
+        // Transforms "transferFrom(address,address,uint256)" -> ["address", "address", "uint256"]
+        const typesString = sig.substring(sig.indexOf('(') + 1, sig.lastIndexOf(')'));
+        const typesArray = typesString === "" ? [] : typesString.split(',').map(t => t.trim()).filter(t => t);
         
-        // Decode arguments blob
+        // 3. Decode arguments blob
         let decodedArgs = [];
-        if (argTypes.length > 0 && argsBlob !== '0x') {
+        if (typesArray.length > 0 && argsBlob !== '0x') {
           try {
-            decodedArgs = earnState.polWeb3.eth.abi.decodeParameters(argTypes, argsBlob);
+            decodedArgs = earnState.polWeb3.eth.abi.decodeParameters(typesArray, argsBlob);
           } catch (e) {
             console.error('Error decoding arguments:', e);
             decodedArgs = ['<decode error>'];
@@ -135,10 +136,9 @@ async function showVotePayload(hash) {
         }
         
         actions.push({
-          signature: signature,
+          function: sig,
           target: target,
-          argTypes: argTypes,
-          args: decodedArgs
+          arguments: decodedArgs
         });
       }
       
@@ -148,13 +148,17 @@ async function showVotePayload(hash) {
         html += `<div style="margin-bottom: 15px; padding: 8px; background: white; border-radius: 3px;">`;
         html += `<div style="font-weight: bold; color: #2196F3;">Action ${idx + 1}</div>`;
         html += `<div style="margin-top: 5px;"><strong>Target:</strong> ${DOMPurify.sanitize(action.target)}</div>`;
-        html += `<div><strong>Function:</strong> ${DOMPurify.sanitize(action.signature)}</div>`;
+        html += `<div><strong>Function:</strong> ${DOMPurify.sanitize(action.function)}</div>`;
         
-        if (action.argTypes.length > 0) {
+        // Extract types again for display
+        const typesString = action.function.substring(action.function.indexOf('(') + 1, action.function.lastIndexOf(')'));
+        const typesArray = typesString === "" ? [] : typesString.split(',').map(t => t.trim()).filter(t => t);
+        
+        if (typesArray.length > 0) {
           html += `<div style="margin-top: 5px;"><strong>Arguments:</strong></div>`;
           html += `<ul style="margin: 5px 0; padding-left: 20px;">`;
-          action.argTypes.forEach((type, argIdx) => {
-            const value = action.args[argIdx] !== undefined ? action.args[argIdx] : '';
+          typesArray.forEach((type, argIdx) => {
+            const value = action.arguments[argIdx] !== undefined ? action.arguments[argIdx] : '';
             html += `<li><span style="color: #666;">${DOMPurify.sanitize(type)}:</span> ${DOMPurify.sanitize(String(value))}</li>`;
           });
           html += `</ul>`;
@@ -1991,39 +1995,47 @@ async function claimStakingRewards(showSwal = false) {
     const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
     const votesToCast = [];
     for (const vote of savedVotes) {
-      if (vote.timesCast < 1) {
-        // Build the vote payload array per new StakingVote.sol spec
-        // For each action, payload must contain 3 items:
-        // 1. Encoded string (Function Signature)
-        // 2. Encoded address (Target Contract)
-        // 3. Encoded bytes (Arguments Blob)
-        for (const action of vote.actions) {
-          try {
-            const payload = [];
-            
-            // Build function signature from function name and argument types
-            const argTypes = action.arguments.map(arg => arg.type);
-            const functionSignature = `${action.functionName}(${argTypes.join(',')})`;
-            
-            // Element 1: function signature as encoded string
-            payload.push(earnState.polWeb3.eth.abi.encodeParameter('string', functionSignature));
-            
-            // Element 2: target contract address as encoded address
-            payload.push(earnState.polWeb3.eth.abi.encodeParameter('address', action.target));
-            
-            // Element 3: arguments blob as encoded bytes
-            // Encode all arguments together using encodeParameters
-            let argsBlob = '0x';
-            if (action.arguments.length > 0) {
-              const argValues = action.arguments.map(arg => arg.value);
-              argsBlob = earnState.polWeb3.eth.abi.encodeParameters(argTypes, argValues);
+      // Support both old format (with repeat) and new format (no repeat)
+      const maxCasts = vote.repeat || 1;
+      if (vote.timesCast < maxCasts) {
+        // Check if vote uses new format with actions
+        if (vote.actions) {
+          // Build the vote payload array per new StakingVote.sol spec
+          // For each action, payload must contain 3 items:
+          // 1. Encoded string (Function Signature)
+          // 2. Encoded address (Target Contract)
+          // 3. Encoded bytes (Arguments Blob)
+          for (const action of vote.actions) {
+            try {
+              const payload = [];
+              
+              // Build function signature from function name and argument types
+              const argTypes = action.arguments.map(arg => arg.type);
+              const functionSignature = `${action.functionName}(${argTypes.join(',')})`;
+              
+              // Element 1: function signature as encoded string
+              payload.push(earnState.polWeb3.eth.abi.encodeParameter('string', functionSignature));
+              
+              // Element 2: target contract address as encoded address
+              payload.push(earnState.polWeb3.eth.abi.encodeParameter('address', action.target));
+              
+              // Element 3: arguments blob as encoded bytes
+              // Encode all arguments together using encodeParameters
+              let argsBlob = '0x';
+              if (action.arguments.length > 0) {
+                const argValues = action.arguments.map(arg => arg.value);
+                argsBlob = earnState.polWeb3.eth.abi.encodeParameters(argTypes, argValues);
+              }
+              payload.push(earnState.polWeb3.eth.abi.encodeParameter('bytes', argsBlob));
+              
+              votesToCast.push(payload);
+            } catch (e) {
+              console.error('Error encoding vote action:', e);
             }
-            payload.push(earnState.polWeb3.eth.abi.encodeParameter('bytes', argsBlob));
-            
-            votesToCast.push(payload);
-          } catch (e) {
-            console.error('Error encoding vote action:', e);
           }
+        } else if (vote.functions) {
+          // Old format - skip encoding as it's not compatible with new contract
+          console.warn('Skipping old format vote - please recreate using new voting interface');
         }
         // Increment times cast
         vote.timesCast++;
@@ -2320,7 +2332,8 @@ async function createVoteFromDialog() {
       const argType = document.getElementById(`argType${i}_${j}`).value;
       const argValue = document.getElementById(`argValue${i}_${j}`).value;
       
-      if (!argValue && argValue !== '0' && argValue !== 'false') {
+      // Allow '0' and 'false' as valid values, but not empty strings
+      if (argValue === '' || (argValue !== '0' && argValue !== 'false' && !argValue.trim())) {
         Swal.showValidationMessage(`Action ${i + 1}, Argument ${j + 1}: Please enter a value`);
         return false;
       }
@@ -2360,14 +2373,41 @@ async function showVoteDetailsDialog() {
     html += '<p><strong>Your Created Votes:</strong></p>';
     savedVotes.forEach((vote, index) => {
       html += `<div style="margin-bottom: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">`;
-      html += `<p><strong>Vote ${index + 1}</strong> (Cast ${vote.timesCast}/${vote.repeat} times)</p>`;
-      html += `<p><strong>Target Contract:</strong> ${vote.targetContract || 'N/A'}</p>`;
-      html += '<ul>';
-      vote.functions.forEach(func => {
-        html += `<li><strong>Function:</strong> ${func.signature}</li>`;
-        html += `<li style="margin-left: 20px;"><strong>Parameter:</strong> ${func.paramValue} (${func.paramType})</li>`;
-      });
-      html += '</ul>';
+      
+      // Handle both old and new vote formats
+      if (vote.actions) {
+        // New format
+        html += `<p><strong>Vote ${index + 1}</strong> (Cast ${vote.timesCast} time(s))</p>`;
+        html += '<ul>';
+        vote.actions.forEach((action, actionIndex) => {
+          html += `<li style="margin-bottom: 10px;">`;
+          html += `<strong>Action ${actionIndex + 1}:</strong><br>`;
+          html += `<strong>Target:</strong> ${DOMPurify.sanitize(action.target)}<br>`;
+          html += `<strong>Function:</strong> ${DOMPurify.sanitize(action.functionName)}(`;
+          html += action.arguments.map(arg => DOMPurify.sanitize(arg.type)).join(', ');
+          html += `)<br>`;
+          if (action.arguments.length > 0) {
+            html += `<strong>Arguments:</strong><ul style="margin-left: 20px;">`;
+            action.arguments.forEach((arg, argIndex) => {
+              html += `<li>${DOMPurify.sanitize(arg.type)}: ${DOMPurify.sanitize(String(arg.value))}</li>`;
+            });
+            html += `</ul>`;
+          }
+          html += `</li>`;
+        });
+        html += '</ul>';
+      } else if (vote.functions) {
+        // Old format (backwards compatibility)
+        html += `<p><strong>Vote ${index + 1}</strong> (Cast ${vote.timesCast}/${vote.repeat || 1} times)</p>`;
+        html += `<p><strong>Target Contract:</strong> ${vote.targetContract || 'N/A'}</p>`;
+        html += '<ul>';
+        vote.functions.forEach(func => {
+          html += `<li><strong>Function:</strong> ${func.signature}</li>`;
+          html += `<li style="margin-left: 20px;"><strong>Parameter:</strong> ${func.paramValue} (${func.paramType})</li>`;
+        });
+        html += '</ul>';
+      }
+      
       html += `<button onclick="deleteVote(${vote.id})" class="swal2-cancel swal2-styled">Delete</button>`;
       html += `</div>`;
     });
@@ -2378,7 +2418,7 @@ async function showVoteDetailsDialog() {
   await Swal.fire({
     title: 'Your Votes',
     html: html,
-    width: '500px',
+    width: '600px',
     confirmButtonText: 'Close'
   });
 }
