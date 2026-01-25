@@ -106,8 +106,77 @@ async function showVotePayload(hash) {
   voteContract.methods.getProposalPayload(hash).call().then(async (payload) => {
     let html = `<div style="text-align: left; font-family: monospace; font-size: 0.85em;">`;
     html += `<p><strong>Hash:</strong> ${hash}</p>`;
-    html += `<p><strong>Payload:</strong></p>`;
-    html += `<pre style="background: #f5f5f5; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto;">${DOMPurify.sanitize(JSON.stringify(payload))}</pre>`;
+    html += `<p><strong>Decoded Actions:</strong></p>`;
+    
+    try {
+      // Decode payload in chunks of 3 (Signature, Target, ArgsBlob)
+      const actions = [];
+      for (let i = 0; i < payload.length; i += 3) {
+        if (i + 2 >= payload.length) break;
+        
+        // Decode the 3 elements
+        const signature = earnState.polWeb3.eth.abi.decodeParameter('string', payload[i]);
+        const target = earnState.polWeb3.eth.abi.decodeParameter('address', payload[i + 1]);
+        const argsBlob = earnState.polWeb3.eth.abi.decodeParameter('bytes', payload[i + 2]);
+        
+        // Extract argument types from signature
+        const sigMatch = signature.match(/\((.*)\)/);
+        const argTypes = sigMatch && sigMatch[1] ? sigMatch[1].split(',').filter(t => t.trim()) : [];
+        
+        // Decode arguments blob
+        let decodedArgs = [];
+        if (argTypes.length > 0 && argsBlob !== '0x') {
+          try {
+            decodedArgs = earnState.polWeb3.eth.abi.decodeParameters(argTypes, argsBlob);
+          } catch (e) {
+            console.error('Error decoding arguments:', e);
+            decodedArgs = ['<decode error>'];
+          }
+        }
+        
+        actions.push({
+          signature: signature,
+          target: target,
+          argTypes: argTypes,
+          args: decodedArgs
+        });
+      }
+      
+      // Display actions in a readable format
+      html += `<div style="background: #f5f5f5; padding: 10px; border-radius: 5px; max-height: 400px; overflow-y: auto;">`;
+      actions.forEach((action, idx) => {
+        html += `<div style="margin-bottom: 15px; padding: 8px; background: white; border-radius: 3px;">`;
+        html += `<div style="font-weight: bold; color: #2196F3;">Action ${idx + 1}</div>`;
+        html += `<div style="margin-top: 5px;"><strong>Target:</strong> ${DOMPurify.sanitize(action.target)}</div>`;
+        html += `<div><strong>Function:</strong> ${DOMPurify.sanitize(action.signature)}</div>`;
+        
+        if (action.argTypes.length > 0) {
+          html += `<div style="margin-top: 5px;"><strong>Arguments:</strong></div>`;
+          html += `<ul style="margin: 5px 0; padding-left: 20px;">`;
+          action.argTypes.forEach((type, argIdx) => {
+            const value = action.args[argIdx] !== undefined ? action.args[argIdx] : '';
+            html += `<li><span style="color: #666;">${DOMPurify.sanitize(type)}:</span> ${DOMPurify.sanitize(String(value))}</li>`;
+          });
+          html += `</ul>`;
+        } else {
+          html += `<div style="margin-top: 5px; color: #999;">No arguments</div>`;
+        }
+        
+        html += `</div>`;
+      });
+      html += `</div>`;
+      
+      if (actions.length === 0) {
+        html += `<div style="background: #f5f5f5; padding: 10px; border-radius: 5px;">No actions found in payload</div>`;
+      }
+    } catch (error) {
+      console.error('Error decoding payload:', error);
+      html += `<div style="background: #fff3cd; padding: 10px; border-radius: 5px; color: #856404;">`;
+      html += `<strong>Decoding Error:</strong> ${DOMPurify.sanitize(error.message)}<br><br>`;
+      html += `<strong>Raw Payload:</strong><pre>${DOMPurify.sanitize(JSON.stringify(payload, null, 2))}</pre>`;
+      html += `</div>`;
+    }
+    
     html += `</div>`;
     
     await Swal.fire({
@@ -1922,26 +1991,38 @@ async function claimStakingRewards(showSwal = false) {
     const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
     const votesToCast = [];
     for (const vote of savedVotes) {
-      if (vote.timesCast < vote.repeat) {
-        // Build the vote payload array per StakingVote.sol _executePayload spec
-        // payload[0] = abi.encode(uint256(0))  // opcode
-        // payload[1] = abi.encode(string("functionName(type)"))  // function signature
-        // payload[2] = abi.encode(address(targetContract))  // target address
-        // payload[3+] = encoded arguments (raw bytes, not double-encoded)
-        for (const func of vote.functions) {
+      if (vote.timesCast < 1) {
+        // Build the vote payload array per new StakingVote.sol spec
+        // For each action, payload must contain 3 items:
+        // 1. Encoded string (Function Signature)
+        // 2. Encoded address (Target Contract)
+        // 3. Encoded bytes (Arguments Blob)
+        for (const action of vote.actions) {
           try {
             const payload = [];
-            // Element 0: opcode (uint256 = 0)
-            payload.push(earnState.polWeb3.eth.abi.encodeParameter('uint256', '0'));
-            // Element 1: function signature as string
-            payload.push(earnState.polWeb3.eth.abi.encodeParameter('string', func.signature));
-            // Element 2: target contract address
-            payload.push(earnState.polWeb3.eth.abi.encodeParameter('address', vote.targetContract));
-            // Element 3+: encode the argument(s) individually
-            payload.push(earnState.polWeb3.eth.abi.encodeParameter(func.paramType, func.paramValue));
+            
+            // Build function signature from function name and argument types
+            const argTypes = action.arguments.map(arg => arg.type);
+            const functionSignature = `${action.functionName}(${argTypes.join(',')})`;
+            
+            // Element 1: function signature as encoded string
+            payload.push(earnState.polWeb3.eth.abi.encodeParameter('string', functionSignature));
+            
+            // Element 2: target contract address as encoded address
+            payload.push(earnState.polWeb3.eth.abi.encodeParameter('address', action.target));
+            
+            // Element 3: arguments blob as encoded bytes
+            // Encode all arguments together using encodeParameters
+            let argsBlob = '0x';
+            if (action.arguments.length > 0) {
+              const argValues = action.arguments.map(arg => arg.value);
+              argsBlob = earnState.polWeb3.eth.abi.encodeParameters(argTypes, argValues);
+            }
+            payload.push(earnState.polWeb3.eth.abi.encodeParameter('bytes', argsBlob));
+            
             votesToCast.push(payload);
           } catch (e) {
-            console.error('Error encoding vote:', e);
+            console.error('Error encoding vote action:', e);
           }
         }
         // Increment times cast
@@ -2088,40 +2169,34 @@ async function showCreateVoteDialog() {
     title: 'Create New Vote',
     html: `
       <div style="text-align: left; font-size: 0.9em;">
-        <p style="margin-bottom: 10px; font-size: 0.85em;">Create a vote with function calls to execute if it passes.</p>
+        <p style="margin-bottom: 10px; font-size: 0.85em;">Create a vote with multiple actions to execute if it passes.</p>
         
-        <div style="margin-bottom: 10px;">
-          <label style="font-size: 0.85em;"><strong>Target Contract:</strong></label>
-          <input type="text" id="voteTargetContract" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="0x..." />
-        </div>
-        
-        <div id="voteFunctions">
-          <div class="vote-function-item">
-            <label style="font-size: 0.85em;">Function Signature:</label>
-            <input type="text" id="funcSig0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="e.g., setMinDays(uint256)" />
+        <div id="voteActions">
+          <div class="vote-action-item" data-action-index="0" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px;">
+            <h4 style="margin: 0 0 10px 0; font-size: 0.9em;">Action 1</h4>
             
-            <label style="font-size: 0.85em;">Param Type:</label>
-            <select id="paramType0" class="swal2-select" style="padding: 5px; font-size: 0.85em;">
-              <option value="uint256">uint256</option>
-              <option value="string">string</option>
-              <option value="bytes">bytes</option>
-              <option value="address">address</option>
-            </select>
+            <div style="margin-bottom: 8px;">
+              <label style="font-size: 0.85em;"><strong>Target Contract:</strong></label>
+              <input type="text" id="actionTarget0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="0x..." />
+            </div>
             
-            <label style="font-size: 0.85em;">Param Value:</label>
-            <input type="text" id="paramValue0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="Enter value" />
+            <div style="margin-bottom: 8px;">
+              <label style="font-size: 0.85em;"><strong>Function Name:</strong></label>
+              <input type="text" id="actionFuncName0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="e.g., setMinDays" />
+            </div>
+            
+            <div id="actionArgs0" style="margin-bottom: 8px;">
+              <label style="font-size: 0.85em;"><strong>Arguments:</strong></label>
+            </div>
+            
+            <button onclick="addArgumentField(0)" class="swal2-confirm swal2-styled" style="margin-top: 5px; padding: 4px 8px; font-size: 0.8em;">+ Add Argument</button>
           </div>
         </div>
         
-        <button onclick="addVoteFunction()" class="swal2-confirm swal2-styled" style="margin-top: 8px; padding: 5px 10px; font-size: 0.85em;">+ Add Function</button>
-        
-        <div style="margin-top: 10px;">
-          <label style="font-size: 0.85em;">Repeat (max 10):</label>
-          <input type="number" id="voteRepeat" class="swal2-input" style="padding: 5px; font-size: 0.85em;" value="1" min="1" max="10" />
-        </div>
+        <button onclick="addVoteAction()" class="swal2-confirm swal2-styled" style="margin-top: 8px; padding: 5px 10px; font-size: 0.85em;">+ Add Action</button>
       </div>
     `,
-    width: '500px',
+    width: '600px',
     showCancelButton: true,
     confirmButtonText: 'Create Vote',
     cancelButtonText: 'Cancel',
@@ -2131,77 +2206,140 @@ async function showCreateVoteDialog() {
   });
 }
 
-function addVoteFunction() {
-  const container = document.getElementById('voteFunctions');
+function addVoteAction() {
+  const container = document.getElementById('voteActions');
   const index = container.children.length;
   
   if (index >= 10) {
-    Swal.showValidationMessage('Maximum 10 functions per vote');
+    Swal.showValidationMessage('Maximum 10 actions per vote');
     return;
   }
   
-  const newFunction = document.createElement('div');
-  newFunction.className = 'vote-function-item';
-  newFunction.style.marginTop = '10px';
-  newFunction.style.borderTop = '1px solid #ccc';
-  newFunction.style.paddingTop = '8px';
-  newFunction.innerHTML = `
-    <label style="font-size: 0.85em;">Function Signature:</label>
-    <input type="text" id="funcSig${index}" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="e.g., setMaxDays(uint256)" />
+  const newAction = document.createElement('div');
+  newAction.className = 'vote-action-item';
+  newAction.setAttribute('data-action-index', index);
+  newAction.style.border = '1px solid #ddd';
+  newAction.style.padding = '10px';
+  newAction.style.marginBottom = '10px';
+  newAction.style.borderRadius = '5px';
+  newAction.innerHTML = `
+    <h4 style="margin: 0 0 10px 0; font-size: 0.9em;">Action ${index + 1}</h4>
     
-    <label style="font-size: 0.85em;">Param Type:</label>
-    <select id="paramType${index}" class="swal2-select" style="padding: 5px; font-size: 0.85em;">
-      <option value="uint256">uint256</option>
-      <option value="string">string</option>
-      <option value="bytes">bytes</option>
-      <option value="address">address</option>
-    </select>
+    <div style="margin-bottom: 8px;">
+      <label style="font-size: 0.85em;"><strong>Target Contract:</strong></label>
+      <input type="text" id="actionTarget${index}" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="0x..." />
+    </div>
     
-    <label style="font-size: 0.85em;">Param Value:</label>
-    <input type="text" id="paramValue${index}" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="Enter value" />
+    <div style="margin-bottom: 8px;">
+      <label style="font-size: 0.85em;"><strong>Function Name:</strong></label>
+      <input type="text" id="actionFuncName${index}" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="e.g., setMaxDays" />
+    </div>
+    
+    <div id="actionArgs${index}" style="margin-bottom: 8px;">
+      <label style="font-size: 0.85em;"><strong>Arguments:</strong></label>
+    </div>
+    
+    <button onclick="addArgumentField(${index})" class="swal2-confirm swal2-styled" style="margin-top: 5px; padding: 4px 8px; font-size: 0.8em;">+ Add Argument</button>
   `;
   
-  container.appendChild(newFunction);
+  container.appendChild(newAction);
+}
+
+function addArgumentField(actionIndex) {
+  const argsContainer = document.getElementById(`actionArgs${actionIndex}`);
+  const argIndex = argsContainer.querySelectorAll('.argument-item').length;
+  
+  if (argIndex >= 20) {
+    Swal.showValidationMessage('Maximum 20 arguments per action');
+    return;
+  }
+  
+  const newArg = document.createElement('div');
+  newArg.className = 'argument-item';
+  newArg.style.marginTop = '8px';
+  newArg.style.paddingLeft = '10px';
+  newArg.style.borderLeft = '2px solid #ccc';
+  newArg.innerHTML = `
+    <label style="font-size: 0.8em;">Arg ${argIndex + 1} Type:</label>
+    <select id="argType${actionIndex}_${argIndex}" class="swal2-select" style="padding: 4px; font-size: 0.8em; width: 100%; margin-bottom: 5px;">
+      <option value="uint256">uint256</option>
+      <option value="uint128">uint128</option>
+      <option value="uint64">uint64</option>
+      <option value="uint32">uint32</option>
+      <option value="uint16">uint16</option>
+      <option value="uint8">uint8</option>
+      <option value="int256">int256</option>
+      <option value="address">address</option>
+      <option value="bool">bool</option>
+      <option value="string">string</option>
+      <option value="bytes">bytes</option>
+      <option value="bytes32">bytes32</option>
+      <option value="bytes16">bytes16</option>
+      <option value="bytes8">bytes8</option>
+      <option value="bytes4">bytes4</option>
+    </select>
+    
+    <label style="font-size: 0.8em;">Arg ${argIndex + 1} Value:</label>
+    <input type="text" id="argValue${actionIndex}_${argIndex}" class="swal2-input" style="padding: 4px; font-size: 0.8em; width: 100%;" placeholder="Enter value" />
+  `;
+  
+  argsContainer.appendChild(newArg);
 }
 
 async function createVoteFromDialog() {
-  const targetContract = document.getElementById('voteTargetContract').value;
+  const actionsContainer = document.getElementById('voteActions');
+  const numActions = actionsContainer.children.length;
   
-  if (!targetContract || !targetContract.match(/^0x[a-fA-F0-9]{40}$/)) {
-    Swal.showValidationMessage('Please enter a valid target contract address');
+  if (numActions === 0) {
+    Swal.showValidationMessage('Please add at least one action');
     return false;
   }
   
-  const container = document.getElementById('voteFunctions');
-  const numFunctions = container.children.length;
-  const functions = [];
+  const actions = [];
   
-  for (let i = 0; i < numFunctions; i++) {
-    const sig = document.getElementById(`funcSig${i}`).value;
-    const type = document.getElementById(`paramType${i}`).value;
-    const value = document.getElementById(`paramValue${i}`).value;
+  for (let i = 0; i < numActions; i++) {
+    const target = document.getElementById(`actionTarget${i}`).value;
+    const funcName = document.getElementById(`actionFuncName${i}`).value;
     
-    if (!sig || !value) {
-      Swal.showValidationMessage(`Please fill all fields for function ${i + 1}`);
+    if (!target || !target.match(/^0x[a-fA-F0-9]{40}$/)) {
+      Swal.showValidationMessage(`Action ${i + 1}: Please enter a valid target contract address`);
       return false;
     }
     
-    functions.push({ signature: sig, paramType: type, paramValue: value });
+    if (!funcName || !funcName.trim()) {
+      Swal.showValidationMessage(`Action ${i + 1}: Please enter a function name`);
+      return false;
+    }
+    
+    // Collect arguments for this action
+    const argsContainer = document.getElementById(`actionArgs${i}`);
+    const argItems = argsContainer.querySelectorAll('.argument-item');
+    const args = [];
+    
+    for (let j = 0; j < argItems.length; j++) {
+      const argType = document.getElementById(`argType${i}_${j}`).value;
+      const argValue = document.getElementById(`argValue${i}_${j}`).value;
+      
+      if (!argValue && argValue !== '0' && argValue !== 'false') {
+        Swal.showValidationMessage(`Action ${i + 1}, Argument ${j + 1}: Please enter a value`);
+        return false;
+      }
+      
+      args.push({ type: argType, value: argValue });
+    }
+    
+    actions.push({
+      target: target,
+      functionName: funcName,
+      arguments: args
+    });
   }
   
-  const repeat = parseInt(document.getElementById('voteRepeat').value);
-  if (repeat < 1 || repeat > 10) {
-    Swal.showValidationMessage('Repeat count must be between 1 and 10');
-    return false;
-  }
-  
-  // Save to localStorage with target contract
+  // Save to localStorage
   const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
   const newVote = {
     id: Date.now(),
-    targetContract: targetContract,
-    functions: functions,
-    repeat: repeat,
+    actions: actions,
     timesCast: 0
   };
   savedVotes.push(newVote);
