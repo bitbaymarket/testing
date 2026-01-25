@@ -1495,8 +1495,8 @@ async function checkAndManageStableVault() {
       const fee1 = new BN(unclaimedFees.fee1).dividedBy('1e6'); // USDC
       const totalUnclaimedUSD = fee0.plus(fee1);
       
-      // Only proceed if > $5 for the collective pool
-      if (totalUnclaimedUSD.gt(new BN('5'))) {
+      // Only proceed if > .50 for the collective pool
+      if (totalUnclaimedUSD.gt(new BN('0.50'))) {
         now = Math.floor(Date.now() / 1000);
         const deadline = now + 300;
         
@@ -1578,7 +1578,7 @@ async function loadStakingInfo() {
     const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call())));
     document.getElementById('userShares').textContent = displayBAYAmount(userInfo.shares, 4);
     
-    if (userInfo.lastRefresh > 0) {
+    if (userInfo.lastRefresh > 0 && parseInt(totalShares) > 0) {
       const lastRefreshDate = new Date(userInfo.lastRefresh * 1000);
       document.getElementById('userLastRefresh').textContent = lastRefreshDate.toLocaleString();
       
