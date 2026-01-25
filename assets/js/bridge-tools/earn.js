@@ -1165,7 +1165,7 @@ async function toggleStaking() {
       html: `
         <div style="text-align: left;">
           <p>${translateThis('Enter the private key for your connected wallet')}:</p>
-          <p style="font-size: 0.9em; color: #666;">${translateThis('Address')}: ${myaccounts}</p>
+          <p style="font-size: 0.9em; color: #777;">${translateThis('Address')}: ${myaccounts}</p>
           <input type="password" id="privateKeyInput" class="swal2-input" placeholder="${translateThis('Private Key (with or without 0x)')}" style="width: 100%;">
         </div>
       `,
@@ -1251,13 +1251,13 @@ function startStakingAutomation() {
     clearInterval(earnState.stakingInterval);
   }
   
-  // Generate random delay (0-10 minutes)
-  earnState.randomDelaySeconds = Math.floor(Math.random() * 600);
+  // Generate random delay (0-3 minutes)
+  earnState.randomDelaySeconds = Math.floor(Math.random() * 180);
   
   console.log('Starting staking automation with random delay:', earnState.randomDelaySeconds, 'seconds');
   
-  // Check staking conditions every minute
-  earnState.stakingInterval = setInterval(checkStakingConditions, 60000);
+  // Check staking conditions
+  earnState.stakingInterval = setInterval(checkStakingConditions, 180000 + (earnState.randomDelaySeconds * 1000));
   
   // Do initial check
   checkStakingConditions();
@@ -1370,11 +1370,7 @@ async function checkStakingConditions() {
       if (parseInt(userInfo.interval) === currentInterval) {
         await claimStakingRewards();
       }
-    }
-    
-    // Reset random delay for next round
-    earnState.randomDelaySeconds = Math.floor(Math.random() * 600);
-    
+    }    
   } catch (error) {
     console.error('Error in staking automation:', error);
   }
