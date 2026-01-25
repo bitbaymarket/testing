@@ -1379,12 +1379,41 @@ async function checkStakingConditions() {
 async function checkAndDripFlow() {
   try {
     const flowContract = new earnState.polWeb3.eth.Contract(flowABI, TREASURY_ADDRESSES.FLOW_BAYL);
-    const pending = DOMPurify.sanitize(await flowContract.methods.pendingYield().call());
+    const wethContract = new earnState.polWeb3.eth.Contract(erc20ABI, TREASURY_ADDRESSES.WETH);
     
-    if (isGreaterThanZero(pending)) {
-      const pendingETH = displayETHAmount(pending, 6);
-      logToConsole(`Flow contract has ${pendingETH} ETH pending, calling drip...`);
+    // Check WETH balance in flow contract
+    const wethBalance = DOMPurify.sanitize(await wethContract.methods.balanceOf(TREASURY_ADDRESSES.FLOW_BAYL).call());
+    if (!isGreaterThanZero(wethBalance)) {
+      return; // No WETH to drip
+    }
+    
+    // Get flow contract state to check if it's time to drip
+    const startBlock = parseInt(DOMPurify.sanitize(await flowContract.methods.startBlock().call()));
+    const dripInterval = parseInt(DOMPurify.sanitize(await flowContract.methods.dripInterval().call()));
+    const totalIntervals = parseInt(DOMPurify.sanitize(await flowContract.methods.totalIntervals().call()));
+    const lastDripInterval = parseInt(DOMPurify.sanitize(await flowContract.methods.lastDripInterval().call()));
+    const currentBlock = await earnState.polWeb3.eth.getBlockNumber();
+    
+    let shouldDrip = false;
+    
+    if (startBlock === 0) {
+      // Fresh start - new cycle begins, drip will initialize
+      shouldDrip = true;
+      logToConsole(`Flow contract starting new drip cycle with ${displayETHAmount(wethBalance, 6)} WETH...`);
+    } else {
+      // Calculate current interval and check if intervals have passed
+      const currentInterval = Math.min(Math.floor((currentBlock - startBlock) / dripInterval), totalIntervals);
+      const intervalsPassed = currentInterval - lastDripInterval;
       
+      if (intervalsPassed > 0) {
+        shouldDrip = true;
+        const pending = DOMPurify.sanitize(await flowContract.methods.pendingDrip().call());
+        const pendingETH = displayETHAmount(pending, 6);
+        logToConsole(`Flow contract has ${pendingETH} WETH pending (interval ${currentInterval}/${totalIntervals}), calling drip...`);
+      }
+    }
+    
+    if (shouldDrip) {
       const tx = await sendTx(flowContract, "drip", [], 200000, "0", false, false, false);
       logToConsole(`Flow drip successful, tx: ${showResult(tx)}`);
     }
@@ -1804,16 +1833,61 @@ async function unstakeBAYL() {
     await Swal.fire(translateThis('Error'), translateThis('Please login with password to unstake'), 'error');
     return;
   }
+  
   const BN = BigNumber;
+  const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
+  const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
+  
+  // Check if user is currently in a staking interval
+  const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call())));
+  const claimRate = parseInt(DOMPurify.sanitize(await baylTreasury.methods.claimRate().call()));
+  const currentBlock = await earnState.polWeb3.eth.getBlockNumber();
+  const currentInterval = Math.floor(currentBlock / claimRate);
+  const userInterval = parseInt(userInfo.interval);
+  
+  if (userInterval >= currentInterval) {
+    // User is in current staking interval, calculate when they can withdraw
+    const intervalEndBlock = (userInterval + 1) * claimRate;
+    const blocksRemaining = intervalEndBlock - currentBlock;
+    await Swal.fire(
+      translateThis('Cannot Unstake'),
+      translateThis('You are currently staking in interval') + ' ' + userInterval + '. ' +
+      translateThis('Please wait') + ' ' + blocksRemaining + ' ' + translateThis('blocks until interval ends to withdraw.'),
+      'warning'
+    );
+    return;
+  }
+  
+  // Check BAYL balance in user's vault
+  const userVaultAddress = earnState.userVaultAddress || DOMPurify.sanitize(await vaultContract.methods.vaultOf(myaccounts).call());
+  if (!userVaultAddress || userVaultAddress === '0x0000000000000000000000000000000000000000') {
+    await Swal.fire(translateThis('Error'), translateThis('No vault found for your account'), 'error');
+    return;
+  }
+  
+  const baylAddress = DOMPurify.sanitize(await vaultContract.methods.BAYL().call());
+  const baylContract = new earnState.polWeb3.eth.Contract(erc20ABI, baylAddress);
+  const vaultBaylBalance = DOMPurify.sanitize(await baylContract.methods.balanceOf(userVaultAddress).call());
+  const vaultBaylBalanceFormatted = displayBAYAmount(vaultBaylBalance, 4);
+  
+  if (!isGreaterThanZero(vaultBaylBalance)) {
+    await Swal.fire(translateThis('Error'), translateThis('No BAYL available in your vault to unstake'), 'error');
+    return;
+  }
+  
   const result = await Swal.fire({
     title: translateThis('Unstake BAYL'),
     input: 'number',
-    inputLabel: translateThis('Amount to unstake'),
+    inputLabel: translateThis('Amount to unstake') + ' (' + translateThis('Available') + ': ' + vaultBaylBalanceFormatted + ' BAYL)',
     inputPlaceholder: '0.0',
     showCancelButton: true,
     inputValidator: (value) => {
       if (!value || new BN(value).lte(new BN('0'))) {
         return translateThis('Please enter a valid amount');
+      }
+      const amountWei = BN(value).times('1e8').toString();
+      if (new BN(amountWei).gt(new BN(vaultBaylBalance))) {
+        return translateThis('Insufficient BAYL balance in vault. Maximum available') + ': ' + vaultBaylBalanceFormatted;
       }
     }
   });
@@ -1821,7 +1895,6 @@ async function unstakeBAYL() {
   try {
     showSpinner();
     const amount = BN(result.value).times('1e8').toString();
-    const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
     await sendTx(vaultContract, "withdrawLiquid", [amount], 1000000, "0", true, false);
     hideSpinner();
     await Swal.fire(translateThis('Success'), translateThis('BAYL unstaked successfully!'), 'success');

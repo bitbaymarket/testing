@@ -65,16 +65,9 @@ contract WETHDrip {
             locked = false;
             return;
         }
-        // Fresh start if previous cycle completed or first time
-        bool freshStart = (startBlock == 0);
-        if (freshStart) {
-            // Start one interval in the past so first drip happens immediately
-            // Guard against underflow for very early blocks
-            if (block.number >= dripInterval) {
-                startBlock = block.number - dripInterval;
-            } else {
-                startBlock = 1;
-            }
+        // Fresh start if previous cycle completed
+        if (startBlock == 0) {
+            startBlock = block.number;
             lastDripInterval = 0;
         }
         uint256 currentInterval = (block.number - startBlock) / dripInterval;
@@ -87,12 +80,11 @@ contract WETHDrip {
         if (currentInterval >= totalIntervals) {
             toSend = balance;
             startBlock = 0;
-            lastDripInterval = 0;
         } else if (intervalsPassed > 0) {
             toSend = (balance * intervalsPassed) / intervalsRemaining;
-            lastDripInterval = currentInterval;
         }
         if (toSend > 0) {
+            lastDripInterval = currentInterval;
             weth.transfer(treasury, toSend);
         }
         locked = false;
@@ -100,11 +92,7 @@ contract WETHDrip {
     
     function pendingDrip() external view returns (uint256) {
         uint256 balance = weth.balanceOf(address(this));
-        if (balance == 0) return 0;
-        // If fresh start pending, first interval will be dripped immediately
-        if (startBlock == 0) {
-            return balance / totalIntervals;
-        }
+        if (balance == 0 || startBlock == 0) return 0;
         uint256 currentInterval = (block.number - startBlock) / dripInterval;
         if (currentInterval > totalIntervals) currentInterval = totalIntervals;
         if (currentInterval >= totalIntervals) return balance;
