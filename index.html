@@ -1709,42 +1709,9 @@
     background-color: #ededed; /* Set your desired background color */
     border: 2px solid #3d0064;
   }
-  /* Scrollable SweetAlert popup styles - used for voting interface dialogs that can grow large
-     !important is needed to override SweetAlert2's inline styles and library defaults */
   .scrollable-swal-popup {
-    max-height: 90vh;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important; /* Scroll happens in content area, not popup */
-  }
-  .scrollable-swal-popup .swal2-html-container {
-    flex: 1 1 auto;
-    /* 180px accounts for: title (~60px) + actions/buttons (~70px) + padding/margins (~50px) */
-    max-height: calc(90vh - 180px);
-    overflow-y: auto !important;
-    padding-right: 10px; /* Space for scrollbar */
-  }
-  .scrollable-swal-popup .swal2-actions {
-    flex-shrink: 0; /* Keep buttons fixed at bottom */
-    margin-top: auto;
-  }
-  /* Mobile-specific styles for scrollable swal */
-  @media screen and (max-width: 600px) {
-    .scrollable-swal-popup {
-      max-height: 85vh;
-      width: 95vw !important;
-      max-width: 95vw !important;
-      margin: 0 auto;
-    }
-    .scrollable-swal-popup .swal2-html-container {
-      /* 160px accounts for: smaller title (~50px) + actions (~60px) + padding (~50px) */
-      max-height: calc(85vh - 160px);
-      font-size: 0.9em;
-    }
-    .scrollable-swal-popup .swal2-title {
-      font-size: 1.2em;
-      padding: 0.5em;
-    }
+    max-height: 80vh; /* Prevents the modal from overflowing vertically */
+    overflow-y: auto; /* Enables scrolling within the modal */
   }
   #background-image {
     position: fixed;

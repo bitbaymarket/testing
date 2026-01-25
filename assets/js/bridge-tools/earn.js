@@ -2188,25 +2188,27 @@ async function showCreateVoteDialog() {
       <div style="text-align: left; font-size: 0.9em;">
         <p style="margin-bottom: 10px; font-size: 0.85em;">Create a vote with multiple actions to execute if it passes.</p>
         
-        <div id="voteActions">
-          <div class="vote-action-item" data-action-index="0" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px;">
-            <h4 style="margin: 0 0 10px 0; font-size: 0.9em;">Action 1</h4>
-            
-            <div style="margin-bottom: 8px;">
-              <label style="font-size: 0.85em;"><strong>Target Contract:</strong></label>
-              <input type="text" id="actionTarget0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="0x..." />
+        <div id="voteActionsContainer" style="max-height: 50vh; overflow-y: auto; padding-right: 5px;">
+          <div id="voteActions">
+            <div class="vote-action-item" data-action-index="0" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px;">
+              <h4 style="margin: 0 0 10px 0; font-size: 0.9em;">Action 1</h4>
+              
+              <div style="margin-bottom: 8px;">
+                <label style="font-size: 0.85em;"><strong>Target Contract:</strong></label>
+                <input type="text" id="actionTarget0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="0x..." />
+              </div>
+              
+              <div style="margin-bottom: 8px;">
+                <label style="font-size: 0.85em;"><strong>Function Name:</strong></label>
+                <input type="text" id="actionFuncName0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="e.g., setMinDays" />
+              </div>
+              
+              <div id="actionArgs0" style="margin-bottom: 8px;">
+                <label style="font-size: 0.85em;"><strong>Arguments:</strong></label>
+              </div>
+              
+              <button onclick="addArgumentField(0)" class="swal2-confirm swal2-styled" style="margin-top: 5px; padding: 4px 8px; font-size: 0.8em;">+ Add Argument</button>
             </div>
-            
-            <div style="margin-bottom: 8px;">
-              <label style="font-size: 0.85em;"><strong>Function Name:</strong></label>
-              <input type="text" id="actionFuncName0" class="swal2-input" style="padding: 5px; font-size: 0.85em;" placeholder="e.g., setMinDays" />
-            </div>
-            
-            <div id="actionArgs0" style="margin-bottom: 8px;">
-              <label style="font-size: 0.85em;"><strong>Arguments:</strong></label>
-            </div>
-            
-            <button onclick="addArgumentField(0)" class="swal2-confirm swal2-styled" style="margin-top: 5px; padding: 4px 8px; font-size: 0.8em;">+ Add Argument</button>
           </div>
         </div>
         
@@ -2374,7 +2376,7 @@ async function createVoteFromDialog() {
 async function showVoteDetailsDialog() {
   const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
   
-  let html = '<div style="text-align: left;">';
+  let html = '<div style="text-align: left; max-height: 50vh; overflow-y: auto; padding-right: 5px;">';
   
   if (savedVotes.length === 0) {
     html += '<p>' + translateThis('You have not created any votes yet.') + '</p>';
