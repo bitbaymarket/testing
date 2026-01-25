@@ -1311,51 +1311,66 @@ async function checkStakingConditions() {
       return;
     }
     
-    // Check if user needs to refresh (if lastRefresh == 1, they are paused)
-    if (userInfo.lastRefresh == 1 && parseInt(userInfo.shares) > 0) {
-      console.log('User is paused, refreshing vault...');
-      logToConsole('User is paused, refreshing vault...');
-      const res = await sendTx(baylTreasury, "refreshVault", [], 300000, "0", false, false, false);
+    // Get refresh rate and check if user needs to refresh their vault
+    const refreshRate = DOMPurify.sanitize(await baylTreasury.methods.refreshRate().call());
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const timeSinceRefresh = currentTimestamp - parseInt(userInfo.lastRefresh);
+    const refreshThreshold = parseInt(refreshRate) * 0.85; // 85% of refresh period
+    
+    // Check if user is close to needing a refresh (85% into their refresh period)
+    if (timeSinceRefresh >= refreshThreshold && parseInt(userInfo.shares) > 0) {
+      console.log('User is close to refresh deadline, refreshing vault...');
+      logToConsole('Refreshing vault before deadline...');
+      const res = await sendTx(baylTreasury, "refreshVault", [myaccounts], 300000, "0", false, false, false);
       logToConsole(showResult(res));
       return;
     }
     
-    // Calculate if we're 85% into the staking interval
+    // Get current block and interval info
     const currentBlock = DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber());
     const claimRate = DOMPurify.sanitize(await baylTreasury.methods.claimRate().call());
-    const blocksSinceStake = currentBlock - userInfo.stakeBlock;
-    const targetBlocks = Math.floor(parseInt(claimRate) * 0.85) + (earnState.randomDelaySeconds / 2); // ~2 sec per block on Polygon
-    const sectionsMissed = Math.floor((currentBlock - userInfo.stakeBlock) / claimRate) * 10;
+    const votePeriod = DOMPurify.sanitize(await baylTreasury.methods.votePeriod().call());
+    const currentInterval = Math.floor(currentBlock / parseInt(claimRate));
+    const blockInInterval = currentBlock % parseInt(claimRate);
+    const registrationEndBlock = Math.floor(parseInt(claimRate) * (100 - parseInt(votePeriod)) / 100);
+    const isInRegistrationPeriod = blockInInterval < registrationEndBlock;
+    const isInVotePeriod = !isInRegistrationPeriod;
 
-    if (sectionsMissed >= 100) {
-      console.log('User has been inactive too long, anyone can update.  Calling updateUser...');
-      logToConsole('Extended inactivity detected, refreshing position...');
-      const res = await sendTx(baylTreasury, "updateUser", [myaccounts], 300000, "0", false, false, false);
-      logToConsole(showResult(res));
-      return;
-    }
-    
-    if (blocksSinceStake < targetBlocks) {
-      console.log(`Not time to stake yet. Blocks since stake: ${blocksSinceStake}, target: ${targetBlocks}`);
-      return;
+    // Check if user's interval is behind current interval (user needs to register for new interval)
+    if (parseInt(userInfo.interval) < currentInterval) {
+      // User needs to call updateShares to register for new interval
+      // This should be done during registration period (first 75% of interval)
+      if (isInRegistrationPeriod) {
+        console.log('User interval is behind current, calling updateShares to register...');
+        logToConsole('Registering for new staking interval...');
+        const res = await sendTx(baylTreasury, "updateShares", [], 300000, "0", false, false, false);
+        logToConsole(showResult(res));
+        return;
+      }
     }
     
     console.log('Time to execute staking tasks!');
     
-    // 1. Check Flow contract for pending ETH
-    await checkAndDripFlow();
+    // Registration period tasks (first 75%): maintenance, calling profits, refresh
+    // Each task has its own internal checks to prevent spamming (pending amounts, time limits, etc.)
+    if (isInRegistrationPeriod) {
+      // 1. Check Flow contract for pending ETH
+      await checkAndDripFlow();
+      
+      // 2. Check Lido for yield to harvest
+      await checkAndHarvestLido();
+      
+      // 3. Check StableVault position management
+      await checkAndManageStableVault();
+    }
     
-    // 2. Check Lido for yield to harvest
-    await checkAndHarvestLido();
-    
-    // 3. Check StableVault position management
-    await checkAndManageStableVault();
-    
-    // 4. Check for inactive users to update (once per week, max 4 at a time)
-    await checkAndUpdateInactiveUsers();
-    
-    // 5. Claim own rewards
-    await claimStakingRewards();
+    // Vote period tasks (last 25%): claim rewards and vote
+    if (isInVotePeriod) {
+      // Only claim rewards during vote period when user is participating
+      if (parseInt(userInfo.interval) === currentInterval) {
+        await claimStakingRewards();
+      }
+    }
     
     // Reset random delay for next round
     earnState.randomDelaySeconds = Math.floor(Math.random() * 600);
@@ -1537,49 +1552,6 @@ async function checkAndManageStableVault() {
   }
 }
 
-async function checkAndUpdateInactiveUsers() {
-  try {
-    // Only check once per week
-    const lastCheck = parseInt(localStorage.getItem(myaccounts+'inactiveUserLastCheck') || '0');
-    const now = Math.floor(Date.now() / 1000);
-    
-    if (now - lastCheck < 7 * 24 * 60 * 60) {
-      return;
-    }
-    
-    const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
-    const topStakers = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getTopStakers().call())));
-    const claimRate = DOMPurify.sanitize(await baylTreasury.methods.claimRate().call());
-    const currentBlock = DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber());
-    
-    let updated = 0;
-    for (const staker of topStakers) {
-      if (updated >= 4) break;
-      
-      if (staker.user === myaccounts) continue; // Skip self
-      
-      const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(staker.user).call())));
-      const sectionsMissed = Math.floor((currentBlock - userInfo.stakeBlock) / claimRate) * 10;
-
-      if (sectionsMissed >= 100) {
-        logToConsole(`Updating inactive user: ${staker.user.substring(0, 10)}...`);        
-        const tx = await sendTx(baylTreasury, "updateUser", [staker.user], 300000, "0", false, false, false);        
-        logToConsole(`Inactive user updated, tx: ${showResult(tx)}`);
-        updated++;
-      }
-    }
-    
-    if (updated > 0) {
-      localStorage.setItem(myaccounts+'inactiveUserLastCheck', now.toString());
-      logToConsole(`Updated ${updated} inactive user(s)`);
-    }
-    
-  } catch (error) {
-    console.error('Error updating inactive users:', error);
-    logToConsole(`Error updating inactive users: ${error.message}`);
-  }
-}
-
 async function loadStakingInfo() {
   if (!earnState.polWeb3 || !myaccounts) return;
   
@@ -1614,9 +1586,15 @@ async function loadStakingInfo() {
       const lastRefreshDate = new Date(userInfo.lastRefresh * 1000);
       document.getElementById('userLastRefresh').textContent = lastRefreshDate.toLocaleString();
       
-      // Check if user is stale (lastRefresh == 1 means paused)
-      if (userInfo.lastRefresh == 1) {
-        document.getElementById('userLastRefresh').innerHTML += ' <span style="color: red;">(Paused)</span>';
+      // Check if user is close to needing a refresh
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const timeSinceRefresh = currentTimestamp - parseInt(userInfo.lastRefresh);
+      const refreshThreshold = parseInt(refreshRate) * 0.85;
+      
+      if (timeSinceRefresh >= parseInt(refreshRate)) {
+        document.getElementById('userLastRefresh').innerHTML += ' <span style="color: red;">(Refresh required)</span>';
+      } else if (timeSinceRefresh >= refreshThreshold) {
+        document.getElementById('userLastRefresh').innerHTML += ' <span style="color: orange;">(Refresh soon)</span>';
       }
     }
     
@@ -1629,31 +1607,42 @@ async function loadStakingInfo() {
       if (userCoins.includes(TREASURY_ADDRESSES.USDC)) coinNames.push('USDC');
       document.getElementById('userTrackingCoins').textContent =
         coinNames.join(', ') || 'None';
-      // ✅ Get ALL pending rewards ONCE (same order as userCoins)
-      const pendingRewards = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.pendingReward(myaccounts).call())));
-      let rewardsHTML = '';
-      for (let i = 0; i < userCoins.length; i++) {
-        const coin = userCoins[i];
-        const pending = pendingRewards[i];
-        if (isGreaterThanZero(pending)) {
-          let coinName = coin.substring(0, 10) + '...';
-          let pendingDisplay = '';
+      
+      // Only check pending rewards if user is participating in current interval
+      const currentBlock = DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber());
+      const currentInterval = Math.floor(currentBlock / parseInt(claimRate));
+      const userInterval = parseInt(userInfo.interval);
+      
+      if (userInterval === currentInterval && parseInt(userInfo.staked) > 0) {
+        // User is participating in current interval, get pending rewards
+        const pendingRewards = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.pendingReward(myaccounts).call())));
+        let rewardsHTML = '';
+        for (let i = 0; i < userCoins.length; i++) {
+          const coin = userCoins[i];
+          const pending = pendingRewards[i];
+          if (isGreaterThanZero(pending)) {
+            let coinName = coin.substring(0, 10) + '...';
+            let pendingDisplay = '';
 
-          if (coin.toLowerCase() === TREASURY_ADDRESSES.WETH.toLowerCase()) {
-            coinName = 'WETH';
-            pendingDisplay = displayETHAmount(pending, 6);
-          } else if (coin.toLowerCase() === TREASURY_ADDRESSES.DAI.toLowerCase()) {
-            coinName = 'DAI';
-            pendingDisplay = displayETHAmount(pending, 6);
-          } else if (coin.toLowerCase() === TREASURY_ADDRESSES.USDC.toLowerCase()) {
-            coinName = 'USDC';
-            pendingDisplay = displayUSDCAmount(pending, 6);
+            if (coin.toLowerCase() === TREASURY_ADDRESSES.WETH.toLowerCase()) {
+              coinName = 'WETH';
+              pendingDisplay = displayETHAmount(pending, 6);
+            } else if (coin.toLowerCase() === TREASURY_ADDRESSES.DAI.toLowerCase()) {
+              coinName = 'DAI';
+              pendingDisplay = displayETHAmount(pending, 6);
+            } else if (coin.toLowerCase() === TREASURY_ADDRESSES.USDC.toLowerCase()) {
+              coinName = 'USDC';
+              pendingDisplay = displayUSDCAmount(pending, 6);
+            }
+
+            rewardsHTML += `<div>${coinName}: ${pendingDisplay}</div>`;
           }
-
-          rewardsHTML += `<div>${coinName}: ${pendingDisplay}</div>`;
         }
+        document.getElementById('userPendingRewards').innerHTML = rewardsHTML || translateThis('No pending rewards');
+      } else {
+        // User is not participating in current interval
+        document.getElementById('userPendingRewards').innerHTML = translateThis('Not participating in current interval');
       }
-      document.getElementById('userPendingRewards').innerHTML = rewardsHTML || translateThis('No pending rewards');
     } else {
       document.getElementById('userPendingRewards').innerHTML = translateThis('No pending rewards');
       document.getElementById('userTrackingCoins').textContent = translateThis('None set');
@@ -1958,6 +1947,7 @@ async function loadVotingInfo() {
   
   try {
     const voteContract = new earnState.polWeb3.eth.Contract(stakingABI, TREASURY_ADDRESSES.VOTE_BAYL);
+    const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
     
     // Get current epoch
     const currentEpoch = DOMPurify.sanitize(await voteContract.methods.currentEpoch().call());
@@ -1967,17 +1957,20 @@ async function loadVotingInfo() {
     const epochBlocks = DOMPurify.sanitize(await voteContract.methods.epochLength().call());
     document.getElementById('voteEpochBlocks').textContent = epochBlocks;
     
+    // Check if we're in the vote period (claimPeriod)
+    const isInVotePeriod = DOMPurify.sanitize(await baylTreasury.methods.claimPeriod().call()) === 'true';
+    
     // Load previous and pending votes
-    await loadVotes(voteContract, currentEpoch);
+    await loadVotes(voteContract, currentEpoch, isInVotePeriod);
     
   } catch (error) {
     console.error('Error loading voting info:', error);
   }
 }
 
-async function loadVotes(voteContract, currentEpoch) {
+async function loadVotes(voteContract, currentEpoch, isInVotePeriod) {
   try {
-    // For previous epoch: Only show winner and its votes
+    // For previous epoch: Always show winner and its votes (can always check prior votes)
     if (currentEpoch > 0) {
       const prevEpoch = currentEpoch - 1;
       const winningHash = DOMPurify.sanitize(await voteContract.methods.winningHash(prevEpoch).call());
@@ -1993,20 +1986,25 @@ async function loadVotes(voteContract, currentEpoch) {
       document.getElementById('baylPreviousVotes').innerHTML = prevHTML;
     }
     
-    // For current epoch: Show top 5 hashes (getEpochHashes)
-    const topHashes = JSON.parse(DOMPurify.sanitize(JSON.stringify(await voteContract.methods.getEpochHashes(currentEpoch).call())));
-    let pendingHTML = '';
-    
-    for (const hash of topHashes) {
-      if (hash && hash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
-        pendingHTML += `<div><a href="#" onclick="showVotePayload('${hash}')">${hash.substring(0, 10)}...</a></div>`;
+    // For current epoch: Only show pending votes during the vote period
+    if (isInVotePeriod) {
+      const topHashes = JSON.parse(DOMPurify.sanitize(JSON.stringify(await voteContract.methods.getEpochHashes(currentEpoch).call())));
+      let pendingHTML = '';
+      
+      for (const hash of topHashes) {
+        if (hash && hash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+          pendingHTML += `<div><a href="#" onclick="showVotePayload('${hash}')">${hash.substring(0, 10)}...</a></div>`;
+        }
       }
+      
+      if (pendingHTML === '') {
+        pendingHTML = 'No pending votes';
+      }
+      document.getElementById('baylPendingVotes').innerHTML = pendingHTML;
+    } else {
+      // Not in vote period - voting happens later
+      document.getElementById('baylPendingVotes').innerHTML = translateThis('Registration period - voting starts later');
     }
-    
-    if (pendingHTML === '') {
-      pendingHTML = 'No pending votes';
-    }
-    document.getElementById('baylPendingVotes').innerHTML = pendingHTML;
     
   } catch (error) {
     console.error('Error loading votes:', error);
