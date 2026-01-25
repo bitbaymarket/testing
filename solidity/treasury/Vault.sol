@@ -144,18 +144,8 @@ contract MainController {
         uint256 vaultBalance = IERC20(BAYL).balanceOf(vault);
         require(vaultBalance >= amount, "Insufficient BAYL balance in vault");
         
-        // Check if user is currently in a staking interval
-        (,, uint256 userInterval,) = ITreasury(TreasuryLiquid).accessPool(user);
-        uint256 claimRate = ITreasury(TreasuryLiquid).claimRate();
-        uint256 currentInterval = block.number / claimRate;
-        if (userInterval >= currentInterval) {
-            uint256 blocksRemaining = ((userInterval + 1) * claimRate) - block.number;
-            revert(string(abi.encodePacked(
-                "Cannot withdraw while staking. Wait ",
-                _toString(blocksRemaining),
-                " blocks until interval ends"
-            )));
-        }
+        // Check staking interval
+        _checkStakingInterval(user, TreasuryLiquid);
         
         ITreasury(TreasuryLiquid).withdrawVault(user, amount);
         UserVault(vault).withdrawLiquid(user, amount);
@@ -173,23 +163,29 @@ contract MainController {
         uint256 vaultBalance = IERC20(BAYR).balanceOf(vault);
         require(vaultBalance >= amount, "Insufficient BAYR balance in vault");
         
-        // Check if user is currently in a staking interval
-        (,, uint256 userInterval,) = ITreasury(TreasuryReserve).accessPool(user);
-        uint256 claimRate = ITreasury(TreasuryReserve).claimRate();
+        // Check staking interval
+        _checkStakingInterval(user, TreasuryReserve);
+        
+        ITreasury(TreasuryReserve).withdrawVault(user, amount);
+        UserVault(vault).withdrawReserve(user, amount);
+        emit Withdraw(user, amount);
+        return true;
+    }
+    
+    function _checkStakingInterval(address user, address treasury) internal view {
+        (,, uint256 userInterval,) = ITreasury(treasury).accessPool(user);
+        uint256 claimRate = ITreasury(treasury).claimRate();
         uint256 currentInterval = block.number / claimRate;
         if (userInterval >= currentInterval) {
-            uint256 blocksRemaining = ((userInterval + 1) * claimRate) - block.number;
+            uint256 intervalEndBlock = (userInterval + 1) * claimRate;
+            // Only calculate remaining blocks if interval hasn't ended yet
+            uint256 blocksRemaining = intervalEndBlock > block.number ? intervalEndBlock - block.number : 0;
             revert(string(abi.encodePacked(
                 "Cannot withdraw while staking. Wait ",
                 _toString(blocksRemaining),
                 " blocks until interval ends"
             )));
         }
-        
-        ITreasury(TreasuryReserve).withdrawVault(user, amount);
-        UserVault(vault).withdrawReserve(user, amount);
-        emit Withdraw(user, amount);
-        return true;
     }
     
     function _toString(uint256 value) internal pure returns (string memory) {
