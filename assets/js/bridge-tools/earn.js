@@ -110,6 +110,7 @@ async function showVotePayload(hash) {
     
     try {
       // Decode payload in chunks of 3 (Signature, Target, ArgsBlob)
+      payload = JSON.parse(DOMPurify.sanitize(JSON.stringify(payload)));
       const actions = [];
       for (let i = 0; i < payload.length; i += 3) {
         if (i + 2 >= payload.length) break;
@@ -130,6 +131,7 @@ async function showVotePayload(hash) {
         if (typesArray.length > 0 && argsBlob !== '0x') {
           try {
             decodedArgs = earnState.polWeb3.eth.abi.decodeParameters(typesArray, argsBlob);
+            decodedArgs = JSON.parse(DOMPurify.sanitize(JSON.stringify(decodedArgs)));
           } catch (e) {
             console.error('Error decoding arguments:', e);
             decodeError = e.message;
@@ -166,7 +168,7 @@ async function showVotePayload(hash) {
           html += `<ul style="margin: 5px 0; padding-left: 20px;">`;
           typesArray.forEach((type, argIdx) => {
             const value = action.arguments[argIdx] !== undefined ? action.arguments[argIdx] : '';
-            html += `<li><span style="color: #666;">${DOMPurify.sanitize(type)}:</span> ${DOMPurify.sanitize(String(value))}</li>`;
+            html += `<li><span style="color: #777;">${DOMPurify.sanitize(type)}:</span> ${DOMPurify.sanitize(String(value))}</li>`;
           });
           html += `</ul>`;
         } else {
@@ -193,7 +195,7 @@ async function showVotePayload(hash) {
     await Swal.fire({
       title: 'Vote Details',
       html: html,
-      width: '700px',
+      width: '500px',
       confirmButtonText: 'Close'
     });
   }).catch(async(error) => {
@@ -2277,6 +2279,9 @@ function addArgumentField(actionIndex) {
   newArg.innerHTML = `
     <label style="font-size: 0.8em;">Arg ${argIndex + 1} Type:</label>
     <select id="argType${actionIndex}_${argIndex}" class="swal2-select" style="padding: 4px; font-size: 0.8em; width: 100%; margin-bottom: 5px;">
+      <option value="address">address</option>
+      <option value="string">string</option>
+      <option value="bool">bool</option>
       <option value="uint256">uint256</option>
       <option value="uint128">uint128</option>
       <option value="uint64">uint64</option>
@@ -2284,9 +2289,7 @@ function addArgumentField(actionIndex) {
       <option value="uint16">uint16</option>
       <option value="uint8">uint8</option>
       <option value="int256">int256</option>
-      <option value="address">address</option>
-      <option value="bool">bool</option>
-      <option value="string">string</option>
+      <option value="int128">int128</option>
       <option value="bytes">bytes</option>
       <option value="bytes32">bytes32</option>
       <option value="bytes16">bytes16</option>
