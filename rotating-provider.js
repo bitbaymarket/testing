@@ -75,7 +75,8 @@ var fallbackProvidersDefault = [
       code === -32005 ||
       message.includes('rate limit') ||
       message.includes('too many requests') ||
-      message.includes('throttle')
+      message.includes('throttle') ||
+      message.includes('invalid json rpc response')
     );
   }
 

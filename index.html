@@ -2171,7 +2171,7 @@ function getPolygonRpc() {
     return "https://eth-sepolia.public.blastapi.io";
   }
   if (currentRpcIndex == 999) {
-    return RPC_ENDPOINTS[0];
+    return rotatingProvider;
   }
   return CUSTOM_POLYGON_RPC || rotatingProvider;
 }
@@ -2205,7 +2205,7 @@ window.addEventListener("load", async function() {
       if(netSwitch || loggingIn) {
         return;
       }
-      defaultvars();      
+      defaultvars();
       await login();
     });
      // detect Network account change
@@ -2214,10 +2214,9 @@ window.addEventListener("load", async function() {
       if(netSwitch || loggingIn) {
         return;
       }
-      defaultvars();      
+      defaultvars();
       await login();
     });
-
   }
 });
 
@@ -2388,6 +2387,7 @@ async function login() {
               method: 'wallet_switchEthereumChain',
               params: [{ chainId: '0x89' }],
             });
+            await new Promise(r => setTimeout(r, 1000));
           } catch {
             await Swal.fire(translateThis("Invalid network."), translateThis("Please select Polygon network within MetaMask in order to connect."));
             return false;  
@@ -2857,6 +2857,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
             params: [{ chainId: ETH_CHAIN_ID }],
           });
         }
+        await new Promise(r => setTimeout(r, 1000));
         switchedNetwork = true;
         // Rebuild contract with mmweb3 now on ETH
         mmweb3 = new Web3(window.ethereum);
@@ -2894,6 +2895,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: POLYGON_CHAIN_ID }],
         });
+        await new Promise(r => setTimeout(r, 1000));
         mmweb3 = new Web3(window.ethereum);
       }      
       netSwitch = false;      
@@ -2904,6 +2906,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: POLYGON_CHAIN_ID }],
           });
+          await new Promise(r => setTimeout(r, 1000));
           mmweb3 = new Web3(window.ethereum);
         } catch (switchBackErr) {
           await Swal.fire(translateThis('Network Switch Required'), translateThis('Unable to switch back to Polygon. Page will reload.'));
@@ -5733,12 +5736,12 @@ async function showDisclaimer() {
     await Swal.fire({
       title: ('Notice'),
       html: `<div id="swal-scroll-container" style="max-height: 200px; overflow-y: auto; text-align: left;">
-               ${('Before proceeding to swap or deposit liquidity please read this message. This website is not an exchange and does not take custody of user funds or charge any fees. It is designed to maximize your security by keeping all actions client-side. If you trade or provide liquidity, be aware of the terms and conditions of the decentralized exchanges you interact with. Although Uniswap/Curve/etc are generally considered safe, we recommend reviewing the source code of any DEX and understanding the associated risks. This website is open source and has been audited, but for maximum security we encourage users to download the code from GitHub and run it locally. Always double-check the domain you are visiting, verify any addresses you interact with, and if you have questions, join the community for more information.')}
+               ${(translateThis('Before proceeding to swap or deposit liquidity please read this message. This website is not an exchange and does not take custody of user funds or charge any fees. It is designed to maximize your security by keeping all actions client-side. If you trade or provide liquidity, be aware of the terms and conditions of the decentralized exchanges you interact with. Although Uniswap/Curve/etc are generally considered safe, we recommend reviewing the source code of any DEX and understanding the associated risks. This website is open source and has been audited, but for maximum security we encourage users to download the code from GitHub and run it locally. Always double-check the domain you are visiting, verify any addresses you interact with, and if you have questions, join the community for more information.'))}
              </div>`,
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: ('Yes'),
-      cancelButtonText: ('No'),
+      confirmButtonText: (translateThis('Yes')),
+      cancelButtonText: (translateThis('No')),
       didOpen: () => {
         const scrollContainer = document.getElementById('swal-scroll-container');
         const confirmButton = Swal.getConfirmButton();
@@ -5754,7 +5757,7 @@ async function showDisclaimer() {
       },
       preConfirm: () => {
         if(!scrolledToBottom) {
-          Swal.showValidationMessage(('Please scroll to read the entire message before proceeding.'));
+          Swal.showValidationMessage(translateThis('Please scroll to read the entire message before proceeding.'));
           return false;
         }
       }
@@ -5775,19 +5778,19 @@ async function showDisclaimer() {
 
 async function showDisclaimerOnRamp() {
   const result = await Swal.fire({
-    title: 'Important Notice Before Purchase',
-    html: `<div style="overflow-y:auto;"><p><strong>Third-Party Disclaimer:</strong> This website is not affiliated with any third-party payment processor. Please review the site you will be redirected to before making any cash purchases.</p>
-           <p><strong>Safer Alternative:</strong> It is generally safer to purchase BAY manually through a decentralized exchange using cryptocurrency.</p>
-           <p><strong>Automatic Trading Address:</strong> For convenience, an automatic trading address has been set up to perform the trade into BitBay. <strong>Do not send funds to this address manually. It is only used during the checkout process.</strong></p>
-           <p>If you prefer not to use the automatic address, you must specify a different address during checkout.</p>
-           <p><strong>Final Purchase Amount Will Vary:</strong> The exact amount of BAY you receive may vary due to fees and price fluctuations. Trades are designed to stay within ±10% of the spot price. Any unallocated funds will be returned as change. Additionally, the trading contract checks that your account maintains at least 5 coins in the base token, such as Polygon, to cover network fees.</p>
-           <p>If you have questions about this feature, consult our community or review the source code.</p><div>`,
+    title: translateThis('Important Notice Before Purchase'),
+    html: `<div style="overflow-y:auto;"><p><strong>`+translateThis(`Third-Party Disclaimer:`)+`</strong> `+translateThis(`This website is not affiliated with any third-party payment processor. Please review the site you will be redirected to before making any cash purchases.`)+`</p>
+           <p><strong>`+translateThis(`Safer Alternative:`)+`</strong> `+translateThis(`It is generally safer to purchase BAY manually through a decentralized exchange using cryptocurrency.`)+`</p>
+           <p><strong>`+translateThis(`Automatic Trading Address:`)+`</strong> `+translateThis(`For convenience, an automatic trading address has been set up to perform the trade into BitBay.`)+` <strong>`+translateThis(`Do not send funds to this address manually. It is only used during the checkout process.`)+`</strong></p>
+           <p>`+translateThis(`If you prefer not to use the automatic address, you must specify a different address during checkout.`)+`</p>
+           <p><strong>`+translateThis(`Final Purchase Amount Will Vary:`)+`</strong> `+translateThis(`The exact amount of BAY you receive may vary due to fees and price fluctuations. Trades are designed to stay within ±10% of the spot price. Any unallocated funds will be returned as change. Additionally, the trading contract checks that your account maintains at least 5 coins in the base token, such as Polygon, to cover network fees.`)+`</p>
+           <p>`+translateThis(`If you have questions about this feature, consult our community or review the source code.`)+`</p><div>`,
     width: 500,
     height: 400,
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: 'I Understand & Proceed',
-    cancelButtonText: 'Cancel'
+    confirmButtonText: translateThis('I Understand & Proceed'),
+    cancelButtonText: translateThis('Cancel')
   });
 
   // Return true if user clicked confirm, false otherwise
@@ -5856,9 +5859,9 @@ async function addLiquidity() {
               //document.getElementById("addliquidtext").innerHTML = 'Waiting for router allowance authorization on the blockchain for the first coin...';
               Swal.fire({
                   icon: 'info',
-                  title: 'Allowance',
-                  text: 'Authorizing allowance for the first coin...',
-                  confirmButtonText: 'Close'
+                  title: translateThis('Allowance'),
+                  text: translateThis('Authorizing allowance for the first coin...'),
+                  confirmButtonText: translateThis('Close')
               });
               //modalDialog('Connect', "Waiting for router allowance authorization on the blockchain for the first coin...", "warning");
               await sendTx(coin1contract, "approve", [myrouter, "9999999999999999999999999999999999999999999999999999999999999999999999"], 2500000);
@@ -5871,9 +5874,9 @@ async function addLiquidity() {
               //document.getElementById("addliquidtext").innerHTML = 'Waiting for router allowance authorization on the blockchain for BAY...';
               Swal.fire({
                   icon: 'info',
-                  title: 'Allowance',
-                  text: 'Authorizing allowance for BAY...',
-                  confirmButtonText: 'Close'
+                  title: translateThis('Allowance'),
+                  text: translateThis('Authorizing allowance for BAY...'),
+                  confirmButtonText: translateThis('Close')
               });
               //modalDialog('Connect', "Waiting for router allowance authorization on the blockchain for BAY...", "warning");
               await sendTx(baylcontract, "approve", [myrouter, "9999999999999999999999999999999999999999999999999999999999999999999999"], 2500000);
@@ -5898,8 +5901,8 @@ async function addLiquidity() {
           //document.getElementById("addliquidtext").innerHTML = 'Approval failed';
           Swal.fire({
               icon: 'error',
-              text: 'Approval failed',
-              confirmButtonText: 'Close'
+              text: translateThis('Approval failed'),
+              confirmButtonText: translateThis('Close')
           });
           //modalDialog('Connect', "Approval failed", "danger");
           hideSpinner();

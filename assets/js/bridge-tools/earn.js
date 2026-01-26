@@ -697,7 +697,7 @@ async function depositLidoHODL() {
     const result = await Swal.fire({
       title: 'Deposit to Lido HODL Vault',
       html: `
-        <div style="text-align: left;">
+        <div style="text-align: left; max-height: 60vh; overflow-y: auto; overflow-x: hidden; padding-right: 5px;">
           <label>Deposit Type:</label>
           <select id="depositType" class="swal2-select" style="width: 100%;">
             ${depositOptions}
@@ -734,7 +734,7 @@ async function depositLidoHODL() {
       showCancelButton: true,
       confirmButtonText: 'Deposit',
       cancelButtonText: 'Cancel',
-      didOpen: () => {        
+      didOpen: () => {
         const incLock = document.getElementById('incrementLock');
         const depositTypeSelect = document.getElementById('depositType');
         const slippageSection = document.getElementById('slippageSection');
@@ -761,6 +761,10 @@ async function depositLidoHODL() {
           } else {
             slippageSection.style.display = 'none';
           }
+        });
+
+        incLock.addEventListener('click', () => {
+          updateEstimate();
         });
         
         // Trigger initial check
