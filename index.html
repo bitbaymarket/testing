@@ -3134,6 +3134,37 @@ function stripZeros(valStr) {
     : valStr;
 }
 
+// Display error in a compact scrollable format suitable for mobile
+async function showScrollableError(title, errorMessage, icon = 'error') {
+  const sanitizedTitle = DOMPurify.sanitize(title);
+  const sanitizedMessage = DOMPurify.sanitize(String(errorMessage || 'Unknown error'));
+  
+  // If the error is short (< 200 chars), show it normally
+  if (sanitizedMessage.length < 200) {
+    return Swal.fire(sanitizedTitle, sanitizedMessage, icon);
+  }
+  
+  // For longer errors, use a scrollable container
+  return Swal.fire({
+    icon: icon,
+    title: sanitizedTitle,
+    html: `<div style="
+      max-height: 200px;
+      overflow-y: auto;
+      text-align: left;
+      font-size: 0.85em;
+      padding: 10px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    ">${sanitizedMessage}</div>`,
+    width: '90%',
+    maxWidth: '400px'
+  });
+}
+
 var firstLoad = true;
 
 async function checkbalances() {
@@ -5043,8 +5074,7 @@ async function sendLiquid() {
     } catch (e) { 
       hideSpinner();
       const message = translateThis('Transaction failed:') + ' ' + e.message;
-      const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-      Swal.fire(translateThis('Error'), output, 'error');
+      await showScrollableError(translateThis('Error'), message);
     }
 }
 
@@ -5095,8 +5125,7 @@ async function sendReserve() {
     } catch (e) { 
       hideSpinner();
       const message = translateThis('Transaction failed:') + ' ' + e.message;
-      const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-      Swal.fire(translateThis('Error'), output, 'error');      
+      await showScrollableError(translateThis('Error'), message);      
     }
 }
 
@@ -5156,8 +5185,7 @@ async function sendALT() {
     } catch (e) { 
       hideSpinner();
       const message = translateThis('Transaction failed:') + ' ' + e.message;
-      const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-      Swal.fire(translateThis('Error'), output, 'error');
+      await showScrollableError(translateThis('Error'), message);
     }
 }
 
@@ -5214,8 +5242,7 @@ async function sendBase() {
     } catch (e) { 
       hideSpinner();
       const message = translateThis('Transaction failed:') + ' ' + e.message;
-      const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-      Swal.fire(translateThis('Error'), output, 'error');
+      await showScrollableError(translateThis('Error'), message);
     }
 }
 
@@ -5242,8 +5269,7 @@ async function sendFrozen() {
         } catch (e) { 
           hideSpinner();
           const message = translateThis('Transaction failed:') + ' ' + e.message;
-          const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-          Swal.fire(translateThis('Error'), output, 'error');
+          await showScrollableError(translateThis('Error'), message);
         }
     }
 }
@@ -5475,12 +5501,7 @@ async function mintFromBitBay(jsondata2="") {
       hideSpinner();
       console.log(e);
       const message = translateThis('Transaction failed:') + ' ' + e.message;
-      const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-      await Swal.fire({
-          icon: 'error',
-          text: output,
-          confirmButtonText: translateThis('Close')
-      });
+      await showScrollableError(translateThis('Error'), message);
     }
 }
 
@@ -5538,12 +5559,7 @@ async function registerBitBay(regaddy) {
       console.log(e)
       hideSpinner();
       const message = translateThis('Transaction failed:') + ' ' + e.message;
-      const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-      await Swal.fire({
-          icon: 'error',
-          text: output,
-          confirmButtonText: translateThis('Close')
-      });      
+      await showScrollableError(translateThis('Error'), message);      
     } 
 }
 
@@ -5622,12 +5638,7 @@ async function burnToBitBay(burnamount) {
       console.log(e);
       hideSpinner();
       const message = 'Transaction failed: ' + e.message;
-      const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-      await Swal.fire({
-          icon: 'error',
-          text: output,
-          confirmButtonText: 'Close'
-      });      
+      await showScrollableError(translateThis('Error'), message);      
     } 
 }
 
@@ -6110,12 +6121,7 @@ async function addLiquidity() {
           //modalDialog('Connect', "Transaction failed", "danger");
           hideSpinner();
           const message = translateThis('Transaction failed:') + ' ' + e.message;
-          const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-          Swal.fire({
-              icon: 'error',
-              text: output,
-              confirmButtonText: translateThis('Close')
-          });
+          await showScrollableError(translateThis('Error'), message);
           return;
       }
       //document.getElementById("addliquidtext").innerHTML = 'Success!';
@@ -6529,13 +6535,7 @@ async function Swap() {
           hideSpinner();
           //document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-danger" >Error: Swap failed!</div>';
           const message = translateThis('Swap failed:') + ' ' + e.message;
-          const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-          await Swal.fire({
-              icon: 'error',
-              title: translateThis('Transaction failed'),
-              text: output,
-              confirmButtonText: translateThis('Close')
-          });
+          await showScrollableError(translateThis('Transaction failed'), message);
           return;
       }
       document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-success" >' + translateThis('Success!') + '</div><br>' + prevtext;
@@ -6735,13 +6735,7 @@ async function withdrawLP() {
           hideSpinner();
           //document.getElementById("LPdetails1").innerHTML = 'Withdrawal failed';
           const message = translateThis('Withdrawal failed:') + ' ' + e.message;
-          const output = message.length > 250 ? message.slice(0, 250) + '...' : message;
-          Swal.fire({
-              icon: 'error',
-              title: translateThis('Transaction failed'),
-              text: output,
-              confirmButtonText: translateThis('Close')
-          });          
+          await showScrollableError(translateThis('Transaction failed'), message);          
           return;
       }
       document.getElementById("LPdetails1").innerHTML = translateThis('Success!') + '<br><br>' + prevtext;
