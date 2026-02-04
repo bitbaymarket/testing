@@ -329,6 +329,41 @@ function showConsoleHistory() {
 }
 
 // ============================================================================
+// HELPER FUNCTION FOR SCROLLABLE ERROR DISPLAY
+// ============================================================================
+
+// Display error in a compact scrollable format suitable for mobile
+async function showScrollableError(title, errorMessage, icon = 'error') {
+  const sanitizedTitle = DOMPurify.sanitize(title);
+  const sanitizedMessage = DOMPurify.sanitize(String(errorMessage || 'Unknown error'));
+  
+  // If the error is short (< 200 chars), show it normally
+  if (sanitizedMessage.length < 200) {
+    return Swal.fire(sanitizedTitle, sanitizedMessage, icon);
+  }
+  
+  // For longer errors, use a scrollable container
+  return Swal.fire({
+    icon: icon,
+    title: sanitizedTitle,
+    html: `<div style="
+      max-height: 200px;
+      overflow-y: auto;
+      text-align: left;
+      font-size: 0.85em;
+      padding: 10px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    ">${sanitizedMessage}</div>`,
+    width: '90%',
+    maxWidth: '400px'
+  });
+}
+
+// ============================================================================
 // HELPER FUNCTIONS FOR SAFE NUMBER HANDLING
 // ============================================================================
 
@@ -870,20 +905,35 @@ async function depositLidoHODL() {
             "name": "approve",
             "outputs": [{"name": "", "type": "bool"}],
             "type": "function"
+          },
+          {
+            "constant": true,
+            "inputs": [
+              {"name": "owner", "type": "address"},
+              {"name": "spender", "type": "address"}
+            ],
+            "name": "allowance",
+            "outputs": [{"name": "", "type": "uint256"}],
+            "type": "function"
           }],
           TREASURY_ADDRESSES.LIDO_STETH
         );
         
-        Swal.fire({
-          icon: 'info',
-          title: translateThis('Allowance'),
-          text: translateThis('Authorizing stETH allowance...'),
-          showConfirmButton: false
-        });
-        await delay(500);
-        
-        // Approve stETH
-        await sendTx(stETHContract, "approve", [TREASURY_ADDRESSES.LIDO_VAULT, amountWei], 100000, "0", true, true);
+        // Check existing allowance before requesting approval
+        const BN = BigNumber;
+        const existingAllowance = String(await stETHContract.methods.allowance(myaccounts, TREASURY_ADDRESSES.LIDO_VAULT).call());
+        if (new BN(existingAllowance).lt(new BN(amountWei))) {
+          Swal.fire({
+            icon: 'info',
+            title: translateThis('Allowance'),
+            text: translateThis('Authorizing stETH allowance...'),
+            showConfirmButton: false
+          });
+          await delay(500);
+          
+          // Approve stETH
+          await sendTx(stETHContract, "approve", [TREASURY_ADDRESSES.LIDO_VAULT, amountWei], 100000, "0", true, true);
+        }
         
         Swal.fire({
           icon: 'info',
@@ -900,17 +950,17 @@ async function depositLidoHODL() {
       }
       
       hideSpinner();
-      await refreshEarnTab();
+      await refreshLidoInfo();
       
     } catch (error) {
       hideSpinner();
       console.error('Error depositing to Lido HODL:', error);
-      Swal.fire(translateThis('Error'), error.message || 'Deposit failed', 'error');
+      await showScrollableError(translateThis('Error'), error.message || 'Deposit failed');
     }
     
   } catch (error) {
     console.error('Error in depositLidoHODL:', error);
-    Swal.fire(translateThis('Error'), translateThis('Failed to prepare deposit'), 'error');
+    await showScrollableError(translateThis('Error'), translateThis('Failed to prepare deposit'));
   }
 }
 
@@ -987,17 +1037,17 @@ async function withdrawLidoHODL() {
       
       hideSpinner();
       Swal.fire(translateThis('Success'), translateThis('Withdrew') + ` ${withdrawAmount} stETH ` + translateThis('successfully!'), 'success');
-      await refreshEarnTab();
+      await refreshLidoInfo();
       
     } catch (error) {
       hideSpinner();
       console.error('Error withdrawing from Lido HODL:', error);
-      Swal.fire(translateThis('Error'), error.message || translateThis('Withdrawal failed'), 'error');
+      await showScrollableError(translateThis('Error'), error.message || translateThis('Withdrawal failed'));
     }
     
   } catch (error) {
     console.error('Error in withdrawLidoHODL:', error);
-    Swal.fire(translateThis('Error'), translateThis('Failed to prepare withdrawal'), 'error');
+    await showScrollableError(translateThis('Error'), translateThis('Failed to prepare withdrawal'));
   }
 }
 
@@ -1193,7 +1243,7 @@ async function depositStableVault() {
       await sendTx(feeVaultContract, "changeSendTo", [targetSendTo], 200000, "0", true, false);
     }
     
-    // Approve DAI
+    // Approve DAI (check allowance first)
     const daiContract = new earnState.polWeb3.eth.Contract(
       [{
         "constant": false,
@@ -1204,18 +1254,33 @@ async function depositStableVault() {
         "name": "approve",
         "outputs": [{"name": "", "type": "bool"}],
         "type": "function"
+      },
+      {
+        "constant": true,
+        "inputs": [
+          {"name": "owner", "type": "address"},
+          {"name": "spender", "type": "address"}
+        ],
+        "name": "allowance",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "type": "function"
       }],
       TREASURY_ADDRESSES.DAI
     );
     
-    Swal.fire({
-      icon: 'info',
-      title: translateThis('Allowance'),
-      text: translateThis('Authorizing DAI allowance...'),
-      showConfirmButton: false
-    });
-    
-    await sendTx(daiContract, "approve", [TREASURY_ADDRESSES.STABLE_POOL, amountWei], 100000, "0", false, false);
+    // Check existing allowance before requesting approval
+    const BN = BigNumber;
+    const existingAllowance = String(await daiContract.methods.allowance(myaccounts, TREASURY_ADDRESSES.STABLE_POOL).call());
+    if (new BN(existingAllowance).lt(new BN(amountWei))) {
+      Swal.fire({
+        icon: 'info',
+        title: translateThis('Allowance'),
+        text: translateThis('Authorizing DAI allowance...'),
+        showConfirmButton: false
+      });
+      
+      await sendTx(daiContract, "approve", [TREASURY_ADDRESSES.STABLE_POOL, amountWei], 100000, "0", false, false);
+    }
     
     Swal.fire({
       icon: 'info',
@@ -1231,12 +1296,12 @@ async function depositStableVault() {
     
     hideSpinner();
     await Swal.fire(translateThis('Success'), translateThis('Deposit successful!'), 'success');
-    await refreshEarnTab();
+    await refreshStableVaultInfo();
     
   } catch (error) {
     hideSpinner();
     console.error('Error depositing to StableVault:', error);
-    await Swal.fire(translateThis('Error'), error.message || translateThis('Deposit failed'), 'error');
+    await showScrollableError(translateThis('Error'), error.message || translateThis('Deposit failed'));
   }
 }
 
@@ -1256,12 +1321,12 @@ async function collectStableFees() {
     
     hideSpinner();
     await Swal.fire(translateThis('Success'), translateThis('Fees collected!'), 'success');
-    await refreshEarnTab();
+    await refreshStableVaultInfo();
     
   } catch (error) {
     hideSpinner();
     console.error('Error collecting fees:', error);
-    await Swal.fire(translateThis('Error'), error.message || translateThis('Fee collection failed'), 'error');
+    await showScrollableError(translateThis('Error'), error.message || translateThis('Fee collection failed'));
   }
 }
 
@@ -1304,12 +1369,12 @@ async function withdrawStableVault() {
     
     hideSpinner();
     await Swal.fire(translateThis('Success'), translateThis('Withdrawal successful!'), 'success');
-    await refreshEarnTab();
+    await refreshStableVaultInfo();
     
   } catch (error) {
     hideSpinner();
     console.error('Error withdrawing from StableVault:', error);
-    await Swal.fire(translateThis('Error'), error.message || translateThis('Withdrawal failed'), 'error');
+    await showScrollableError(translateThis('Error'), error.message || translateThis('Withdrawal failed'));
   }
 }
 
@@ -1886,9 +1951,18 @@ async function checkAndManageStableVault() {
     if (isGreaterThanZero(liquidity)) {
       const unclaimedFees = JSON.parse(DOMPurify.sanitize(JSON.stringify(await stableContract.methods.getUnclaimedFees().call())));
       const BN = BigNumber;
-      const fee0 = new BN(unclaimedFees.fee0).dividedBy('1e18'); // DAI
-      const fee1 = new BN(unclaimedFees.fee1).dividedBy('1e6'); // USDC
-      const totalUnclaimedUSD = fee0.plus(fee1);
+      // Token order depends on address comparison: USDC (0x3c...) < DAI (0x8f...)
+      // So currency0 = USDC (6 decimals), currency1 = DAI (18 decimals)
+      const daiIsToken0 = await stableContract.methods._daiIsToken0().call();
+      let feeDAI, feeUSDC;
+      if (daiIsToken0) {
+        feeDAI = new BN(unclaimedFees.fee0).dividedBy('1e18');
+        feeUSDC = new BN(unclaimedFees.fee1).dividedBy('1e6');
+      } else {
+        feeUSDC = new BN(unclaimedFees.fee0).dividedBy('1e6');
+        feeDAI = new BN(unclaimedFees.fee1).dividedBy('1e18');
+      }
+      const totalUnclaimedUSD = feeDAI.plus(feeUSDC);
       
       // Only proceed if > .50 for the collective pool
       if (totalUnclaimedUSD.gt(new BN('0.50'))) {
@@ -2199,11 +2273,11 @@ async function depositStake() {
     await sendTx(vaultContract, "depositLiquid", [amount], 3000000, "0", true, false);
     hideSpinner();
     await Swal.fire(translateThis('Success'), translateThis('BAYL staked successfully!'), 'success');
-    await refreshEarnTab();
+    await refreshStakingInfo();
   } catch (error) {
     hideSpinner();
     console.error('Error staking BAYL:', error);
-    await Swal.fire(translateThis('Error'), error.message || translateThis('Staking failed'), 'error');
+    await showScrollableError(translateThis('Error'), error.message || translateThis('Staking failed'));
   }
 }
 
@@ -2277,11 +2351,11 @@ async function unstakeBAYL() {
     await sendTx(vaultContract, "withdrawLiquid", [amount], 1500000, "0", true, false);
     hideSpinner();
     await Swal.fire(translateThis('Success'), translateThis('BAYL unstaked successfully!'), 'success');
-    await refreshEarnTab();
+    await refreshStakingInfo();
   } catch (error) {
     hideSpinner();
     console.error('Error unstaking BAYL:', error);
-    await Swal.fire(translateThis('Error'), error.message || translateThis('Unstaking failed'), 'error');
+    await showScrollableError(translateThis('Error'), error.message || translateThis('Unstaking failed'));
   }
 }
 
@@ -2392,12 +2466,12 @@ async function claimStakingRewards(showSwal = false) {
     if(showSwal) {
       await Swal.fire(translateThis('Success'), message, 'success');
     }
-    await refreshEarnTab();
+    await refreshStakingInfo();
   } catch (error) {
     hideSpinner();
     console.error('Error claiming rewards:', error);
     if(showSwal) {
-      await Swal.fire(translateThis('Error'), error.message || translateThis('Claiming rewards failed'), 'error');
+      await showScrollableError(translateThis('Error'), error.message || translateThis('Claiming rewards failed'));
     }
   }
 }
@@ -2484,6 +2558,12 @@ async function showCreateVoteDialog() {
     html: `
       <div style="text-align: left; font-size: 0.9em;">
         <p style="margin-bottom: 10px; font-size: 0.85em;">Create a vote with multiple actions to execute if it passes.</p>
+        
+        <div style="margin-bottom: 12px; padding: 8px; background: #f5f5f5; border-radius: 5px;">
+          <label style="font-size: 0.85em;"><strong>Auto-cast Count:</strong></label>
+          <input type="number" id="voteRepeatCount" class="swal2-input" style="padding: 5px; font-size: 0.85em; width: 80px;" value="1" min="1" max="100" />
+          <span style="font-size: 0.8em; color: #666; margin-left: 5px;">Vote will be automatically cast this many times when claiming rewards</span>
+        </div>
         
         <div id="voteActionsContainer" style="max-height: 50vh; overflow-y: auto; padding-right: 5px;">
           <div id="voteActions">
@@ -2656,12 +2736,20 @@ async function createVoteFromDialog() {
     });
   }
   
+  // Get repeat count from input
+  const repeatInput = document.getElementById('voteRepeatCount');
+  let repeatCount = 1;
+  if (repeatInput && repeatInput.value) {
+    repeatCount = Math.max(1, Math.min(100, parseInt(repeatInput.value) || 1));
+  }
+  
   // Save to localStorage
   const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
   const newVote = {
     id: Date.now(),
     actions: actions,
-    timesCast: 0
+    timesCast: 0,
+    repeat: repeatCount
   };
   savedVotes.push(newVote);
   localStorage.setItem(myaccounts+'earnUserVotes', JSON.stringify(savedVotes));
@@ -3067,7 +3155,7 @@ async function showWithdrawDialog() {
     
   } catch (error) {
     console.error('Error in withdraw dialog:', error);
-    await Swal.fire(translateThis('Error'), error.message, 'error');
+    await showScrollableError(translateThis('Error'), error.message);
   }
 }
 
@@ -3143,12 +3231,44 @@ async function executeWithdrawal(withdrawData) {
     }
     hideSpinner();
     await Swal.fire(translateThis('Success'), `${coin.coin} ` + translateThis('withdrawn successfully!'), 'success');
-    await refreshEarnTab();
+    await refreshStakingInfo();
   } catch (error) {
     hideSpinner();
     console.error('Error withdrawing:', error);
-    await Swal.fire(translateThis('Error'), error.message || translateThis('Withdrawal failed'), 'error');
+    await showScrollableError(translateThis('Error'), error.message || translateThis('Withdrawal failed'));
   }
+}
+
+// ============================================================================
+// TARGETED REFRESH FUNCTIONS (for user actions without API spam)
+// ============================================================================
+
+// Refresh only StableVault-related info after user deposit/withdraw
+async function refreshStableVaultInfo() {
+  if (!earnState.polWeb3 || !myaccounts) return;
+  await loadStableVaultInfo();
+  await loadTokenBalances();
+}
+
+// Refresh only Lido-related info after user deposit/withdraw
+async function refreshLidoInfo() {
+  if (!earnState.ethWeb3 || !myaccounts) return;
+  await loadLidoVaultInfo();
+  await loadUserLidoPosition();
+  await loadETHBalances();
+}
+
+// Refresh only staking-related info after user stake/unstake
+async function refreshStakingInfo() {
+  if (!earnState.polWeb3 || !myaccounts) return;
+  await loadStakingInfo();
+  await loadTokenBalances();
+}
+
+// Refresh only voting-related info
+async function refreshVotingInfo() {
+  if (!earnState.polWeb3) return;
+  await loadVotingInfo();
 }
 
 // ============================================================================
