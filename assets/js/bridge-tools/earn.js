@@ -921,7 +921,7 @@ async function depositLidoHODL() {
         
         // Check existing allowance before requesting approval
         const BN = BigNumber;
-        const existingAllowance = DOMPurify.sanitize(await stETHContract.methods.allowance(myaccounts, TREASURY_ADDRESSES.LIDO_VAULT).call());
+        const existingAllowance = String(await stETHContract.methods.allowance(myaccounts, TREASURY_ADDRESSES.LIDO_VAULT).call());
         if (new BN(existingAllowance).lt(new BN(amountWei))) {
           Swal.fire({
             icon: 'info',
@@ -1270,7 +1270,7 @@ async function depositStableVault() {
     
     // Check existing allowance before requesting approval
     const BN = BigNumber;
-    const existingAllowance = DOMPurify.sanitize(await daiContract.methods.allowance(myaccounts, TREASURY_ADDRESSES.STABLE_POOL).call());
+    const existingAllowance = String(await daiContract.methods.allowance(myaccounts, TREASURY_ADDRESSES.STABLE_POOL).call());
     if (new BN(existingAllowance).lt(new BN(amountWei))) {
       Swal.fire({
         icon: 'info',
@@ -1953,7 +1953,7 @@ async function checkAndManageStableVault() {
       const BN = BigNumber;
       // Token order depends on address comparison: USDC (0x3c...) < DAI (0x8f...)
       // So currency0 = USDC (6 decimals), currency1 = DAI (18 decimals)
-      const daiIsToken0 = DOMPurify.sanitize(await stableContract.methods._daiIsToken0().call()) === 'true';
+      const daiIsToken0 = await stableContract.methods._daiIsToken0().call();
       let feeDAI, feeUSDC;
       if (daiIsToken0) {
         feeDAI = new BN(unclaimedFees.fee0).dividedBy('1e18');
@@ -2560,9 +2560,9 @@ async function showCreateVoteDialog() {
         <p style="margin-bottom: 10px; font-size: 0.85em;">Create a vote with multiple actions to execute if it passes.</p>
         
         <div style="margin-bottom: 12px; padding: 8px; background: #f5f5f5; border-radius: 5px;">
-          <label style="font-size: 0.85em;"><strong>Times to Cast:</strong></label>
+          <label style="font-size: 0.85em;"><strong>Auto-cast Count:</strong></label>
           <input type="number" id="voteRepeatCount" class="swal2-input" style="padding: 5px; font-size: 0.85em; width: 80px;" value="1" min="1" max="100" />
-          <span style="font-size: 0.8em; color: #666; margin-left: 5px;">How many reward claims to cast this vote</span>
+          <span style="font-size: 0.8em; color: #666; margin-left: 5px;">Vote will be automatically cast this many times when claiming rewards</span>
         </div>
         
         <div id="voteActionsContainer" style="max-height: 50vh; overflow-y: auto; padding-right: 5px;">
