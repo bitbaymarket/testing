@@ -68,6 +68,7 @@ var fallbackProvidersDefault = [
     
     var message = (err.message || '').toLowerCase();
     var code = err.code;
+    console.log(err)
     
     // Common rate limit indicators
     return (
