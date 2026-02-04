@@ -95,8 +95,10 @@ contract LidoStaking {
             }
         }
         user.amount += amount;
-        if(!increment || user.unlockTimestamp == 0) {
-            user.unlockTimestamp = block.timestamp + (daysLock * (1 days));
+        if(increment || block.timestamp >= user.unlockTimestamp) {
+            uint256 newUnlockTime = block.timestamp + (daysLock * (1 days));
+            require(newUnlockTime >= user.unlockTimestamp, "Cannot shorten lock duration");
+            user.unlockTimestamp = newUnlockTime;
         }
         unlockAmountByEpoch[timestampToEpoch(user.unlockTimestamp)] += user.amount;
         totalPrincipal += amount;
@@ -126,8 +128,10 @@ contract LidoStaking {
             }
         }
         user.amount += stETHReceived;
-        if (!increment || user.unlockTimestamp == 0) {
-            user.unlockTimestamp = block.timestamp + (daysLock * (1 days));
+        if (increment || block.timestamp >= user.unlockTimestamp) {
+            uint256 newUnlockTime = block.timestamp + (daysLock * (1 days));
+            require(newUnlockTime >= user.unlockTimestamp, "Cannot shorten lock duration");
+            user.unlockTimestamp = newUnlockTime;
         }
         unlockAmountByEpoch[timestampToEpoch(user.unlockTimestamp)] += user.amount;
         totalPrincipal += stETHReceived;

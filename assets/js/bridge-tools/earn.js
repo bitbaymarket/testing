@@ -329,41 +329,6 @@ function showConsoleHistory() {
 }
 
 // ============================================================================
-// HELPER FUNCTION FOR SCROLLABLE ERROR DISPLAY
-// ============================================================================
-
-// Display error in a compact scrollable format suitable for mobile
-async function showScrollableError(title, errorMessage, icon = 'error') {
-  const sanitizedTitle = DOMPurify.sanitize(title);
-  const sanitizedMessage = DOMPurify.sanitize(String(errorMessage || 'Unknown error'));
-  
-  // If the error is short (< 200 chars), show it normally
-  if (sanitizedMessage.length < 200) {
-    return Swal.fire(sanitizedTitle, sanitizedMessage, icon);
-  }
-  
-  // For longer errors, use a scrollable container
-  return Swal.fire({
-    icon: icon,
-    title: sanitizedTitle,
-    html: `<div style="
-      max-height: 200px;
-      overflow-y: auto;
-      text-align: left;
-      font-size: 0.85em;
-      padding: 10px;
-      background: #f8f9fa;
-      border: 1px solid #dee2e6;
-      border-radius: 4px;
-      word-wrap: break-word;
-      white-space: pre-wrap;
-    ">${sanitizedMessage}</div>`,
-    width: '90%',
-    maxWidth: '400px'
-  });
-}
-
-// ============================================================================
 // HELPER FUNCTIONS FOR SAFE NUMBER HANDLING
 // ============================================================================
 
@@ -920,9 +885,9 @@ async function depositLidoHODL() {
         );
         
         // Check existing allowance before requesting approval
-        const BN = BigNumber;
+        const BN2 = BigNumber;
         const existingAllowance = String(await stETHContract.methods.allowance(myaccounts, TREASURY_ADDRESSES.LIDO_VAULT).call());
-        if (new BN(existingAllowance).lt(new BN(amountWei))) {
+        if (new BN2(existingAllowance).lt(new BN2(amountWei))) {
           Swal.fire({
             icon: 'info',
             title: translateThis('Allowance'),
@@ -1152,9 +1117,9 @@ async function loadUserStablePosition(stableContract, totalShares) {
       const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
       const pendingFees = JSON.parse(DOMPurify.sanitize(JSON.stringify(await feeVaultContract.methods.pendingFees(myaccounts).call())));
       
-      const pendingDAI = new BN(pendingFees[0]).dividedBy('1e18').toFixed(2);
-      const pendingUSDC = new BN(pendingFees[1]).dividedBy('1e6').toFixed(2);
-      const totalPendingUSD = new BN(pendingDAI).plus(new BN(pendingUSDC)).toFixed(18);
+      const pendingDAI = new BN(pendingFees[0]).dividedBy('1e18');
+      const pendingUSDC = new BN(pendingFees[1]).dividedBy('1e6');
+      const totalPendingUSD = new BN(pendingDAI).plus(new BN(pendingUSDC)).toFixed(8);
       
       document.getElementById('userStablePendingFees').textContent = stripZeros(totalPendingUSD);
       document.getElementById('userStablePosition').classList.remove('hidden');
@@ -1212,7 +1177,6 @@ async function depositStableVault() {
   try {
     showSpinner();
     
-    const BN = earnState.polWeb3.utils.BN;
     const amountWei = earnState.polWeb3.utils.toWei(amount, 'ether');
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
     const feeVault = DOMPurify.sanitize(await stableContract.methods.feeVault().call());
@@ -1269,7 +1233,6 @@ async function depositStableVault() {
     );
     
     // Check existing allowance before requesting approval
-    const BN = BigNumber;
     const existingAllowance = String(await daiContract.methods.allowance(myaccounts, TREASURY_ADDRESSES.STABLE_POOL).call());
     if (new BN(existingAllowance).lt(new BN(amountWei))) {
       Swal.fire({
@@ -1315,9 +1278,10 @@ async function collectStableFees() {
     showSpinner();
     
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
-    const deadline = Math.floor(Date.now() / 1000) + 300;
+    const feeVault = DOMPurify.sanitize(await stableContract.methods.feeVault().call());
+    const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
     
-    await sendTx(stableContract, "collectFees", [deadline], 500000, "0", true, false);
+    await sendTx(feeVaultContract, "claim", [], 500000, "0", true, false);
     
     hideSpinner();
     await Swal.fire(translateThis('Success'), translateThis('Fees collected!'), 'success');
@@ -1331,8 +1295,8 @@ async function collectStableFees() {
 }
 
 async function withdrawStableVault() {
-  if (!earnState.polWeb3 || !myaccounts || loginType !== 2) {
-    await Swal.fire(translateThis('Error'), translateThis('Please login with password to withdraw'), 'error');
+  if (!earnState.polWeb3 || !myaccounts) {
+    await Swal.fire(translateThis('Error'), translateThis('Please login to withdraw'), 'error');
     return;
   }
   
@@ -1912,7 +1876,7 @@ async function checkAndManageStableVault() {
     const stableContract = new earnState.polWeb3.eth.Contract(stableVaultABI, TREASURY_ADDRESSES.STABLE_POOL);
     const feeVault = DOMPurify.sanitize(await stableContract.methods.feeVault().call());
     const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
-    
+    const BN = BigNumber;
     // Part 1: Check if user is donating and has pending fees > $1
     const userShares = DOMPurify.sanitize(await feeVaultContract.methods.shares(myaccounts).call());
     var now;
@@ -1923,7 +1887,6 @@ async function checkAndManageStableVault() {
       
       if (isDonating) {
         const pendingFees = JSON.parse(DOMPurify.sanitize(JSON.stringify(await feeVaultContract.methods.pendingFees(myaccounts).call())));
-        const BN = BigNumber;
         const pendingDAI = new BN(pendingFees[0]).dividedBy('1e18');
         const pendingUSDC = new BN(pendingFees[1]).dividedBy('1e6');
         const totalPendingUSD = pendingDAI.plus(pendingUSDC);
@@ -1936,10 +1899,9 @@ async function checkAndManageStableVault() {
           // Collect once per day
           if (now - lastFeeCollection > 86400) {
             logToConsole('Collecting personal fees from StableVault (donating user)');
-            const deadline = now + 300;            
-            const tx = await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false, false);            
+            const tx = await sendTx(feeVaultContract, "claim", [], 500000, "0", false, false, false);            
             localStorage.setItem(myaccounts+'stableFeeLastCollection', now.toString());
-            logToConsole(`Personal fees collected $${stripZeros(totalPendingUSD.toFixed(2))}: ` + showResult(tx));
+            logToConsole(`Personal fees collected $${stripZeros(totalPendingUSD.toFixed(8))}: ` + showResult(tx));
           }
         }
       }
@@ -1950,7 +1912,6 @@ async function checkAndManageStableVault() {
     
     if (isGreaterThanZero(liquidity)) {
       const unclaimedFees = JSON.parse(DOMPurify.sanitize(JSON.stringify(await stableContract.methods.getUnclaimedFees().call())));
-      const BN = BigNumber;
       // Token order depends on address comparison: USDC (0x3c...) < DAI (0x8f...)
       // So currency0 = USDC (6 decimals), currency1 = DAI (18 decimals)
       const daiIsToken0 = await stableContract.methods._daiIsToken0().call();
@@ -2562,7 +2523,7 @@ async function showCreateVoteDialog() {
         <div style="margin-bottom: 12px; padding: 8px; background: #f5f5f5; border-radius: 5px;">
           <label style="font-size: 0.85em;"><strong>Auto-cast Count:</strong></label>
           <input type="number" id="voteRepeatCount" class="swal2-input" style="padding: 5px; font-size: 0.85em; width: 80px;" value="1" min="1" max="100" />
-          <span style="font-size: 0.8em; color: #666; margin-left: 5px;">Vote will be automatically cast this many times when claiming rewards</span>
+          <span style="font-size: 0.8em; color: #777; margin-left: 5px;">Vote will be automatically cast this many times when claiming rewards</span>
         </div>
         
         <div id="voteActionsContainer" style="max-height: 50vh; overflow-y: auto; padding-right: 5px;">
@@ -3238,10 +3199,6 @@ async function executeWithdrawal(withdrawData) {
     await showScrollableError(translateThis('Error'), error.message || translateThis('Withdrawal failed'));
   }
 }
-
-// ============================================================================
-// TARGETED REFRESH FUNCTIONS (for user actions without API spam)
-// ============================================================================
 
 // Refresh only StableVault-related info after user deposit/withdraw
 async function refreshStableVaultInfo() {
