@@ -759,6 +759,19 @@ stableVaultABI = [
 	},
 	{
 		"inputs": [],
+		"name": "offset",
+		"outputs": [
+			{
+				"internalType": "int24",
+				"name": "",
+				"type": "int24"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
 		"name": "poolKey",
 		"outputs": [
 			{
@@ -856,6 +869,19 @@ stableVaultABI = [
 			}
 		],
 		"name": "setCustomRange",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "int24",
+				"name": "_offset",
+				"type": "int24"
+			}
+		],
+		"name": "setOffset",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"

@@ -289,6 +289,7 @@ contract UsdcDaiV4Vault is IUnlockCallback {
 
     PoolKey public poolKey;
     int24 public RANGE = 1;
+    int24 public offset = 1;
     int24 public constant TICK_SPACING = 1;
     uint24 public constant FEE = 50;
 
@@ -410,6 +411,12 @@ contract UsdcDaiV4Vault is IUnlockCallback {
         require(msg.sender == minter, OnlyMinter());
         require(_range > 0 && _range <= 5, OutOfRange());
         RANGE = (_range * TICK_SPACING);
+    }
+
+    function setOffset(int24 _offset) public {
+        require(msg.sender == minter, OnlyMinter());
+        require(_offset >= -2 && _offset <= 2, OutOfRange());
+        offset = _offset;
     }
 
     function setCustomRange(int24 _lowTickAdmin, int24 _highTickAdmin) public {
@@ -588,6 +595,12 @@ contract UsdcDaiV4Vault is IUnlockCallback {
         if (liquidity == 0) { // New position
             tl = _alignTick(currentTick - RANGE);
             tu = _alignTick(currentTick + RANGE);
+            if(offset < 0) {
+                tl += (offset * TICK_SPACING);
+            }
+            if(offset > 0) {
+                tu += (offset * TICK_SPACING);
+            }
         } else {
             tl = tickLower;
             tu = tickUpper;
@@ -708,6 +721,12 @@ contract UsdcDaiV4Vault is IUnlockCallback {
         _modifyLiquidity(tickLower, tickUpper, -int128(liquidity));
         s.newTickLower = _alignTick(s.currentTick - RANGE);
         s.newTickUpper = _alignTick(s.currentTick + RANGE);
+        if(offset < 0) {
+            s.newTickLower += (offset * TICK_SPACING);
+        }
+        if(offset > 0) {
+            s.newTickUpper += (offset * TICK_SPACING);
+        }
         if(lowTickAdmin != 0 || highTickAdmin != 0) { 
             s.newTickLower = lowTickAdmin;
             s.newTickUpper = highTickAdmin;

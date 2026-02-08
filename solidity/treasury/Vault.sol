@@ -111,8 +111,8 @@ contract MainController {
             vault = _deployVault(user);
             vaultOf[user] = vault;
         }
-        IDataContract(BitBayData).sendLiquid(user, vault, amount, user);
         ITreasury(TreasuryLiquid).depositVault(user, amount);
+        IDataContract(BitBayData).sendLiquid(user, vault, amount, user);
         emit Deposit(user, amount);
         return true;
     }
@@ -126,8 +126,8 @@ contract MainController {
             vaultOf[user] = vault;
         }
         uint[] memory a;
-        IDataContract(BitBayData).sendReserve(user, vault, amount, a, 0, user);
         ITreasury(TreasuryReserve).depositVault(user, amount);
+        IDataContract(BitBayData).sendReserve(user, vault, amount, a, 0, user);
         emit Deposit(user, amount);
         return true;
     }
