@@ -209,7 +209,7 @@ contract ProtocolTreasury {
                 require(IERC20(user.coins[x]).balanceOf(address(this)) >= reward, "Not enough funds"); 
                 deductions[user.coins[x]] -= reward;
                 user.pendingRewards[user.coins[x]] = 0;
-                IERC20(user.coins[x]).transfer(msg.sender, reward);
+                _safeTransfer(user.coins[x], msg.sender, reward);
             }
             x += 1;
         }
@@ -340,5 +340,10 @@ contract ProtocolTreasury {
         if (shares > smallestShares) {
             topStakers[smallestIndex] = TopStaker({user: user, shares: shares});
         }
+    }
+
+    function _safeTransfer(address token, address to, uint256 value) internal {
+        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0xa9059cbb, to, value));
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "Transfer failed");
     }
 }
