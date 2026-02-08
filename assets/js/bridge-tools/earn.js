@@ -1749,13 +1749,16 @@ async function checkStakingConditions() {
     // Registration period tasks (first 75%): maintenance, calling profits, refresh
     // Each task has its own internal checks to prevent spamming (pending amounts, time limits, etc.)
     if (isInRegistrationPeriod) {
-      // 1. Check Flow contract for pending ETH
+      // 1. Check if previous epoch vote needs execution
+      await checkAndExecuteVote();
+      
+      // 2. Check Flow contract for pending ETH
       await checkAndDripFlow();
       
-      // 2. Check Lido for yield to harvest
+      // 3. Check Lido for yield to harvest
       await checkAndHarvestLido();
       
-      // 3. Check StableVault position management
+      // 4. Check StableVault position management
       await checkAndManageStableVault();
     }
     
@@ -1768,6 +1771,33 @@ async function checkStakingConditions() {
     }    
   } catch (error) {
     console.error('Error in staking automation:', error);
+  }
+}
+
+async function checkAndExecuteVote() {
+  try {
+    const voteContract = new earnState.polWeb3.eth.Contract(stakingABI, TREASURY_ADDRESSES.VOTE_BAYL);
+    const currentEpoch = parseInt(DOMPurify.sanitize(await voteContract.methods.currentEpoch().call()));
+    const prevEpoch = currentEpoch - 1;
+    
+    // Check if previous epoch needs execution
+    if (prevEpoch >= 0) {
+      const epochData = JSON.parse(DOMPurify.sanitize(JSON.stringify(await voteContract.methods.epochs(prevEpoch).call())));
+      
+      if (!epochData.executed) {
+        // Check if there is a winner
+        const winner = DOMPurify.sanitize(await voteContract.methods.winningHash(prevEpoch).call());
+        
+        if (winner && winner !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+          logToConsole(`Executing winning vote for epoch ${prevEpoch}...`);
+          const tx = await sendTx(voteContract, "confirmVotes", [prevEpoch], 500000, "0", false, false, false);
+          logToConsole(`Vote execution successful for epoch ${prevEpoch}, tx: ${showResult(tx)}`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error checking/executing vote:', error);
+    logToConsole(`Error with vote execution: ${error.message}`);
   }
 }
 
