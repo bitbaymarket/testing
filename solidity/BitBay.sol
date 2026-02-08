@@ -8,7 +8,7 @@ interface ILiquidityPool {
     function withdrawLP(address,address,uint256) external returns (uint256[38] memory);
     function withdrawBuy(address,uint256[38] memory,uint256) external;    
     function calculateBalance(address,address,bool,uint256) external view returns (uint256, uint256, uint256[38] memory);
-    function poolhighkey(address) external view returns (uint256);
+    function poolhighkey(address) external pure returns (uint256);
 }
 
 interface IMinter {

@@ -8,7 +8,7 @@ interface IERC20 {
 }
 
 interface vContract {
-    function sendVote(address, uint256, bytes[] calldata) external returns(bool);
+    function sendVote(address, uint256, bytes[] calldata) external;
 }
 
 interface IVault {
