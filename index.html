@@ -88,7 +88,7 @@
   <div class="top_menu " >
     
       <div class="top_menu_content_left">
-        <a href="index.html"><img src="icon.png" class="header_logo"></a>
+        <a href="index.html"><img src="icon.png" class="header_logo no-invert"></a>
       </div>
       <div class="top_menu_content_center">
         
@@ -304,13 +304,13 @@
 
         <div class="swapField">
           <div class=" swapSelector btn" onclick="showFrozen()">
-            <img class="swapSelectorLogo" src="./icon.png">
+            <img class="swapSelectorLogo no-invert" src="./icon.png">
             <div class="swapSelectorText"> Frozen Coins Details</div>
             
           </div>
 
           <div class=" swapSelector btn" onclick="sendFrozen()">
-            <img class="swapSelectorLogo" src="./icon.png">
+            <img class="swapSelectorLogo no-invert" src="./icon.png">
             <div class="swapSelectorText">Release Frozen Funds</div>
             
           </div>
@@ -372,7 +372,7 @@
 
         <div class="swapField">
           <div class="swapFirstCoin swapSelector btn">
-            <img class="swapSelectorLogo" src="./icon.png">
+            <img class="swapSelectorLogo no-invert" src="./icon.png">
             <div class="swapSelectorText" id="swapCoin1Text">BAY</div>
             <div class="swapSelectorArrow">
               <svg width="12" height="7" viewBox="0 0 12 7" fill="none" xmlns="http://www.w3.org/2000/svg" class="sc-33m4yg-8 khlnVY"><path d="M0.97168 1L6.20532 6L11.439 1" stroke="#AEAEAE"></path></svg>
@@ -559,7 +559,7 @@
 
         <div class="swapField">
           <div class="swapFirstCoin swapSelector btn" onclick="mintFromBitBay(document.getElementById('jsonproof').value)">
-            <img class="swapSelectorLogo" src="./icon.png">
+            <img class="swapSelectorLogo no-invert" src="./icon.png">
             <div class="swapSelectorText">Mint</div>
 
           </div>
@@ -745,7 +745,7 @@
 
                       <!-- StableVault Pool Info -->
                       <div id="stableVaultInfo" class="callout" style="margin-top: 10px;">
-                        <div><strong>Pool Pair:</strong> DAI/USDC</div>
+                        <div><strong>Pool Pair:</strong><a href="https://app.uniswap.org/explore/pools/polygon/0x6da799cefb9ea6ceb8e45b37585c4cd7844b3aec34aa999c266beff925af1829" target="_blank">&nbsp&nbsp<span class="no-invert">🦄</span>&nbsp&nbspDAI/USDC </a></div>
                         <div><strong>Total Pool Size:</strong> <span id="stableTotalDAI">Loading...</span> DAI</div>
                         <div><strong>Current Tick:</strong> <span id="stableCurrentTick">Loading...</span></div>
                         <div><strong>In Range:</strong> <span id="stableInRange">Checking...</span></div>
@@ -776,7 +776,7 @@
                         </div>
                         <div class="swapField">
                           <label style="display: block; margin-bottom: 5px;">Send to: </label>&nbsp&nbsp
-                          <select id="stableProfitDestination" class="form_field" style="width: 100%;">
+                          <select id="stableProfitDestination" class="form_field" style="width: 275px;">
                             <option value="user">Send profits to my account</option>
                             <option value="bayl">Donate to BAYL liquidity providers (UniSwap)</option>
                             <option value="bayr">Donate to BAYR liquidity providers (UniSwap)</option>
@@ -899,7 +899,7 @@
                         <div><strong>Total BAY Staked:</strong> <span id="baylTotalStaked">Loading...</span> BAYL</div>
                         <div><strong>Total Shares Pending:</strong> <span id="baylTotalShares">Loading...</span></div>
                         <div><strong>Balance Refresh Rate:</strong> <span id="baylRefreshRate">Loading...</span></div>
-                        <div><strong>Claim Rate:</strong> <span id="baylClaimRate">Loading...</span> blocks</div>
+                        <div><strong>Claim Rate:</strong> <span id="baylClaimRate">Loading...</span></div>
                       </div>
 
                       <!-- Top Stakers -->
@@ -929,7 +929,7 @@
                         <div class="boxTitle2">💼 Vault Balances</div>
                         <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #f5f5f5; border-radius: 5px; margin-bottom: 10px;">
                           <div style="display: flex; align-items: center; gap: 10px;">
-                            <img class="swapSelectorLogo" src="./icon.png" style="width: 24px; height: 24px;">
+                            <img class="swapSelectorLogo no-invert" src="./icon.png" style="width: 24px; height: 24px;">
                             <div>
                               <div style="font-size: 0.9em; color: #777;">BAYL (at Vault)</div>
                               <div style="font-weight: bold;"><span id="vaultBaylBalance">0.0</span></div>
@@ -938,7 +938,7 @@
                         </div>
                         <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #f5f5f5; border-radius: 5px;">
                           <div style="display: flex; align-items: center; gap: 10px;">
-                            <img class="swapSelectorLogo" src="./icon.png" style="width: 24px; height: 24px;">
+                            <img class="swapSelectorLogo no-invert" src="./icon.png" style="width: 24px; height: 24px;">
                             <div>
                               <div style="font-size: 0.9em; color: #777;">BAYR (at Vault)</div>
                               <div style="font-weight: bold;"><span id="vaultBayrBalance">0.0</span></div>
@@ -1019,7 +1019,7 @@
                       <!-- Retro Console -->
                       <div style="margin-top: 30px;">
                         <button class="swapSelector btn" style="width: 100%;" onclick="showConsoleHistory()">📜 Console History</button>
-                        <div id="stakingConsole" class="hidden" style="margin-top: 10px; background: #000; color: #0f0; font-family: 'Courier New', monospace; padding: 15px; border-radius: 5px; max-height: 300px; overflow-y: auto; font-size: 0.85em;">
+                        <div id="stakingConsole" class="hidden no-invert" style="margin-top: 10px; background: #000; color: #5555FF; font-family: 'Lucida Console', 'Courier New', monospace; padding: 15px; border-radius: 5px; max-height: 300px; overflow-y: auto; font-size: 0.85em;">
                           <pre id="stakingConsoleContent" style="margin: 0; white-space: pre-wrap; word-wrap: break-word;"></pre>
                         </div>
                       </div>
@@ -1065,7 +1065,7 @@
       <tr scope="row" data-coin="BAY" data-cointext="Buy BitBay">
        <td>
         <i class="icon bay">
-         <img src="./icon.png" />
+         <img src="./icon.png" class="no-invert" />
         </i>
        </td>
        <td>Buy BitBay <small class="d-block">BitBay Liquid</small></td>
@@ -1078,7 +1078,7 @@
       <tr class="activea" data-coin="BAYR" data-cointext="Buy BitBay Reserve">
        <td>
         <i class="icon bay">
-         <img src="./icon.png" />
+         <img src="./icon.png" class="no-invert" />
         </i>
        </td>
        <td>Buy BitBay Reserve <small class="d-block">BitBay Reserve</small></td>
@@ -1091,7 +1091,7 @@
       <tr data-coin="BAY" data-cointext="Sell BitBay">
        <td>
         <i class="icon bay">
-         <img src="./icon.png" />
+         <img src="./icon.png" class="no-invert" />
         </i>
        </td>
        <td>Sell BitBay <small class="d-block">BitBay Liquid</small></td>
@@ -1104,7 +1104,7 @@
       <tr data-coin="BAYR" data-cointext="Sell BitBay Reserve">
        <td>
         <i class="icon bay">
-         <img src="./icon.png" />
+         <img src="./icon.png" class="no-invert" />
         </i>
        </td>
        <td>Sell BitBay Reserve <small class="d-block">BitBay Reserve</small></td>
@@ -1238,6 +1238,7 @@
 <script type="text/javascript" src="./assets/js/bridge-tools/sweetalert211.js"></script>
 <script type="text/javascript" src="./assets/js/bridge-tools/zxcvbn.js"></script>
 <script type="text/javascript" src="./rotating-provider.js"></script>
+<script type="text/javascript" src="./translate.js"></script>
 
 <style>
   .swal2-header {
@@ -1872,6 +1873,123 @@ function darkTheme(toggle = true) {
     noInvert.forEach(el => {
       el.style.filter = "invert(1) hue-rotate(180deg)";
     });
+  }
+}
+
+var walker;
+var setValues = {};
+
+function getVisibleText(lang="ch") {
+  walker = document.createTreeWalker(
+    document.body, 
+    NodeFilter.SHOW_TEXT, 
+    {
+      acceptNode: function(node) {
+        // Only include text nodes that are not inside hidden elements
+        const style = window.getComputedStyle(node.parentNode);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    },
+    false
+  );
+};
+
+function translateVisibleText(lang="ch") {
+  // Traverse the DOM to collect text nodes
+  const textNodes = [];
+  let walker2 = walker;
+
+  while (walker2.nextNode()) {
+    const text = walker2.currentNode.nodeValue.trim();
+    if (text && text.replace(/[\s\r\n]+/g, '').length > 0) {
+      textNodes.push(walker2.currentNode.nodeValue);
+
+      // Store the original text in a data attribute if not already stored
+      if (!(walker2.currentNode.nodeValue in setValues)) {
+        setValues[walker2.currentNode.nodeValue] = 1;
+        // Create a new invisible child node with the original text
+        const originalTextNode = document.createElement('span');
+        originalTextNode.textContent = walker2.currentNode.nodeValue;
+        originalTextNode.style.display = 'none'; // Make it invisible
+        walker2.currentNode.parentNode.appendChild(originalTextNode);
+      }
+
+      // When lang is "ch", check if translation exists and replace the text
+      if (lang === "ch") {
+        if (walker2.currentNode.nodeValue in translatech) {
+          // Replace the text content of the node with the translated text from translatech
+          walker2.currentNode.textContent = translatech[walker2.currentNode.nodeValue];
+        }
+      } else if (lang === "en") {
+        const originalTextNode = walker2.currentNode.parentNode.querySelector('span');
+        if (originalTextNode) {
+          walker2.currentNode.textContent = originalTextNode.textContent;
+        }
+      } else if (lang === "ar") {
+        if (walker2.currentNode.nodeValue in translatear) {
+          // Replace the text content of the node with the translated text from translatech
+          walker2.currentNode.textContent = translatear[walker2.currentNode.nodeValue];
+        }
+      } else if (lang === "fr") {
+        if (walker2.currentNode.nodeValue in translatefr) {
+          // Replace the text content of the node with the translated text from translatech
+          walker2.currentNode.textContent = translatefr[walker2.currentNode.nodeValue];
+        }
+      } else if (lang === "ge") {
+        if (walker2.currentNode.nodeValue in translatege) {
+          // Replace the text content of the node with the translated text from translatech
+          walker2.currentNode.textContent = translatege[walker2.currentNode.nodeValue];
+        }
+      } else if (lang === "it") {
+        if (walker2.currentNode.nodeValue in translateit) {
+          // Replace the text content of the node with the translated text from translatech
+          walker2.currentNode.textContent = translateit[walker2.currentNode.nodeValue];
+        }
+      } else if (lang === "ja") {
+        if (walker2.currentNode.nodeValue in translateja) {
+          // Replace the text content of the node with the translated text from translatech
+          walker2.currentNode.textContent = translateja[walker2.currentNode.nodeValue];
+        }
+      } else if (lang === "ko") {
+        if (walker2.currentNode.nodeValue in translateko) {
+          // Replace the text content of the node with the translated text from translatech
+          walker2.currentNode.textContent = translateko[walker2.currentNode.nodeValue];
+        }
+      } else if (lang === "pt") {
+        if (walker2.currentNode.nodeValue in translatept) {
+          // Replace the text content of the node with the translated text from translatech
+          walker2.currentNode.textContent = translatept[walker2.currentNode.nodeValue];
+        }
+      } else if (lang === "ru") {
+        if (walker2.currentNode.nodeValue in translateru) {
+          // Replace the text content of the node with the translated text from translatech
+          walker2.currentNode.textContent = translateru[walker2.currentNode.nodeValue];
+        }
+      } else if (lang === "sp") {
+        if (walker2.currentNode.nodeValue in translatesp) {
+          // Replace the text content of the node with the translated text from translatech
+          walker2.currentNode.textContent = translatesp[walker2.currentNode.nodeValue];
+        }
+      }
+    }
+  }
+  return textNodes;
+}
+
+function getLanguageFromURL() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('l'); // Get the 'l' parameter value, e.g., 'ch' or 'en'
+}
+
+// Function to initialize and handle the visible text extraction
+function initTranslation() {
+  const lang = getLanguageFromURL(); // Get the language from the query parameter
+  if (lang != "") {
+    getVisibleText();
+    translateVisibleText(lang); // Translate to Chinese
   }
 }
 

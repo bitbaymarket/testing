@@ -77,7 +77,7 @@ contract StakingVote {
         return epochs[epoch].hashes;
     }
 
-    function sendVote(address user, uint256 weight, bytes[] calldata votePayload) external {
+    function sendVote(address user, uint256 weight, bytes[] calldata votePayload) external returns(bool) {
         require(msg.sender == treasury, "treasury only");
         require(weight > 0, "zero weight");
         uint256 epoch = currentEpoch();
@@ -96,6 +96,7 @@ contract StakingVote {
         proposals[hash].weight += weight;
         emit voted(user, weight, epoch, hash);
         _updateTop(epoch, hash);
+        return true;
     }
 
     function _updateTop(uint256 epoch, bytes32 hash) internal {

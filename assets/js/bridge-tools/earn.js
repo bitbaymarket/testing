@@ -12,8 +12,8 @@ const TREASURY_ADDRESSES = {
   VAULT: '0x7D4B26CBdf702FDC8e3404fabf77F14815e4bF7D',
   FLOW_BAYL: '0xB9773b8F280b7c5c1Bf85528264c07fFc58dbc81',
   FLOW_BAYR: '0xA8aea8Ea55c9C9626234AB097d1d29eDF78da2ce',
-  VOTE_BAYL: '0x6f07ea193D880ced8063B7bB415D1fa0a60Aa9B0',
-  VOTE_BAYR: '0xCf76586DB5264E8A982FB71e2bBd8575466e5191',
+  VOTE_BAYL: '0xfecf1944bfd26929d4e06DCbCd7D7eAfbE910355',
+  VOTE_BAYR: '0xa341d90aAfEe39B4b5abA7d7A96b652182489080',
   STABLE_POOL: '0xb576f395aB81311a566bAC479c8C71aa1fbDC687',
   STABLE_FEE_VAULT: '0x12E65Ab4c21706E41fD08f564b31E4027e0b34A7',
   AUTOBRIDGE: '0x1c682Bcb55B9be1296eed6e60dc0e4832b05B05A',
@@ -176,6 +176,13 @@ function logToConsole(message) {
   if (earnState.consoleLog.length > 100) {
     earnState.consoleLog = earnState.consoleLog.slice(0, 100);
   }
+
+  const consoleDiv = document.getElementById('stakingConsole');
+  if (consoleDiv) {
+    if (!consoleDiv.classList.contains('hidden')) {
+      showConsoleHistory(true);
+    }
+  }
   
   // Save to localStorage
   try {
@@ -310,11 +317,11 @@ async function showVotePayload(hash) {
   });
 }
 
-function showConsoleHistory() {
+function showConsoleHistory(showThis=false) {
   // Toggle console visibility instead of showing popup
   const consoleDiv = document.getElementById('stakingConsole');
   if (consoleDiv) {
-    if (consoleDiv.classList.contains('hidden')) {
+    if (consoleDiv.classList.contains('hidden') || showThis) {
       consoleDiv.classList.remove('hidden');
       const consoleContent = document.getElementById('stakingConsoleContent');
       if (consoleContent) {
@@ -630,6 +637,7 @@ async function loadETHBalances() {
 
     if (Object.keys(balances).length > 0) {
       localStorage.setItem(myaccounts+'earnTabBalances2', JSON.stringify(balances));
+      showBalanceNotification();
     }
     
     document.getElementById('ethBalances').classList.remove('hidden');
@@ -1077,7 +1085,7 @@ async function loadStableVaultInfo() {
       // Calculate estimated yearly rewards in dollars based on previous week's data
       let yearlyRewardsDollars = '0';
       if (totalWeeklyDollars.gt(0)) {
-        yearlyRewardsDollars = totalWeeklyDollars.times(52).toFixed(2);
+        yearlyRewardsDollars = totalWeeklyDollars.times(52).toFixed(4);
       }
       
       document.getElementById('stableWeeklyRewards').textContent = `$${yearlyRewardsDollars} ${dateRange}`;
@@ -1102,7 +1110,7 @@ async function loadUserStablePosition(stableContract, totalShares) {
     
     if (isGreaterThanZero(userShares)) {
       const BN = BigNumber;
-      const userDAI = new BN(userShares).dividedBy('1e18').toFixed(2);
+      const userDAI = new BN(userShares).dividedBy('1e18').toFixed(8);
       const percent = new BN(userShares).dividedBy(totalShares).times(100).toFixed(4);
       
       document.getElementById('userStableDAI').textContent = stripZeros(userDAI);
@@ -1163,7 +1171,7 @@ async function depositStableVault() {
     html: `
       <p><strong>${translateThis('Disclaimer')}:</strong></p>
       <ul style="text-align: left;">
-        <li>${translateThis('Stablecoin pairs are very low risk but you should always audit the source code. BitBay is a community-driven project and not responsible for bugs, errors, or omissions. The stablecoin position is managed by stakers within very tight ranges for security and to get the best yield. Impermanent loss is very unlikely due to these hard coded protections. DAI and USDC are bridged tokens so you should understand their risks. UniSwap V4 risks also apply so please do your due diligence')}</li>
+        <li>${translateThis('Stablecoin pairs are very low risk but you should always audit the source code. BitBay is a community-driven project and not responsible for bugs, errors, or omissions. The stablecoin position is managed by stakers within very tight ranges for security and to get the best yield. Impermanent loss is very unlikely due to these hard coded protections. DAI and USDC are bridged tokens so you should understand their risks. UniSwap V4 risks also apply so please do your due diligence.')}</li>
       </ul>
     `,
     icon: 'warning',
@@ -1722,7 +1730,7 @@ async function checkStakingConditions() {
     }
     
     // Get current block and interval info
-    const currentBlock = DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber());
+    const currentBlock = parseInt(DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber()));
     const claimRate = DOMPurify.sanitize(await baylTreasury.methods.claimRate().call());
     const votePeriod = DOMPurify.sanitize(await baylTreasury.methods.votePeriod().call());
     const currentInterval = Math.floor(currentBlock / parseInt(claimRate));
@@ -1817,7 +1825,7 @@ async function checkAndDripFlow() {
     const dripInterval = parseInt(DOMPurify.sanitize(await flowContract.methods.dripInterval().call()));
     const totalIntervals = parseInt(DOMPurify.sanitize(await flowContract.methods.totalIntervals().call()));
     const lastDripInterval = parseInt(DOMPurify.sanitize(await flowContract.methods.lastDripInterval().call()));
-    const currentBlock = await earnState.polWeb3.eth.getBlockNumber();
+    const currentBlock = parseInt(DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber()));
     
     let shouldDrip = false;
     
@@ -1884,8 +1892,8 @@ async function checkAndHarvestLido() {
         const lastCollection = parseInt(localStorage.getItem(myaccounts+'lidoLastCollection') || '0');
         const now = Math.floor(Date.now() / 1000);
         
-        if (now - lastCollection > minimumTime) {
-          const yieldETH = stripZeros(new BN2(availableYield).dividedBy('1e18').toFixed(4));
+        if (true) { //now - lastCollection > minimumTime) {
+          const yieldETH = stripZeros(new BN2(availableYield).dividedBy('1e18').toFixed(8));
           logToConsole(`Harvesting ${yieldETH} ETH from Lido vault...`);
           
           const tx = await sendTx(lidoContract, "harvestAndSwapToETH", [100, 0], estimatedGas, "0", false, true, false);
@@ -1956,11 +1964,11 @@ async function checkAndManageStableVault() {
       const totalUnclaimedUSD = feeDAI.plus(feeUSDC);
       
       // Only proceed if > .50 for the collective pool
-      if (totalUnclaimedUSD.gt(new BN('0.50'))) {
+      if (totalUnclaimedUSD.gt(new BN('0.001'))) {
         now = Math.floor(Date.now() / 1000);
         const deadline = now + 300;
         
-        logToConsole(`StableVault unclaimed fees: $${stripZeros(totalUnclaimedUSD.toFixed(2))}, collecting...`);        
+        logToConsole(`StableVault unclaimed fees: $${stripZeros(totalUnclaimedUSD.toFixed(8))}, collecting...`);        
         const tx = await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false, false);        
         logToConsole('StableVault pool fees collected successfully: ' + showResult(tx));
       }
@@ -2032,7 +2040,10 @@ async function loadStakingInfo() {
     document.getElementById('baylTotalStaked').textContent = displayBAYAmount(totalTokens, 4);
     document.getElementById('baylTotalShares').textContent = totalShares;
     document.getElementById('baylRefreshRate').textContent = Math.floor(refreshRate / 86400) + ' days';
-    document.getElementById('baylClaimRate').textContent = claimRate + ' blocks';
+    const currentBlock = parseInt(DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber()));
+
+    const blocksRemaining = Math.floor(currentBlock % claimRate);
+    document.getElementById('baylClaimRate').textContent = claimRate + ' blocks (' + blocksRemaining + "/" + claimRate + ")";
     
     // Load user staking info
     const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call())));
@@ -2065,7 +2076,6 @@ async function loadStakingInfo() {
         coinNames.join(', ') || 'None';
       
       // Only check pending rewards if user is participating in current interval
-      const currentBlock = DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber());
       const currentInterval = Math.floor(currentBlock / parseInt(claimRate));
       const userInterval = parseInt(userInfo.interval);
       
@@ -2097,7 +2107,11 @@ async function loadStakingInfo() {
         document.getElementById('userPendingRewards').innerHTML = rewardsHTML || translateThis('No pending rewards');
       } else {
         // User is not participating in current interval
-        document.getElementById('userPendingRewards').innerHTML = translateThis('Not participating in current interval');
+        if(userInterval == currentInterval + 1) {
+          document.getElementById('userPendingRewards').innerHTML = translateThis('Stake submitted, waiting for next interval');
+        } else {
+          document.getElementById('userPendingRewards').innerHTML = translateThis('Not participating in current interval');
+        }
       }
     } else {
       document.getElementById('userPendingRewards').innerHTML = translateThis('No pending rewards');
@@ -2152,7 +2166,7 @@ async function loadStakingInfo() {
     const polBalanceEther = new BN(polBalance).dividedBy('1e18');
     
     if (polBalanceEther.lt(new BN('30'))) {
-      document.getElementById('stakingPolBalance').textContent = stripZeros(polBalanceEther.toFixed(2));
+      document.getElementById('stakingPolBalance').textContent = stripZeros(polBalanceEther.toFixed(8));
       document.getElementById('stakingGasWarning').classList.remove('hidden');
     }
     
@@ -2168,10 +2182,10 @@ async function loadTopStakers() {
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
     const topStakers = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getTopStakers().call())));
     
-    let html = '<ol>';
+    let html = '<ol style="list-style-position: inside; padding-left: 0; margin-bottom: 0;">';
     for (const staker of topStakers) {
-      if (isGreaterThanZero(staker.shares)) {
-        html += `<li>${staker.user.substring(0, 10)}...: ${displayBAYAmount(staker.shares, 2)} BAYL</li>`;
+      if (isGreaterThanZero(staker[1])) {
+        html += `<li>${staker[0].substring(0, 10)}...:&nbsp&nbsp&nbsp&nbsp${displayBAYAmount(staker[1], 2)} BAYL</li>`;
       }
     }
     html += '</ol>';
@@ -2285,7 +2299,7 @@ async function unstakeBAYL() {
   // Check if user is currently in a staking interval
   const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call())));
   const claimRate = parseInt(DOMPurify.sanitize(await baylTreasury.methods.claimRate().call()));
-  const currentBlock = await earnState.polWeb3.eth.getBlockNumber();
+  const currentBlock = parseInt(DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber()));
   const currentInterval = Math.floor(currentBlock / claimRate);
   const userInterval = parseInt(userInfo.interval);
   
@@ -2907,7 +2921,7 @@ async function loadTokenBalances() {
     const daiBalanceEther = new BN(daiBalance).dividedBy('1e18');
     
     if (daiBalanceEther.gt(new BN('0'))) {
-      document.getElementById('daiBalanceAmount').textContent = stripZeros(daiBalanceEther.toFixed(2));
+      document.getElementById('daiBalanceAmount').textContent = stripZeros(daiBalanceEther.toFixed(8));
       document.getElementById('daiBalance').classList.remove('hidden');
       //balances.DAI = stripZeros(daiBalanceEther.toFixed(2));
     }
@@ -2928,9 +2942,9 @@ async function loadTokenBalances() {
     const usdcBalanceFormatted = new BN(usdcBalance).dividedBy('1e6');
     
     if (usdcBalanceFormatted.gt(new BN('0'))) {
-      document.getElementById('usdcBalanceAmount').textContent = stripZeros(usdcBalanceFormatted.toFixed(2));
+      document.getElementById('usdcBalanceAmount').textContent = stripZeros(usdcBalanceFormatted.toFixed(8));
       document.getElementById('usdcBalance').classList.remove('hidden');
-      balances.USDC = stripZeros(usdcBalanceFormatted.toFixed(2));
+      balances.USDC = stripZeros(usdcBalanceFormatted.toFixed(8));
     }
     
     // Load WETH balance
@@ -2949,9 +2963,9 @@ async function loadTokenBalances() {
     const wethBalanceFormatted = new BN(wethBalance).dividedBy('1e18');
     
     if (wethBalanceFormatted.gt(new BN('0'))) {
-      document.getElementById('wethBalanceAmount').textContent = stripZeros(wethBalanceFormatted.toFixed(4));
+      document.getElementById('wethBalanceAmount').textContent = stripZeros(wethBalanceFormatted.toFixed(8));
       document.getElementById('wethBalance').classList.remove('hidden');
-      balances.WETH = stripZeros(wethBalanceFormatted.toFixed(4));
+      balances.WETH = stripZeros(wethBalanceFormatted.toFixed(8));
     }
     
     // Load POL balance
@@ -2959,7 +2973,7 @@ async function loadTokenBalances() {
     const polBalanceFormatted = new BN(polBalance).dividedBy('1e18');
     
     if (polBalanceFormatted.gt(new BN('0'))) {
-      document.getElementById('polBalanceAmount').textContent = stripZeros(polBalanceFormatted.toFixed(2));
+      document.getElementById('polBalanceAmount').textContent = stripZeros(polBalanceFormatted.toFixed(8));
       document.getElementById('polBalance').classList.remove('hidden');
       //balances.POL = stripZeros(polBalanceFormatted.toFixed(2));
     }
@@ -2967,12 +2981,26 @@ async function loadTokenBalances() {
     // Store balances for potential notification in main page
     if (Object.keys(balances).length > 0) {
       localStorage.setItem(myaccounts+'earnTabBalances', JSON.stringify(balances));
+      showBalanceNotification();
       // Show withdraw button if any balances exist
       document.getElementById('withdrawCoinsSection').classList.remove('hidden');
     }
     
   } catch (error) {
     console.error('Error loading token balances:', error);
+  }
+}
+
+async function showBalanceNotification() {
+  var earnBalances = JSON.parse(localStorage.getItem(myaccounts+'earnTabBalances') || '{}');
+  const earnBalances2= JSON.parse(localStorage.getItem(myaccounts+'earnTabBalances2') || '{}');
+  Object.assign(earnBalances, earnBalances2);
+  if (Object.keys(earnBalances).length > 0) {
+    const balancesList = Object.keys(earnBalances).map(coin => `${coin} (${earnBalances[coin]})`).join(', ');
+    document.getElementById('earn_balances_list').textContent = balancesList;
+    const notification = document.getElementById('earn_balances_notification');
+    notification.classList.remove('hidden');
+    notification.style.display = 'block';
   }
 }
 
@@ -3037,7 +3065,7 @@ async function showWithdrawDialog() {
     const polBalance = DOMPurify.sanitize(await earnState.polWeb3.eth.getBalance(myaccounts));
     const polBalanceFormatted = new BN(polBalance).dividedBy('1e18');
     if (polBalanceFormatted.gt(new BN('0'))) {
-      balances.push({ coin: 'POL', balance: stripZeros(polBalanceFormatted.toFixed(4)), network: 'Polygon' });
+      balances.push({ coin: 'POL', balance: stripZeros(polBalanceFormatted.toFixed(8)), network: 'Polygon' });
     }
     
     // Check USDC balance
@@ -3048,7 +3076,7 @@ async function showWithdrawDialog() {
     const usdcBalance = DOMPurify.sanitize(await usdcContract.methods.balanceOf(myaccounts).call());
     const usdcBalanceFormatted = new BN(usdcBalance).dividedBy('1e6');
     if (usdcBalanceFormatted.gt(new BN('0'))) {
-      balances.push({ coin: 'USDC', balance: stripZeros(usdcBalanceFormatted.toFixed(2)), network: 'Polygon' });
+      balances.push({ coin: 'USDC', balance: stripZeros(usdcBalanceFormatted.toFixed(8)), network: 'Polygon' });
     }
     
     // Check DAI balance
@@ -3059,7 +3087,7 @@ async function showWithdrawDialog() {
     const daiBalance = DOMPurify.sanitize(await daiContract.methods.balanceOf(myaccounts).call());
     const daiBalanceFormatted = new BN(daiBalance).dividedBy('1e18');
     if (daiBalanceFormatted.gt(new BN('0'))) {
-      balances.push({ coin: 'DAI', balance: stripZeros(daiBalanceFormatted.toFixed(2)), network: 'Polygon' });
+      balances.push({ coin: 'DAI', balance: stripZeros(daiBalanceFormatted.toFixed(8)), network: 'Polygon' });
     }
     
     // Check WETH balance
@@ -3070,7 +3098,7 @@ async function showWithdrawDialog() {
     const wethBalance = DOMPurify.sanitize(await wethContract.methods.balanceOf(myaccounts).call());
     const wethBalanceFormatted = new BN(wethBalance).dividedBy('1e18');
     if (wethBalanceFormatted.gt(new BN('0'))) {
-      balances.push({ coin: 'WETH', balance: stripZeros(wethBalanceFormatted.toFixed(4)), network: 'Polygon' });
+      balances.push({ coin: 'WETH', balance: stripZeros(wethBalanceFormatted.toFixed(8)), network: 'Polygon' });
     }
     
     // Check Ethereum balances if available
@@ -3078,7 +3106,7 @@ async function showWithdrawDialog() {
       const ethBalance = DOMPurify.sanitize(await earnState.ethWeb3.eth.getBalance(myaccounts));
       const ethBalanceFormatted = new BN(ethBalance).dividedBy('1e18');
       if (ethBalanceFormatted.gt(new BN('0'))) {
-        balances.push({ coin: 'ETH', balance: stripZeros(ethBalanceFormatted.toFixed(4)), network: 'Ethereum' });
+        balances.push({ coin: 'ETH', balance: stripZeros(ethBalanceFormatted.toFixed(8)), network: 'Ethereum' });
       }
       
       // Check Lido stETH balance
@@ -3089,7 +3117,7 @@ async function showWithdrawDialog() {
       const stETHBalance = DOMPurify.sanitize(await stETHContract.methods.balanceOf(myaccounts).call());
       const stETHBalanceFormatted = new BN(stETHBalance).dividedBy('1e18');
       if (stETHBalanceFormatted.gt(new BN('0'))) {
-        balances.push({ coin: 'stETH (Lido)', balance: stripZeros(stETHBalanceFormatted.toFixed(4)), network: 'Ethereum' });
+        balances.push({ coin: 'stETH (Lido)', balance: stripZeros(stETHBalanceFormatted.toFixed(8)), network: 'Ethereum' });
       }
     }
     

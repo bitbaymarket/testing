@@ -87,7 +87,10 @@ contract LidoStaking {
         uint256 contractBalance = stETH.balanceOf(address(this));
         require(contractBalance >= totalPrincipal, "Pool is unbalanced, deposits temporarily disabled."); //Unlikely however let it correct first.
         require(daysLock >= mindays && daysLock <= maxdays, "Invalid lock period");
+        uint256 balanceBefore = stETH.balanceOf(address(this));
         stETH.transferFrom(msg.sender, address(this), amount);
+        uint256 balanceAfter = stETH.balanceOf(address(this)); //Staked ETH may round a small amount so verify the exact amount sent
+        amount = balanceAfter - balanceBefore;
         Savings storage user = deposits[msg.sender];
         if (user.amount > 0) {
             if(unlockAmountByEpoch[timestampToEpoch(user.unlockTimestamp)] >= user.amount) {
@@ -112,7 +115,7 @@ contract LidoStaking {
         require(daysLock >= mindays && daysLock <= maxdays, "Invalid lock period");
         address curvePool = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022; // stETH/ETH Curve pool
         uint256 stETHBefore = stETH.balanceOf(address(this));
-        require(stETHBefore >= totalPrincipal, "Pool unbalanced");
+        require(stETHBefore >= totalPrincipal, "Pool is unbalanced, deposits temporarily disabled.");
         require(slippage <= 1000, "Slippage exceeds 10%");
         uint256 minAllowed = (msg.value * (10000 - slippage)) / 10000;
         // Swap ETH → stETH (ETH index = 0, stETH index = 1)
