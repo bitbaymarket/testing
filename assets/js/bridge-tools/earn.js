@@ -366,80 +366,39 @@ async function showVotePayload(hash) {
   });
 }
 
-function SafeDiv(rawHtml, containerStyle = "", measurementWidth = 500) {
+function SafeDiv(rawHtml, containerStyle = "", height = "150px") {
 
-    // ---------------------------
-    // 1. SANITIZE HTML STRUCTURE
-    // ---------------------------
+    // 1. SANITIZE
     function sanitizeHtml(html) {
         const temp = document.createElement("div");
         temp.innerHTML = html;
-
-        const walker = document.createTreeWalker(
-            temp,
-            NodeFilter.SHOW_ELEMENT,
-            null,
-            false
-        );
-
+        const walker = document.createTreeWalker(temp, NodeFilter.SHOW_ELEMENT, null, false);
         while (walker.nextNode()) {
             const el = walker.currentNode;
-
-            // Remove layout-breaking attributes
-            // IMPORTANT: 'style' is NOT removed here so inline styles persist
             el.removeAttribute("width");
             el.removeAttribute("height");
             el.removeAttribute("position");
-            // el.removeAttribute("overflow"); 
-
-            // Remove scripts
-            if (el.tagName === "SCRIPT") {
-                el.remove();
-                continue;
-            }
-
-            // Remove inline event handlers
+            if (el.tagName === "SCRIPT") { el.remove(); continue; }
             [...el.attributes].forEach(attr => {
-                if (attr.name.startsWith("on")) {
-                    el.removeAttribute(attr.name);
-                }
+                if (attr.name.startsWith("on")) el.removeAttribute(attr.name);
             });
         }
-
         return temp.innerHTML;
     }
-
     const cleanedHtml = sanitizeHtml(rawHtml);
 
-    // ---------------------------
-    // 2. DETECT MAJORITY STYLES
-    // ---------------------------
+    // 2. DETECT STYLES
     function getMajorityStyles() {
         const elements = document.body.querySelectorAll("*");
-
-        const colorCount = {};
-        const fontSizeCount = {};
-        const fontFamilyCount = {};
-        const bgCount = {};
-
+        const colorCount = {}, fontSizeCount = {}, fontFamilyCount = {}, bgCount = {};
         elements.forEach(el => {
             const s = getComputedStyle(el);
-
             colorCount[s.color] = (colorCount[s.color] || 0) + 1;
             fontSizeCount[s.fontSize] = (fontSizeCount[s.fontSize] || 0) + 1;
             fontFamilyCount[s.fontFamily] = (fontFamilyCount[s.fontFamily] || 0) + 1;
-
-            if (s.backgroundColor !== "rgba(0, 0, 0, 0)") {
-                bgCount[s.backgroundColor] =
-                    (bgCount[s.backgroundColor] || 0) + 1;
-            }
+            if (s.backgroundColor !== "rgba(0, 0, 0, 0)") bgCount[s.backgroundColor] = (bgCount[s.backgroundColor] || 0) + 1;
         });
-
-        function majority(obj) {
-            return Object.entries(obj)
-                .sort((a, b) => b[1] - a[1])[0]?.[0];
-        }
-
+        const majority = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1])[0]?.[0];
         return {
             color: majority(colorCount) || "#000",
             fontSize: majority(fontSizeCount) || "16px",
@@ -447,98 +406,68 @@ function SafeDiv(rawHtml, containerStyle = "", measurementWidth = 500) {
             background: majority(bgCount) || "transparent"
         };
     }
-
     const majority = getMajorityStyles();
 
-    // ---------------------------
-    // 3. MEASURE INTRINSIC HEIGHT
-    // ---------------------------
-    function measureHeight(html, width) {
-        const temp = document.createElement("div");
-
-        temp.style.position = "absolute";
-        temp.style.visibility = "hidden";
-        temp.style.pointerEvents = "none";
-        
-        // Simulating the width constraint to get correct wrapped height
-        temp.style.width = width + "px"; 
-        
-        temp.style.height = "auto";
-        temp.style.overflow = "visible";
-        temp.style.boxSizing = "border-box";
-
-        temp.style.fontSize = majority.fontSize;
-        temp.style.fontFamily = majority.fontFamily;
-        temp.style.color = majority.color;
-
-        temp.innerHTML = html;
-
-        document.body.appendChild(temp);
-        const height = temp.scrollHeight;
-        document.body.removeChild(temp);
-
-        return height;
-    }
-
-    const measuredHeight = measureHeight(cleanedHtml, measurementWidth);
-
-    // ---------------------------
-    // 4. BUILD SANDBOXED IFRAME
-    // ---------------------------
+    // 3. CREATE IFRAME
     const iframe = document.createElement("iframe");
-
-    iframe.setAttribute("sandbox", "");
+    iframe.setAttribute("sandbox", ""); 
     iframe.style.border = "none";
     iframe.style.display = "block";
-    
-    // Width 100% to fit the container fluidly
     iframe.style.width = "100%"; 
+    iframe.style.height = height;
     
-    iframe.style.height = measuredHeight + "px";
-    
-    // Allow scrolling inside if content exceeds calculated height
-    iframe.style.overflow = "auto"; 
+    // DECISION LOGIC:
+    // Is this a small "pill" (Address/Balance) or a big "block" (Vote List)?
+    const isSmallField = (height !== 'auto' && parseInt(height) < 60);
 
+    // If it's a big block, we allow scrolling. 
+    // If it's a small pill, we hide it to look clean.
+    iframe.style.overflow = isSmallField ? "hidden" : "auto";
+
+    // 4. CSS INJECTION (The Brains)
+    // We toggle between 'flex' (centering) and 'block' (scrolling) based on size.
     iframe.srcdoc = `
         <!DOCTYPE html>
         <html>
         <head>
-            <meta http-equiv="Content-Security-Policy"
-                  content="default-src 'none'; style-src 'unsafe-inline'; font-src data:;">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src data:;">
             <style>
                 html, body {
-                    margin:0;
-                    padding:0;
-                    overflow: auto;
-                    height: auto;
-                    width: 100%;
+                    margin:0; padding:0;
+                    width: 100%; height: 100%;
+                    box-sizing: border-box;
+                    
+                    /* INHERITED THEME */
                     background:${majority.background};
                     color:${majority.color};
                     font-size:${majority.fontSize};
                     font-family:${majority.fontFamily};
-                    box-sizing:border-box;
+
+                    /* LAYOUT SWITCHING */
+                    /* Small Fields: Use Flexbox to center text vertically */
+                    /* Large Fields: Use Block to allow natural scrolling */
+                    display: ${isSmallField ? 'flex' : 'block'};
+                    align-items: ${isSmallField ? 'center' : 'unset'};
+                    
+                    /* SCROLLBAR LOGIC */
+                    /* This FORCES the scrollbar if content is too long */
+                    overflow: ${isSmallField ? 'hidden' : 'auto'};
                 }
                 * { box-sizing:border-box; }
             </style>
         </head>
         <body>
-            ${cleanedHtml}
+            <div style="width:100%;">${cleanedHtml}</div>
         </body>
         </html>
     `;
 
-    // ---------------------------
     // 5. OUTER CONTAINER
-    // ---------------------------
     const container = document.createElement("div");
     container.style.cssText = containerStyle;
-    
-    // Width 100% to fit the parent fluidly
     container.style.width = "100%"; 
-    
-    container.style.height = measuredHeight + "px";
-    container.style.overflow = "hidden";
-
+    container.style.height = height; 
+    container.style.overflow = "hidden"; 
     container.appendChild(iframe);
 
     return container;
