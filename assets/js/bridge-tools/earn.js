@@ -263,8 +263,8 @@ async function showVotePayload(hash) {
             decodedArgs = earnState.polWeb3.eth.abi.decodeParameters(typesArray, argsBlob);
             decodedArgs = JSON.parse(DOMPurify.sanitize(JSON.stringify(decodedArgs)));
           } catch (e) {
-            console.error('Error decoding arguments:', e);
-            decodeError = e.message;
+            console.error('Error decoding arguments: ' + (e.name || 'Unknown error'));
+            decodeError = 'Unable to decode arguments';  // Generic message, don't expose e.message
             decodedArgs = [];
           }
         }
@@ -329,9 +329,9 @@ async function showVotePayload(hash) {
       mainContainer.appendChild(actionsContainer);
 
     } catch (error) {
-      // Log full details to console for debugging, but never expose to DOM
-      console.error('Error decoding payload:', error);
-      console.error('Raw payload:', payload);
+      // Log only safe error type information, never raw error objects or payload data
+      // Console logging can also be exploited (console XSS, format string injection, log injection)
+      console.error('Error decoding payload: ' + (error.name || 'Unknown error'));
       
       // Display generic error message without exposing any details
       const errDiv = document.createElement('div');
@@ -339,7 +339,7 @@ async function showVotePayload(hash) {
       errDiv.style.padding = '10px';
       errDiv.style.borderRadius = '5px';
       errDiv.style.color = '#856404';
-      errDiv.textContent = 'Error: Unable to decode payload. Please check the console for details.';
+      errDiv.textContent = 'Error: Unable to decode payload. This may indicate invalid or malicious data.';
       
       mainContainer.appendChild(errDiv);
     }
@@ -351,7 +351,7 @@ async function showVotePayload(hash) {
       confirmButtonText: 'Close'
     });
   }).catch(async(error) => {
-    console.error(error);
+    console.error('Failed to load vote details: ' + (error.name || 'Unknown error'));
     await Swal.fire('Error', translateThis('Failed to load vote details'), 'error');
   });
 }
