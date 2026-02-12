@@ -11,14 +11,14 @@ const Validators = {
     // Use for: token addresses, user accounts, contract addresses
     safeAddress: (input) => {
         if (!input) return null;
-        return /^0x[a-fA-F0-9]{40}$/i.test(input) ? input : null;
+        return /^0x[a-fA-F0-9]{40}$/.test(input) ? input : null;
     },
 
     // Validates generic hex string (0x + any hex). Returns null if invalid.
     // Use for: transaction hashes, vote hashes, payloads
     safeHex: (input) => {
         if (!input) return null;
-        return /^0x[a-fA-F0-9]*$/i.test(input) ? input : null;
+        return /^0x[a-fA-F0-9]*$/.test(input) ? input : null;
     },
 
     // Validates boolean. Returns false if not explicitly true.
