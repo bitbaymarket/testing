@@ -263,8 +263,8 @@ async function showVotePayload(hash) {
             decodedArgs = earnState.polWeb3.eth.abi.decodeParameters(typesArray, argsBlob);
             decodedArgs = JSON.parse(DOMPurify.sanitize(JSON.stringify(decodedArgs)));
           } catch (e) {
-            console.error('Error decoding arguments:', e);
-            decodeError = e.message;
+            console.error('Error decoding arguments: ' + (e.name || 'Unknown error'));
+            decodeError = 'Unable to decode arguments';  // Generic message, don't expose e.message
             decodedArgs = [];
           }
         }
@@ -320,22 +320,8 @@ async function showVotePayload(hash) {
             // width: 100% (CSS) to fit wrapper, but calc height based on ~440px
             const safeDiv = SafeDiv(html, "", 440);
             actionWrapper.appendChild(safeDiv);
-
-            // D. Create Button OUTSIDE the iframe
-            const deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'Delete Action'; // Adjust label as needed
-            deleteBtn.style.marginTop = '10px';
-            deleteBtn.className = 'swal2-confirm swal2-styled'; // Example SweetAlert styling or custom
-            deleteBtn.style.backgroundColor = '#d33'; // Red for delete
-            deleteBtn.onclick = () => {
-                // Call your external function here
-                console.log('Delete action clicked for index:', idx);
-                // removeAction(idx); 
-            };
             
-            actionWrapper.appendChild(deleteBtn);
-            
-            // E. Add to list
+            // D. Add to list
             actionsContainer.appendChild(actionWrapper);
         });
       }
@@ -343,14 +329,18 @@ async function showVotePayload(hash) {
       mainContainer.appendChild(actionsContainer);
 
     } catch (error) {
-      console.error('Error decoding payload:', error);
+      // Log only safe error type information, never raw error objects or payload data
+      // Console logging can also be exploited (console XSS, format string injection, log injection)
+      console.error('Error decoding payload: ' + (error.name || 'Unknown error'));
+      
+      // Display generic error message without exposing any details
       const errDiv = document.createElement('div');
       errDiv.style.background = '#fff3cd';
       errDiv.style.padding = '10px';
       errDiv.style.borderRadius = '5px';
       errDiv.style.color = '#856404';
-      errDiv.innerHTML = `<strong>Decoding Error:</strong> ${DOMPurify.sanitize(error.message)}<br><br>
-                          <strong>Raw Payload:</strong><pre>${DOMPurify.sanitize(JSON.stringify(payload, null, 2))}</pre>`;
+      errDiv.textContent = 'Error: Unable to decode payload. This may indicate invalid or malicious data.';
+      
       mainContainer.appendChild(errDiv);
     }
     
@@ -361,7 +351,7 @@ async function showVotePayload(hash) {
       confirmButtonText: 'Close'
     });
   }).catch(async(error) => {
-    console.error(error);
+    console.error('Failed to load vote details: ' + (error.name || 'Unknown error'));
     await Swal.fire('Error', translateThis('Failed to load vote details'), 'error');
   });
 }
