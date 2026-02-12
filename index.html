@@ -751,7 +751,7 @@
                         <div><strong>In Range:</strong> <span id="stableInRange">Checking...</span></div>
                         <div><strong>Fee Tier:</strong> 0.005%</div>
                         <div><strong>Commission:</strong> <span id="stableCommission">Loading...</span>%</div>
-                        <div><strong>Yearly ROI Rewards:</strong> <span id="stableWeeklyRewards">Loading...</span></div>
+                        <div><strong>Weekly ROI Rewards:</strong> <span id="stableWeeklyRewards">Loading...</span></div>
                         <div><strong>Sends To:</strong> <span id="stableSendsTo">Loading...</span></div>
                       </div>
 
@@ -968,7 +968,7 @@
                         <div class="swapField" style="display: flex; gap: 10px;">
                           <button class="swapSelector btn" style="flex: 1;" onclick="depositStake()">Stake BAYL</button>
                           <button class="swapSelector btn" style="flex: 1;" onclick="unstakeBAYL()">Unstake</button>
-                          <button class="swapSelector btn" style="flex: 1;" onclick="claimStakingRewards(true)">Collect Fees</button>
+                          <!-- <button class="swapSelector btn" style="flex: 1;" onclick="claimStakingRewards(true)">Collect Fees</button> -->
                         </div>
                       </div>
 
@@ -2732,8 +2732,10 @@ async function login2() {
         });
         lastitem = 10000000;
         isConnected = true;
-        await checkbalances();        
-        makeFairRatio();
+        await checkbalances();
+        if(!netSwitch) {
+          makeFairRatio();
+        }
         
         // Initialize Earn tab data if function exists
         if (typeof onEarnUserLogin === 'function') {
@@ -3286,7 +3288,7 @@ var firstLoad = true;
 
 async function checkbalances() {
   try {
-    if (!isConnected) {
+    if (!isConnected || netSwitch) {
         return;
     }
     lastchecked = 0;

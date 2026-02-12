@@ -218,28 +218,44 @@ async function showVotePayload(hash) {
   const voteContract = new earnState.polWeb3.eth.Contract(stakingABI, TREASURY_ADDRESSES.VOTE_BAYL);
   
   voteContract.methods.getProposalPayload(hash).call().then(async (payload) => {
-    let html = `<div style="text-align: left; font-family: monospace; font-size: 0.85em;">`;
-    html += `<p><strong>Hash:</strong> ${DOMPurify.sanitize(hash)}</p>`;
-    html += `<p><strong>Decoded Actions:</strong></p>`;
+    // 1. Main Container
+    const mainContainer = document.createElement('div');
+    mainContainer.style.textAlign = 'left';
+    mainContainer.style.fontFamily = 'monospace';
+    mainContainer.style.fontSize = '0.85em';
+
+    // 2. Header
+    const headerHtml = `
+      <p><strong>Hash:</strong> ${DOMPurify.sanitize(hash)}</p>
+      <p><strong>Decoded Actions:</strong></p>
+    `;
+    const headerDiv = document.createElement('div');
+    headerDiv.innerHTML = headerHtml;
+    mainContainer.appendChild(headerDiv);
     
     try {
-      // Decode payload in chunks of 3 (Signature, Target, ArgsBlob)
       payload = JSON.parse(DOMPurify.sanitize(JSON.stringify(payload)));
+      
+      // 3. Actions Scrollable List
+      const actionsContainer = document.createElement('div');
+      actionsContainer.style.background = '#f5f5f5';
+      actionsContainer.style.padding = '10px';
+      actionsContainer.style.borderRadius = '5px';
+      actionsContainer.style.maxHeight = '400px';
+      actionsContainer.style.overflowY = 'auto';
+      actionsContainer.style.boxSizing = 'border-box';
+      
       const actions = [];
       for (let i = 0; i < payload.length; i += 3) {
         if (i + 2 >= payload.length) break;
         
-        // 1. Decode the wrapper fields
         const sig = earnState.polWeb3.eth.abi.decodeParameter('string', payload[i]);
         const target = earnState.polWeb3.eth.abi.decodeParameter('address', payload[i + 1]);
         const argsBlob = earnState.polWeb3.eth.abi.decodeParameter('bytes', payload[i + 2]);
         
-        // 2. Extract types from the signature string
-        // Transforms "transferFrom(address,address,uint256)" -> ["address", "address", "uint256"]
         const typesString = sig.substring(sig.indexOf('(') + 1, sig.lastIndexOf(')'));
         const typesArray = typesString === "" ? [] : typesString.split(',').map(t => t.trim()).filter(t => t);
         
-        // 3. Decode arguments blob
         let decodedArgs = [];
         let decodeError = null;
         if (typesArray.length > 0 && argsBlob !== '0x') {
@@ -261,60 +277,271 @@ async function showVotePayload(hash) {
         });
       }
       
-      // Display actions in a readable format
-      html += `<div style="background: #f5f5f5; padding: 10px; border-radius: 5px; max-height: 400px; overflow-y: auto;">`;
-      actions.forEach((action, idx) => {
-        html += `<div style="margin-bottom: 15px; padding: 8px; background: white; border-radius: 3px;">`;
-        html += `<div style="font-weight: bold; color: #2196F3;">Action ${idx + 1}</div>`;
-        html += `<div style="margin-top: 5px;"><strong>Target:</strong> ${DOMPurify.sanitize(action.target)}</div>`;
-        html += `<div><strong>Function:</strong> ${DOMPurify.sanitize(action.function)}</div>`;
-        
-        // Extract types again for display
-        const typesString = action.function.substring(action.function.indexOf('(') + 1, action.function.lastIndexOf(')'));
-        const typesArray = typesString === "" ? [] : typesString.split(',').map(t => t.trim()).filter(t => t);
-        
-        if (action.decodeError) {
-          html += `<div style="margin-top: 5px; background: #fff3cd; padding: 5px; border-radius: 3px;">`;
-          html += `<strong style="color: #856404;">⚠ Decode Error:</strong> ${DOMPurify.sanitize(action.decodeError)}`;
-          html += `</div>`;
-        } else if (typesArray.length > 0) {
-          html += `<div style="margin-top: 5px;"><strong>Arguments:</strong></div>`;
-          html += `<ul style="margin: 5px 0; padding-left: 20px;">`;
-          typesArray.forEach((type, argIdx) => {
-            const value = action.arguments[argIdx] !== undefined ? action.arguments[argIdx] : '';
-            html += `<li><span style="color: #777;">${DOMPurify.sanitize(type)}:</span> ${DOMPurify.sanitize(String(value))}</li>`;
-          });
-          html += `</ul>`;
-        } else {
-          html += `<div style="margin-top: 5px; color: #999;">No arguments</div>`;
-        }
-        
-        html += `</div>`;
-      });
-      html += `</div>`;
-      
       if (actions.length === 0) {
-        html += `<div style="background: #f5f5f5; padding: 10px; border-radius: 5px;">No actions found in payload</div>`;
+        actionsContainer.innerHTML = '<div style="padding:10px;">No actions found in payload</div>';
+      } else {
+        // 4. Create Wrapper + SafeDiv + Button for each action
+        actions.forEach((action, idx) => {
+            // A. Create Wrapper for this specific action entry
+            const actionWrapper = document.createElement('div');
+            actionWrapper.style.marginBottom = '15px';
+            actionWrapper.style.padding = '8px';
+            actionWrapper.style.background = 'white';
+            actionWrapper.style.borderRadius = '3px';
+            actionWrapper.style.border = '1px solid #ddd';
+
+            // B. Build HTML Content
+            let html = `<div>`;
+            html += `<div style="font-weight: bold; color: #2196F3;">Action ${idx + 1}</div>`;
+            html += `<div style="margin-top: 5px;"><strong>Target:</strong> ${DOMPurify.sanitize(action.target)}</div>`;
+            html += `<div><strong>Function:</strong> ${DOMPurify.sanitize(action.function)}</div>`;
+            
+            const typesString = action.function.substring(action.function.indexOf('(') + 1, action.function.lastIndexOf(')'));
+            const typesArray = typesString === "" ? [] : typesString.split(',').map(t => t.trim()).filter(t => t);
+            
+            if (action.decodeError) {
+              html += `<div style="margin-top: 5px; background: #fff3cd; padding: 5px; border-radius: 3px;">`;
+              html += `<strong style="color: #856404;">⚠ Decode Error:</strong> ${DOMPurify.sanitize(action.decodeError)}`;
+              html += `</div>`;
+            } else if (typesArray.length > 0) {
+              html += `<div style="margin-top: 5px;"><strong>Arguments:</strong></div>`;
+              html += `<ul style="margin: 5px 0; padding-left: 20px;">`;
+              typesArray.forEach((type, argIdx) => {
+                const value = action.arguments[argIdx] !== undefined ? action.arguments[argIdx] : '';
+                html += `<li><span style="color: #777;">${DOMPurify.sanitize(type)}:</span> ${DOMPurify.sanitize(String(value))}</li>`;
+              });
+              html += `</ul>`;
+            } else {
+              html += `<div style="margin-top: 5px; color: #999;">No arguments</div>`;
+            }
+            html += `</div>`;
+
+            // C. Create SafeDiv (Iframe Content)
+            // width: 100% (CSS) to fit wrapper, but calc height based on ~440px
+            const safeDiv = SafeDiv(html, "", 440);
+            actionWrapper.appendChild(safeDiv);
+
+            // D. Create Button OUTSIDE the iframe
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete Action'; // Adjust label as needed
+            deleteBtn.style.marginTop = '10px';
+            deleteBtn.className = 'swal2-confirm swal2-styled'; // Example SweetAlert styling or custom
+            deleteBtn.style.backgroundColor = '#d33'; // Red for delete
+            deleteBtn.onclick = () => {
+                // Call your external function here
+                console.log('Delete action clicked for index:', idx);
+                // removeAction(idx); 
+            };
+            
+            actionWrapper.appendChild(deleteBtn);
+            
+            // E. Add to list
+            actionsContainer.appendChild(actionWrapper);
+        });
       }
+      
+      mainContainer.appendChild(actionsContainer);
+
     } catch (error) {
       console.error('Error decoding payload:', error);
-      html += `<div style="background: #fff3cd; padding: 10px; border-radius: 5px; color: #856404;">`;
-      html += `<strong>Decoding Error:</strong> ${DOMPurify.sanitize(error.message)}<br><br>`;
-      html += `<strong>Raw Payload:</strong><pre>${DOMPurify.sanitize(JSON.stringify(payload, null, 2))}</pre>`;
-      html += `</div>`;
+      const errDiv = document.createElement('div');
+      errDiv.style.background = '#fff3cd';
+      errDiv.style.padding = '10px';
+      errDiv.style.borderRadius = '5px';
+      errDiv.style.color = '#856404';
+      errDiv.innerHTML = `<strong>Decoding Error:</strong> ${DOMPurify.sanitize(error.message)}<br><br>
+                          <strong>Raw Payload:</strong><pre>${DOMPurify.sanitize(JSON.stringify(payload, null, 2))}</pre>`;
+      mainContainer.appendChild(errDiv);
     }
-    
-    html += `</div>`;
     
     await Swal.fire({
       title: 'Vote Details',
-      html: html,
+      html: mainContainer,
       width: '500px',
       confirmButtonText: 'Close'
     });
   }).catch(async(error) => {
+    console.error(error);
     await Swal.fire('Error', translateThis('Failed to load vote details'), 'error');
   });
+}
+
+function SafeDiv(rawHtml, containerStyle = "", measurementWidth = 500) {
+
+    // ---------------------------
+    // 1. SANITIZE HTML STRUCTURE
+    // ---------------------------
+    function sanitizeHtml(html) {
+        const temp = document.createElement("div");
+        temp.innerHTML = html;
+
+        const walker = document.createTreeWalker(
+            temp,
+            NodeFilter.SHOW_ELEMENT,
+            null,
+            false
+        );
+
+        while (walker.nextNode()) {
+            const el = walker.currentNode;
+
+            // Remove layout-breaking attributes
+            // IMPORTANT: 'style' is NOT removed here so inline styles persist
+            el.removeAttribute("width");
+            el.removeAttribute("height");
+            el.removeAttribute("position");
+            // el.removeAttribute("overflow"); 
+
+            // Remove scripts
+            if (el.tagName === "SCRIPT") {
+                el.remove();
+                continue;
+            }
+
+            // Remove inline event handlers
+            [...el.attributes].forEach(attr => {
+                if (attr.name.startsWith("on")) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+        }
+
+        return temp.innerHTML;
+    }
+
+    const cleanedHtml = sanitizeHtml(rawHtml);
+
+    // ---------------------------
+    // 2. DETECT MAJORITY STYLES
+    // ---------------------------
+    function getMajorityStyles() {
+        const elements = document.body.querySelectorAll("*");
+
+        const colorCount = {};
+        const fontSizeCount = {};
+        const fontFamilyCount = {};
+        const bgCount = {};
+
+        elements.forEach(el => {
+            const s = getComputedStyle(el);
+
+            colorCount[s.color] = (colorCount[s.color] || 0) + 1;
+            fontSizeCount[s.fontSize] = (fontSizeCount[s.fontSize] || 0) + 1;
+            fontFamilyCount[s.fontFamily] = (fontFamilyCount[s.fontFamily] || 0) + 1;
+
+            if (s.backgroundColor !== "rgba(0, 0, 0, 0)") {
+                bgCount[s.backgroundColor] =
+                    (bgCount[s.backgroundColor] || 0) + 1;
+            }
+        });
+
+        function majority(obj) {
+            return Object.entries(obj)
+                .sort((a, b) => b[1] - a[1])[0]?.[0];
+        }
+
+        return {
+            color: majority(colorCount) || "#000",
+            fontSize: majority(fontSizeCount) || "16px",
+            fontFamily: majority(fontFamilyCount) || "sans-serif",
+            background: majority(bgCount) || "transparent"
+        };
+    }
+
+    const majority = getMajorityStyles();
+
+    // ---------------------------
+    // 3. MEASURE INTRINSIC HEIGHT
+    // ---------------------------
+    function measureHeight(html, width) {
+        const temp = document.createElement("div");
+
+        temp.style.position = "absolute";
+        temp.style.visibility = "hidden";
+        temp.style.pointerEvents = "none";
+        
+        // Simulating the width constraint to get correct wrapped height
+        temp.style.width = width + "px"; 
+        
+        temp.style.height = "auto";
+        temp.style.overflow = "visible";
+        temp.style.boxSizing = "border-box";
+
+        temp.style.fontSize = majority.fontSize;
+        temp.style.fontFamily = majority.fontFamily;
+        temp.style.color = majority.color;
+
+        temp.innerHTML = html;
+
+        document.body.appendChild(temp);
+        const height = temp.scrollHeight;
+        document.body.removeChild(temp);
+
+        return height;
+    }
+
+    const measuredHeight = measureHeight(cleanedHtml, measurementWidth);
+
+    // ---------------------------
+    // 4. BUILD SANDBOXED IFRAME
+    // ---------------------------
+    const iframe = document.createElement("iframe");
+
+    iframe.setAttribute("sandbox", "");
+    iframe.style.border = "none";
+    iframe.style.display = "block";
+    
+    // Width 100% to fit the container fluidly
+    iframe.style.width = "100%"; 
+    
+    iframe.style.height = measuredHeight + "px";
+    
+    // Allow scrolling inside if content exceeds calculated height
+    iframe.style.overflow = "auto"; 
+
+    iframe.srcdoc = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta http-equiv="Content-Security-Policy"
+                  content="default-src 'none'; style-src 'unsafe-inline'; font-src data:;">
+            <style>
+                html, body {
+                    margin:0;
+                    padding:0;
+                    overflow: auto;
+                    height: auto;
+                    width: 100%;
+                    background:${majority.background};
+                    color:${majority.color};
+                    font-size:${majority.fontSize};
+                    font-family:${majority.fontFamily};
+                    box-sizing:border-box;
+                }
+                * { box-sizing:border-box; }
+            </style>
+        </head>
+        <body>
+            ${cleanedHtml}
+        </body>
+        </html>
+    `;
+
+    // ---------------------------
+    // 5. OUTER CONTAINER
+    // ---------------------------
+    const container = document.createElement("div");
+    container.style.cssText = containerStyle;
+    
+    // Width 100% to fit the parent fluidly
+    container.style.width = "100%"; 
+    
+    container.style.height = measuredHeight + "px";
+    container.style.overflow = "hidden";
+
+    container.appendChild(iframe);
+
+    return container;
 }
 
 function showConsoleHistory(showThis=false) {
@@ -1083,12 +1310,12 @@ async function loadStableVaultInfo() {
       const totalWeeklyDollars = daiDollars.plus(usdcDollars);
       
       // Calculate estimated yearly rewards in dollars based on previous week's data
-      let yearlyRewardsDollars = '0';
-      if (totalWeeklyDollars.gt(0)) {
-        yearlyRewardsDollars = totalWeeklyDollars.times(52).toFixed(4);
-      }
+      //let yearlyRewardsDollars = '0';
+      //if (totalWeeklyDollars.gt(0)) {
+      //  yearlyRewardsDollars = totalWeeklyDollars.times(52).toFixed(4);
+      //}
       
-      document.getElementById('stableWeeklyRewards').textContent = `$${yearlyRewardsDollars} ${dateRange}`;
+      document.getElementById('stableWeeklyRewards').textContent = `$${totalWeeklyDollars.toFixed(4)} ${dateRange}`;
     } catch (weeklyError) {
       console.error('Error fetching weekly rewards:', weeklyError);
       document.getElementById('stableWeeklyRewards').textContent = 'N/A';
@@ -2438,11 +2665,11 @@ async function claimStakingRewards(showSwal = false) {
         const BN = BigNumber;
         let amount;
         if (coinName === 'USDC') {
-          amount = new BN(pending).dividedBy('1e6').toNumber();
+          amount = new BN(pending).dividedBy('1e6');
         } else {
-          amount = new BN(pending).dividedBy('1e18').toNumber();
+          amount = new BN(pending).dividedBy('1e18');
         }
-        earnState.userTotalRewards[coinName] = (earnState.userTotalRewards[coinName] || 0) + amount;
+        earnState.userTotalRewards[coinName] = new BN(earnState.userTotalRewards[coinName] || 0).plus(amount).toString();
       }
     }
     var tx;
@@ -2765,51 +2992,73 @@ async function createVoteFromDialog() {
 
 async function showVoteDetailsDialog() {
   const savedVotes = JSON.parse(localStorage.getItem(myaccounts+'earnUserVotes') || '[]');
-  
-  let html = '<div style="text-align: left; max-height: 50vh; overflow-y: auto; padding-right: 5px;">';
-  
+
+  const masterContainer = document.createElement('div');
+  masterContainer.style.cssText = 'text-align:left;max-height:50vh;overflow-y:auto;padding-right:5px;';
+
   if (savedVotes.length === 0) {
-    html += '<p>' + translateThis('You have not created any votes yet.') + '</p>';
+    const p = document.createElement('p');
+    p.textContent = translateThis('You have not created any votes yet.');
+    masterContainer.appendChild(p);
   } else {
-    html += '<p><strong>Your Created Votes:</strong></p>';
+    const heading = document.createElement('p');
+    heading.innerHTML = '<strong>Your Created Votes:</strong>';
+    masterContainer.appendChild(heading);
+
     savedVotes.forEach((vote, index) => {
-      html += `<div style="margin-bottom: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">`;
-      
       const maxCasts = vote.repeat || 1;
-      html += `<p><strong>Vote ${index + 1}</strong> (Cast ${vote.timesCast}/${maxCasts} time(s))</p>`;
-      html += '<ul>';
+
+      // Build the displayable content for this vote as HTML
+      let voteHtml = `<p><strong>Vote ${index + 1}</strong> (Cast ${vote.timesCast}/${maxCasts} time(s))</p>`;
+      voteHtml += '<ul>';
       vote.actions.forEach((action, actionIndex) => {
-        html += `<li style="margin-bottom: 10px;">`;
-        html += `<strong>Action ${actionIndex + 1}:</strong><br>`;
-        html += `<strong>Target:</strong> ${DOMPurify.sanitize(action.target)}<br>`;
-        html += `<strong>Function:</strong> ${DOMPurify.sanitize(action.functionName)}(`;
-        html += action.arguments.map(arg => DOMPurify.sanitize(arg.type)).join(', ');
-        html += `)<br>`;
+        voteHtml += `<li style="margin-bottom:10px;">`;
+        voteHtml += `<strong>Action ${actionIndex + 1}:</strong><br>`;
+        voteHtml += `<strong>Target:</strong> ${DOMPurify.sanitize(action.target)}<br>`;
+        voteHtml += `<strong>Function:</strong> ${DOMPurify.sanitize(action.functionName)}(`;
+        voteHtml += action.arguments.map(arg => DOMPurify.sanitize(arg.type)).join(', ');
+        voteHtml += `)<br>`;
         if (action.arguments.length > 0) {
-          html += `<strong>Arguments:</strong><ul style="margin-left: 20px;">`;
-          action.arguments.forEach((arg, argIndex) => {
-            html += `<li>${DOMPurify.sanitize(arg.type)}: ${DOMPurify.sanitize(String(arg.value))}</li>`;
+          voteHtml += `<strong>Arguments:</strong><ul style="margin-left:20px;">`;
+          action.arguments.forEach((arg) => {
+            voteHtml += `<li>${DOMPurify.sanitize(arg.type)}: ${DOMPurify.sanitize(String(arg.value))}</li>`;
           });
-          html += `</ul>`;
+          voteHtml += `</ul>`;
         }
-        html += `</li>`;
+        voteHtml += `</li>`;
       });
-      html += '</ul>';
-      
-      html += `<button onclick="deleteVote(${vote.id})" class="swal2-cancel swal2-styled">Delete</button>`;
-      html += `</div>`;
+      voteHtml += '</ul>';
+
+      // Estimate height: base + per-action + per-argument
+      const argCount = vote.actions.reduce((sum, a) => sum + a.arguments.length, 0);
+      const estHeight = 60 + (vote.actions.length * 70) + (argCount * 25);
+
+      // Wrapper div for this vote (border, spacing — same as your original)
+      const voteWrapper = document.createElement('div');
+      voteWrapper.style.cssText = 'margin-bottom:20px;padding:10px;border:1px solid #ddd;border-radius:5px;';
+
+      // SafeDiv for the content — pass overflow so it doesn't clip
+      const safeDivEl = SafeDiv(voteHtml, `overflow-y:auto;max-height:300px;`, 460);
+      safeDivEl.style.height = estHeight + 'px';
+      safeDivEl.style.maxHeight = '300px';
+      voteWrapper.appendChild(safeDivEl);
+
+      // Delete button — real DOM, outside the iframe, uses your existing function
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.className = 'swal2-cancel swal2-styled';
+      deleteBtn.addEventListener('click', () => deleteVote(vote.id));
+      voteWrapper.appendChild(deleteBtn);
+
+      masterContainer.appendChild(voteWrapper);
     });
   }
-  
-  html += '</div>';
-  
+
   await Swal.fire({
     title: 'Your Votes',
-    html: html,
+    html: masterContainer,
     width: '500px',
-    customClass: {
-      popup: 'scrollable-swal-popup'
-    },
+    customClass: { popup: 'scrollable-swal-popup' },
     confirmButtonText: 'Close'
   });
 }
@@ -2830,11 +3079,11 @@ async function calculateAndDisplayROI() {
   if (!earnState.polWeb3) return;
   
   try {
-    // Try to use cached data first if it's recent (< 5 minutes old)
+    // Try to use cached data first if it's recent (< 60 minutes old)
     const cachedData = localStorage.getItem('cachedROIData');
     if (cachedData) {
       const parsed = JSON.parse(cachedData);
-      if (Date.now() - parsed.timestamp < 1440 * 60 * 1000) {
+      if (Date.now() - parsed.timestamp < 60 * 60 * 1000) {
         const roiText = `📈 ${translateThis('Yearly Staking ROI')}: ${stripZeros(parsed.yearlyROI.toFixed(2))}%`;
         document.getElementById('earnRoiText').textContent = roiText;
         document.getElementById('earnRoiDisplay').classList.remove('hidden');
