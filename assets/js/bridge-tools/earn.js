@@ -329,36 +329,17 @@ async function showVotePayload(hash) {
       mainContainer.appendChild(actionsContainer);
 
     } catch (error) {
+      // Log full details to console for debugging, but never expose to DOM
       console.error('Error decoding payload:', error);
+      console.error('Raw payload:', payload);
+      
+      // Display generic error message without exposing any details
       const errDiv = document.createElement('div');
       errDiv.style.background = '#fff3cd';
       errDiv.style.padding = '10px';
       errDiv.style.borderRadius = '5px';
       errDiv.style.color = '#856404';
-      
-      // Create error message header
-      const errorHeader = document.createElement('strong');
-      errorHeader.textContent = 'Decoding Error:';
-      errDiv.appendChild(errorHeader);
-      
-      // Add error message
-      const errorMsg = document.createElement('span');
-      errorMsg.textContent = ' ' + error.message;
-      errDiv.appendChild(errorMsg);
-      
-      // Add line breaks
-      errDiv.appendChild(document.createElement('br'));
-      errDiv.appendChild(document.createElement('br'));
-      
-      // Create raw payload header
-      const payloadHeader = document.createElement('strong');
-      payloadHeader.textContent = 'Raw Payload:';
-      errDiv.appendChild(payloadHeader);
-      
-      // Add raw payload in a pre element using textContent to prevent XSS
-      const payloadPre = document.createElement('pre');
-      payloadPre.textContent = JSON.stringify(payload, null, 2);
-      errDiv.appendChild(payloadPre);
+      errDiv.textContent = 'Error: Unable to decode payload. Please check the console for details.';
       
       mainContainer.appendChild(errDiv);
     }
