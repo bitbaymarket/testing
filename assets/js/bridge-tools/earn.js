@@ -320,22 +320,8 @@ async function showVotePayload(hash) {
             // width: 100% (CSS) to fit wrapper, but calc height based on ~440px
             const safeDiv = SafeDiv(html, "", 440);
             actionWrapper.appendChild(safeDiv);
-
-            // D. Create Button OUTSIDE the iframe
-            const deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'Delete Action'; // Adjust label as needed
-            deleteBtn.style.marginTop = '10px';
-            deleteBtn.className = 'swal2-confirm swal2-styled'; // Example SweetAlert styling or custom
-            deleteBtn.style.backgroundColor = '#d33'; // Red for delete
-            deleteBtn.onclick = () => {
-                // Call your external function here
-                console.log('Delete action clicked for index:', idx);
-                // removeAction(idx); 
-            };
             
-            actionWrapper.appendChild(deleteBtn);
-            
-            // E. Add to list
+            // D. Add to list
             actionsContainer.appendChild(actionWrapper);
         });
       }
@@ -349,8 +335,31 @@ async function showVotePayload(hash) {
       errDiv.style.padding = '10px';
       errDiv.style.borderRadius = '5px';
       errDiv.style.color = '#856404';
-      errDiv.innerHTML = `<strong>Decoding Error:</strong> ${DOMPurify.sanitize(error.message)}<br><br>
-                          <strong>Raw Payload:</strong><pre>${DOMPurify.sanitize(JSON.stringify(payload, null, 2))}</pre>`;
+      
+      // Create error message header
+      const errorHeader = document.createElement('strong');
+      errorHeader.textContent = 'Decoding Error:';
+      errDiv.appendChild(errorHeader);
+      
+      // Add error message
+      const errorMsg = document.createElement('span');
+      errorMsg.textContent = ' ' + error.message;
+      errDiv.appendChild(errorMsg);
+      
+      // Add line breaks
+      errDiv.appendChild(document.createElement('br'));
+      errDiv.appendChild(document.createElement('br'));
+      
+      // Create raw payload header
+      const payloadHeader = document.createElement('strong');
+      payloadHeader.textContent = 'Raw Payload:';
+      errDiv.appendChild(payloadHeader);
+      
+      // Add raw payload in a pre element using textContent to prevent XSS
+      const payloadPre = document.createElement('pre');
+      payloadPre.textContent = JSON.stringify(payload, null, 2);
+      errDiv.appendChild(payloadPre);
+      
       mainContainer.appendChild(errDiv);
     }
     
