@@ -1235,6 +1235,7 @@
 <script type="text/javascript" src="./assets/js/bridge-tools/chartist.js"></script>
 <script type="text/javascript" src="./assets/js/bridge-tools/chartist-plugin-tooltip.js"></script>
 <script type="text/javascript" src="./assets/js/bridge-tools/purify.js"></script>
+<script type="text/javascript" src="./assets/js/bridge-tools/validators.js"></script>
 <script type="text/javascript" src="./assets/js/bridge-tools/sweetalert211.js"></script>
 <script type="text/javascript" src="./assets/js/bridge-tools/zxcvbn.js"></script>
 <script type="text/javascript" src="./rotating-provider.js"></script>
@@ -2486,7 +2487,7 @@ async function login() {
             modalDialog(translateThis('Connect'), translateThis("Please unlock Metamask so it can connect."), "warning");
             return;
         }
-        myaccounts = DOMPurify.sanitize(myaccounts2[0]);
+        myaccounts = Validators.safeAddress(DOMPurify.sanitize(myaccounts2[0]));
         // Always prompt for signature - no stored credentials
         console.log("Requesting signature for", myaccounts);
         mysignature = await window.ethereum.request({
@@ -2713,7 +2714,7 @@ async function login2() {
 
         gasPrice = "20000000000";
         await web3.eth.getGasPrice().then(function (theGasPrice) {
-          gasPrice = window.web3.utils.toWei(parseInt(parseInt(DOMPurify.sanitize(theGasPrice)) * 1.5).toString(), 'wei');
+          gasPrice = window.web3.utils.toWei(parseInt(parseInt(Validators.safeBN(DOMPurify.sanitize(theGasPrice))) * 1.5).toString(), 'wei');
           if (currentChainId == "1") {
             if(parseInt(gasPrice) > 500000000000) {
               gasPrice = "500000000000";
@@ -2968,7 +2969,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
         mmweb3 = new Web3(window.ethereum);
         contract = new mmweb3.eth.Contract(contract.options.jsonInterface, contract.options.address);
         await delay(250);
-        gasPrice2 = DOMPurify.sanitize(await mmweb3.eth.getGasPrice());
+        gasPrice2 = Validators.safeBN(DOMPurify.sanitize(await mmweb3.eth.getGasPrice()));
         gasPrice2 = window.web3.utils.toWei(parseInt(parseInt(gasPrice2) * 1.5).toString(), 'wei');
         if(parseInt(gasPrice2) > 500000000000) {
           gasPrice2 = "500000000000";
@@ -3036,7 +3037,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
     switchedProvider = true;
     netSwitch = true;
     await web3.eth.getGasPrice().then(function (theGasPrice) {
-      gasPriceOrg = web3.utils.toWei(parseInt(parseInt(DOMPurify.sanitize(theGasPrice)) * 1.5).toString(), 'wei');
+      gasPriceOrg = web3.utils.toWei(parseInt(parseInt(Validators.safeBN(DOMPurify.sanitize(theGasPrice))) * 1.5).toString(), 'wei');
       if(parseInt(gasPriceOrg) > 500000000000) {
         gasPriceOrg = "500000000000";
       }
@@ -3161,7 +3162,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
     }
 
     const txReceipt = await txPromise;
-    const txHash = DOMPurify.sanitize(txReceipt.transactionHash);
+    const txHash = Validators.safeHex(DOMPurify.sanitize(txReceipt.transactionHash));
 
     // Poll for confirmation
     const startTime = Date.now();
@@ -3357,7 +3358,7 @@ async function checkbalances() {
     }
     gasPrice = "20000000000";
     await web3.eth.getGasPrice().then(function (theGasPrice) {
-      gasPrice = window.web3.utils.toWei(parseInt(parseInt(DOMPurify.sanitize(theGasPrice)) * 1.5).toString(), 'wei');
+      gasPrice = window.web3.utils.toWei(parseInt(parseInt(Validators.safeBN(DOMPurify.sanitize(theGasPrice))) * 1.5).toString(), 'wei');
       if (currentChainId == "1") {
         if(parseInt(gasPrice) > 500000000000) {
           gasPrice = "500000000000";
@@ -3382,7 +3383,7 @@ async function checkbalances() {
     var ALTBal = "";
     if (currentChainId == "137") {
       daicontract = new web3.eth.Contract(ERC20ABI, "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063")
-      ALTBal = stripZeros((new BigNumber(DOMPurify.sanitize(await daicontract.methods.balanceOf(myaccounts).call())).dividedBy('1e18')).toFixed());
+      ALTBal = stripZeros((new BigNumber(Validators.safeBN(DOMPurify.sanitize(await daicontract.methods.balanceOf(myaccounts).call()))).dividedBy('1e18')).toFixed());
       if(parseFloat(ALTBal) != 0) {
         ALTBal = '<div style="background-color: #f5f4ff; color: #004400; padding: 8px; font-size: 14px; border-bottom: 1px dashed #aaffaa;">' +
                   'DAI Balance: ' + ALTBal +
@@ -3393,7 +3394,7 @@ async function checkbalances() {
     }
     if (currentChainId == "11155111") {
       walruscontract = new web3.eth.Contract(ERC20ABI, "0xf7F8aB76E62983ec12D97fD026Ab11296EdB2e23")
-      ALTBal = stripZeros((new BigNumber(DOMPurify.sanitize(await walruscontract.methods.balanceOf(myaccounts).call())).dividedBy('1e18')).toFixed());
+      ALTBal = stripZeros((new BigNumber(Validators.safeBN(DOMPurify.sanitize(await walruscontract.methods.balanceOf(myaccounts).call()))).dividedBy('1e18')).toFixed());
       if(parseFloat(ALTBal) != 0) {
         ALTBal = '<div style="background-color: #f5f4ff; color: #004400; padding: 8px; font-size: 14px; border-bottom: 1px dashed #aaffaa;">' +
                   'Walrus Balance: ' + ALTBal +
@@ -3406,7 +3407,7 @@ async function checkbalances() {
     liquiditypool = new web3.eth.Contract(LiquidityABI, liquidityAddy);
     try {
       document.getElementById('myBAYaddy').style.fontSize = "14px"
-      var registeredBurnAddress = DOMPurify.sanitize(await bayadmincontract.methods.BAYaddress(myaccounts).call());
+      var registeredBurnAddress = Validators.safeAddress(DOMPurify.sanitize(await bayadmincontract.methods.BAYaddress(myaccounts).call()));
       if(registeredBurnAddress != "") {
         document.getElementById('myBAYaddy').placeholder = registeredBurnAddress;
         const style = document.createElement('style');
@@ -3419,16 +3420,16 @@ async function checkbalances() {
     var BAYLBal;
     var BAYRBal;
     var BAYFBal;
-    BAYLBal = stripZeros((new BigNumber(DOMPurify.sanitize(await baylcontract.methods.balanceOf(myaccounts).call())).dividedBy('1e8')).toFixed());
-    BAYRBal = stripZeros((new BigNumber(DOMPurify.sanitize(await bayrcontract.methods.balanceOf(myaccounts).call())).dividedBy('1e8')).toFixed());
-    BAYFBal = stripZeros((new BigNumber(DOMPurify.sanitize(await bayfcontract.methods.balanceOf(myaccounts).call())).dividedBy('1e8')).toFixed());
+    BAYLBal = stripZeros((new BigNumber(Validators.safeBN(DOMPurify.sanitize(await baylcontract.methods.balanceOf(myaccounts).call()))).dividedBy('1e8')).toFixed());
+    BAYRBal = stripZeros((new BigNumber(Validators.safeBN(DOMPurify.sanitize(await bayrcontract.methods.balanceOf(myaccounts).call()))).dividedBy('1e8')).toFixed());
+    BAYFBal = stripZeros((new BigNumber(Validators.safeBN(DOMPurify.sanitize(await bayfcontract.methods.balanceOf(myaccounts).call()))).dividedBy('1e8')).toFixed());
     var addyblock = createAddressBlock("Wallet Address", myaccounts);
     await window.web3.eth.getBalance(myaccounts, function(err, result1) {
         if (err) {
             console.log(err);
             return;
         } else {
-            var ETHBalance = window.web3.utils.fromWei(DOMPurify.sanitize(result1), "ether");
+            var ETHBalance = window.web3.utils.fromWei(Validators.safeBN(DOMPurify.sanitize(result1)), "ether");
             //document.getElementById("balance_network").innerHTML = DOMPurify.sanitize("Current Network: "+ netname + "<br> Address: " + myaccounts + "<br>" + netname2 + " balance:" + ETHBalance + "<br>BAY Liquid:" + BAYLBal + "<br>BAY Reserve:" + BAYRBal + "<br>BAY Frozen:" + BAYFBal);
             document.getElementById("balance_network").innerHTML = 
               '<div style="font-family: \'Lucida Console\', Monaco, monospace; background-color: #fff; color: #004400; padding: 20px; border: 2px solid #333; max-width: 500px; margin: auto; text-align: left; box-shadow: 4px 4px 0 #ccc; border-radius: 6px;">' +
@@ -3473,7 +3474,7 @@ async function checkbalances() {
       }
       if (((now - parseInt(lastCheck, 10)) > 60 * 60 * 1000) || parseInt(lastCheck) == parseInt(now)) {
         localStorage.setItem("lastDelayCheck", now.toString());
-        const pos = parseInt(DOMPurify.sanitize(await bayadmincontract.methods.lastProxyPosition().call()));
+        const pos = parseInt(Validators.safeBN(DOMPurify.sanitize(await bayadmincontract.methods.lastProxyPosition().call())));
         updates = DOMPurify.sanitize(JSON.stringify(await bayadmincontract.methods.delayedChanges(pos).call()));
         console.log(updates);
       }
@@ -3790,11 +3791,11 @@ async function getMarketData(calcbal = 0) {
         bayname2 = "BitBay";
     }
     await liquiditypool.methods.matchprecision().call().then(function (result3) {
-        precision = parseInt(DOMPurify.sanitize(result3));
+        precision = parseInt(Validators.safeBN(DOMPurify.sanitize(result3)));
     })
     var exchangecontract = new web3.eth.Contract(FactoryABI, exchange);
     await exchangecontract.methods.getPair(bayaddy, coin1).call().then(function (result3) {
-        mycurrentpair = DOMPurify.sanitize(result3);
+        mycurrentpair = Validators.safeAddress(DOMPurify.sanitize(result3));
     });
     if(/^0x0+$/.test(mycurrentpair) == false) {
         var token0 = '';
@@ -3805,16 +3806,16 @@ async function getMarketData(calcbal = 0) {
             reserves = JSON.parse(DOMPurify.sanitize(JSON.stringify(result3)));
         });
         await paircontract.methods.token0().call().then(function (result3) {
-            token0 = DOMPurify.sanitize(result3);
+            token0 = Validators.safeAddress(DOMPurify.sanitize(result3));
         });
         await paircontract.methods.totalSupply().call().then(function (result3) {
-            totSupply = DOMPurify.sanitize(result3);
+            totSupply = Validators.safeBN(DOMPurify.sanitize(result3));
         });
         await liquiditypool.methods.LPtokens(myaccounts, mycurrentpair).call().then(function (result3) {
-            LPtokens = DOMPurify.sanitize(result3);
+            LPtokens = Validators.safeBN(DOMPurify.sanitize(result3));
         });
         await paircontract.methods.balanceOf(myaccounts).call().then(function (result3) {
-            LPtokensPair = DOMPurify.sanitize(result3);
+            LPtokensPair = Validators.safeBN(DOMPurify.sanitize(result3));
         });
         if (new BigNumber(LPtokensPair).lt(new BigNumber(LPtokens))) {
           LPtokens = LPtokensPair;
@@ -3838,11 +3839,11 @@ async function getMarketData(calcbal = 0) {
         let otherbal;
         if(bayselect == 0) {
             otherbal = stripZeros(new BigNumber(web3.utils.fromWei(
-                DOMPurify.sanitize(await bayrcontract.methods.balanceOf(mycurrentpair).call()),
+                Validators.safeBN(DOMPurify.sanitize(await bayrcontract.methods.balanceOf(mycurrentpair).call())),
                 'gwei')).times(10).toFixed(8));
         } else {
             otherbal = stripZeros(new BigNumber(web3.utils.fromWei(
-                DOMPurify.sanitize(await baylcontract.methods.balanceOf(mycurrentpair).call()),
+                Validators.safeBN(DOMPurify.sanitize(await baylcontract.methods.balanceOf(mycurrentpair).call())),
                 'gwei')).times(10).toFixed(8));
         }
 
@@ -3914,7 +3915,7 @@ async function checkAutomaticTradingAccount() {
     const minBalance = new BN2("5").mul(decimals);
     var balance;
     try { // Check base token balance
-      balance = new BN2(DOMPurify.sanitize(await web3.eth.getBalance(myaccountsV2)));
+      balance = new BN2(Validators.safeBN(DOMPurify.sanitize(await web3.eth.getBalance(myaccountsV2))));
     } catch (e) {
       console.log(e); //In case of rate limit errors we should catch this here
       return;
@@ -3936,7 +3937,7 @@ async function checkAutomaticTradingAccount() {
     var exchange = Object.values(exchanges[0])[0];
     var exchangecontract = new web3.eth.Contract(FactoryABI, exchange);
     await exchangecontract.methods.getPair(bayAddr, pairToken).call().then(function (thisresult) {
-        mypair = DOMPurify.sanitize(thisresult);
+        mypair = Validators.safeAddress(DOMPurify.sanitize(thisresult));
     });
     var myreserves = '';
     var assumedPriceBAY = '';
@@ -3945,7 +3946,7 @@ async function checkAutomaticTradingAccount() {
         await paircontract.methods.getReserves().call().then(function (thisresult) {
             myreserves = JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult)));
         });
-        const token0 = DOMPurify.sanitize(await paircontract.methods.token0().call());
+        const token0 = Validators.safeAddress(DOMPurify.sanitize(await paircontract.methods.token0().call()));
         let reserveBase, reserveBAY;
 
         if (token0.toLowerCase() === BAYLaddy.toLowerCase()) {
@@ -3997,7 +3998,7 @@ async function checkAutomaticTradingAccount() {
           gas: 100000,
           gasPrice: gasPrice
         });
-        console.log("Trade executed:", DOMPurify.sanitize(tx2.transactionHash));
+        console.log("Trade executed:", Validators.safeHex(DOMPurify.sanitize(tx2.transactionHash)));
       }
       return;
     }
@@ -4025,7 +4026,7 @@ async function checkAutomaticTradingAccount() {
       "gasLimit": 5000000,
       "gasPrice": gasPrice
     });
-    console.log("Trade executed:", DOMPurify.sanitize(tx.transactionHash));
+    console.log("Trade executed:", Validators.safeHex(DOMPurify.sanitize(tx.transactionHash)));
   } catch (e) {
     const lastErrorTime = parseInt(localStorage.getItem('lastTradeError') || '0', 10);
     const now = Date.now();
@@ -4105,7 +4106,7 @@ async function getBAYPrice(tempWeb3 = null) {
     var exchange = "0x9e5A52f57b3038F1B8EeE45F28b3C1967e22799C";
     var exchangecontract = new w3.eth.Contract(FactoryABI, exchange);
     await exchangecontract.methods.getPair(bayAddr, pairToken).call().then(function (thisresult) {
-        mypair = DOMPurify.sanitize(thisresult);
+        mypair = Validators.safeAddress(DOMPurify.sanitize(thisresult));
     });
     var myreserves = '';
     var assumedPriceBAY = '';
@@ -4114,7 +4115,7 @@ async function getBAYPrice(tempWeb3 = null) {
         await paircontract.methods.getReserves().call().then(function (thisresult) {
             myreserves = JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult)));
         });
-        const token0 = DOMPurify.sanitize(await paircontract.methods.token0().call());
+        const token0 = Validators.safeAddress(DOMPurify.sanitize(await paircontract.methods.token0().call()));
         let reserveBase, reserveBAY;
 
         if (token0.toLowerCase() === bayAddr.toLowerCase()) {          
@@ -4188,7 +4189,7 @@ async function calculateAndDisplayROIPreLogin() {
     ];
     
     const baylTreasury = new tempWeb3.eth.Contract(minimalTreasuryABI, BAYL_TREASURY);
-    const totalTokens = DOMPurify.sanitize(await baylTreasury.methods.totalTokens().call());
+    const totalTokens = Validators.safeBN(DOMPurify.sanitize(await baylTreasury.methods.totalTokens().call()));
     
     // Get current week
     const currentWeek = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
@@ -4208,9 +4209,9 @@ async function calculateAndDisplayROIPreLogin() {
     const usdcPrice = 1;
     
     // Get weekly rewards
-    const wethRewards = DOMPurify.sanitize(await baylTreasury.methods.weeklyRewards(currentWeek, WETH_ADDRESS).call());
-    const daiRewards = DOMPurify.sanitize(await baylTreasury.methods.weeklyRewards(currentWeek, DAI_ADDRESS).call());
-    const usdcRewards = DOMPurify.sanitize(await baylTreasury.methods.weeklyRewards(currentWeek, USDC_ADDRESS).call());
+    const wethRewards = Validators.safeBN(DOMPurify.sanitize(await baylTreasury.methods.weeklyRewards(currentWeek, WETH_ADDRESS).call()));
+    const daiRewards = Validators.safeBN(DOMPurify.sanitize(await baylTreasury.methods.weeklyRewards(currentWeek, DAI_ADDRESS).call()));
+    const usdcRewards = Validators.safeBN(DOMPurify.sanitize(await baylTreasury.methods.weeklyRewards(currentWeek, USDC_ADDRESS).call()));
     
     const BN = BigNumber;
     const wethRewardsEther = new BN(wethRewards).dividedBy('1e18').toNumber();
@@ -4339,7 +4340,7 @@ async function buyMoonPay() {
   const minBalance = new BN2("5").mul(decimals);
 
   // Check base token balance
-  const balance = new BN2(DOMPurify.sanitize(await web3.eth.getBalance(myaccounts)));
+  const balance = new BN2(Validators.safeBN(DOMPurify.sanitize(await web3.eth.getBalance(myaccounts))));
   var difference = new BN2("0");
   var diffDisplay = '';
   if (balance.lte(minBalance)) {
@@ -4575,10 +4576,10 @@ async function getMerkleStatus() {
             }
         ]
         DDEcontract = new web3Temp.eth.Contract(DDEabi, DDEaddy);
-        var datalen = parseInt(DOMPurify.sanitize(await DDEcontract.methods.getArrayLength("0xF557464ba0b043c83726c95BD686293B5aF16382", 3).call()));
+        var datalen = parseInt(Validators.safeBN(DOMPurify.sanitize(await DDEcontract.methods.getArrayLength("0xF557464ba0b043c83726c95BD686293B5aF16382", 3).call())));
         var thislasthash = "";
         if(datalen != 0) {
-            thislasthash = DOMPurify.sanitize(await DDEcontract.methods.userdata("0xF557464ba0b043c83726c95BD686293B5aF16382", datalen-1).call());
+            thislasthash = Validators.safeHex(DOMPurify.sanitize(await DDEcontract.methods.userdata("0xF557464ba0b043c83726c95BD686293B5aF16382", datalen-1).call()));
         }
         if(thislasthash.includes("0x")) {
           return thislasthash;
@@ -4598,7 +4599,7 @@ async function getDecimals(myobj) {
     var thiscontract = new web3.eth.Contract(ERC20ABI, Object.values(pairs[myobj])[0]);
     var thedecimals = 0;
     await thiscontract.methods.decimals().call().then(function (dresult) {
-        thedecimals = parseInt(DOMPurify.sanitize(dresult));
+        thedecimals = parseInt(Validators.safeBN(DOMPurify.sanitize(dresult)));
     });
     return thedecimals;
 }
@@ -4655,7 +4656,7 @@ async function calculateDeposit() {
                 exchangecontract = new web3.eth.Contract(FactoryABI, exchange);
                 mypair = '';
                 await exchangecontract.methods.getPair(bayaddy, coin1).call().then(function (thisresult) {
-                    mypair = DOMPurify.sanitize(thisresult);
+                    mypair = Validators.safeAddress(DOMPurify.sanitize(thisresult));
                 });
                 poolreserve = [];
                 if(/^0x0+$/.test(mypair) == false) {
@@ -4672,7 +4673,7 @@ async function calculateDeposit() {
                         reserves = JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult)));
                     });
                     await paircontract.methods.token0().call().then(function (thisresult) {
-                        token0 = DOMPurify.sanitize(thisresult);
+                        token0 = Validators.safeAddress(DOMPurify.sanitize(thisresult));
                     });
                     if (token0 === BAYLaddy || token0 === BAYRaddy) {
                         reservebayval = new BN(reserves[0]);
@@ -4710,7 +4711,7 @@ async function calculateDeposit() {
                 exchangecontract = new web3.eth.Contract(FactoryABI, exchange);
                 mypair = '';
                 await exchangecontract.methods.getPair(bayaddy, coin1).call().then(function (thisresult) {
-                    mypair = DOMPurify.sanitize(thisresult);
+                    mypair = Validators.safeAddress(DOMPurify.sanitize(thisresult));
                 });
                 if(/^0x0+$/.test(mypair) == false) {                    
                     token0 = '';
@@ -4720,7 +4721,7 @@ async function calculateDeposit() {
                         reserves = JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult)));
                     });
                     await paircontract.methods.token0().call().then(function (thisresult) {
-                        token0 = DOMPurify.sanitize(thisresult);
+                        token0 = Validators.safeAddress(DOMPurify.sanitize(thisresult));
                     });
                     if (token0 === BAYLaddy || token0 === BAYRaddy) {
                         reservebayval2 = new BN(reserves[0]);
@@ -5110,11 +5111,11 @@ async function showFrozen() {
       while(x < 4) {
           val2 = 0;
           await baydatacontract.methods.FrozenTXDBTimeSpent(myaccounts,x,0).call().then(function (newval) {
-              val2 = parseInt(DOMPurify.sanitize(newval));
+              val2 = parseInt(Validators.safeBN(DOMPurify.sanitize(newval)));
           });
           if(val2 == 1) {
               await baydatacontract.methods.FrozenTXDBTimeSpent(myaccounts,x,1).call().then(function (newval) {
-                  newval = DOMPurify.sanitize(newval);
+                  newval = Validators.safeBN(DOMPurify.sanitize(newval));
                   y = 0;
                   amt = new BN(0);
                   //If you want you can calculate both liquid and reserve for each payment if you follow the release frozen calculation protocol
@@ -5149,7 +5150,7 @@ async function showFrozen() {
 async function sendLiquid() {
     baylcontract = new web3.eth.Contract(BAYLabi, BAYLaddy);
     var BAYLBal;
-    BAYLBal = stripZeros((new BigNumber(DOMPurify.sanitize(await baylcontract.methods.balanceOf(myaccounts).call())).dividedBy('1e8')).toFixed());
+    BAYLBal = stripZeros((new BigNumber(Validators.safeBN(DOMPurify.sanitize(await baylcontract.methods.balanceOf(myaccounts).call()))).dividedBy('1e8')).toFixed());
     const { value: formValues } = await Swal.fire({
       title: translateThis('Send BAY Liquid'),
       html:
@@ -5200,7 +5201,7 @@ async function sendLiquid() {
 async function sendReserve() {
     bayrcontract = new web3.eth.Contract(BAYRabi, BAYRaddy);
     var BAYRBal;
-    BAYRBal = stripZeros((new BigNumber(DOMPurify.sanitize(await bayrcontract.methods.balanceOf(myaccounts).call())).dividedBy('1e8')).toFixed());
+    BAYRBal = stripZeros((new BigNumber(Validators.safeBN(DOMPurify.sanitize(await bayrcontract.methods.balanceOf(myaccounts).call()))).dividedBy('1e8')).toFixed());
     const { value: formValues } = await Swal.fire({
       title: translateThis('Send BAY Reserve'),
       html:
@@ -5260,7 +5261,7 @@ async function sendALT() {
       coinName = "DAI";
     }
     var MYBal;
-    MYBal = stripZeros((new BigNumber(DOMPurify.sanitize(await altcontract.methods.balanceOf(myaccounts).call())).dividedBy('1e18')).toFixed());
+    MYBal = stripZeros((new BigNumber(Validators.safeBN(DOMPurify.sanitize(await altcontract.methods.balanceOf(myaccounts).call()))).dividedBy('1e18')).toFixed());
     const { value: formValues } = await Swal.fire({
       title: translateThis('Send')+' '+coinName,
       html:
@@ -5317,7 +5318,7 @@ async function sendBase() {
       coinName = "POL";
     }
     var MYBal;
-    MYBal = stripZeros((new BigNumber(DOMPurify.sanitize(await window.web3.eth.getBalance(myaccounts))).dividedBy('1e18')).toFixed());
+    MYBal = stripZeros((new BigNumber(Validators.safeBN(DOMPurify.sanitize(await window.web3.eth.getBalance(myaccounts)))).dividedBy('1e18')).toFixed());
     const { value: formValues } = await Swal.fire({
       title: translateThis('Send')+' '+coinName,
       html:
@@ -5592,7 +5593,7 @@ async function mintFromBitBay(jsondata2="") {
       } else {
         jsondata=jsondata2;
       }
-      var status = parseInt(DOMPurify.sanitize(await bayadmincontract.methods.MerkleConfirm(jsondata['root']).call()))
+      var status = parseInt(Validators.safeBN(DOMPurify.sanitize(await bayadmincontract.methods.MerkleConfirm(jsondata['root']).call())))
       if(status == 0) {
         await Swal.fire({"text":translateThis("Merkle has not yet been posted to the chain. Please try again later.")});
         return
@@ -5647,7 +5648,7 @@ async function registerBitBay(regaddy) {
     var found = 1;
     var selectedaccount = myaccounts;
     await bayadmincontract.methods.BAYaddress(selectedaccount).call().then(function (myresult5) {
-        if(DOMPurify.sanitize(myresult5) == regaddy){
+        if(Validators.safeAddress(DOMPurify.sanitize(myresult5)) == regaddy){
             found = 0;
             //document.getElementById("text1").innerHTML += "<br><br>A BitBay address is already registered to your address.";
             //Swal.fire({
@@ -5703,12 +5704,12 @@ async function burnToBitBay(burnamount) {
     var selectedaccount = myaccounts;
     var myadmin = "";
     await baydatacontract.methods.minter().call().then(function (dataadmin) {
-        myadmin = DOMPurify.sanitize(dataadmin);
+        myadmin = Validators.safeAddress(DOMPurify.sanitize(dataadmin));
     })    
     var found = 1;
     var myaddress = "";
     await bayadmincontract.methods.BAYaddress(selectedaccount).call().then(function (results) {      
-        results = DOMPurify.sanitize(results);
+        results = Validators.safeAddress(DOMPurify.sanitize(results));
         myaddress = results;
         if(!results && results.length == 0){
             //document.getElementById("text1").innerHTML += "<br><br>You need to register your BitBay address before burning.";
@@ -5794,19 +5795,19 @@ async function showNonces() {
 
     jsonreceipt = {'nonce':item,'from':currentaccount};
     await bayadmincontract.methods.recipient(item, currentaccount).call().then(function (myresults) {
-        jsonreceipt['address'] = DOMPurify.sanitize(myresults);
+        jsonreceipt['address'] = Validators.safeAddress(DOMPurify.sanitize(myresults));
     });
     await bayadmincontract.methods.showReserve(currentaccount, item).call().then(function (myresults) {
         jsonreceipt['reserve'] = JSON.parse(DOMPurify.sanitize(JSON.stringify(myresults)));
     });
     await bayadmincontract.methods.highkey(item, currentaccount).call().then(function (myresults) {
-        jsonreceipt['section'] = DOMPurify.sanitize(myresults);
+        jsonreceipt['section'] = Validators.safeBN(DOMPurify.sanitize(myresults));
     });
     await bayadmincontract.methods.intervaltime().call().then(function (myresults) {
-        intervaltime = DOMPurify.sanitize(myresults);
+        intervaltime = Validators.safeBN(DOMPurify.sanitize(myresults));
     });
     await bayadmincontract.methods.processingTime(item).call().then(function (myresults) {
-        processingTime = DOMPurify.sanitize(myresults);
+        processingTime = Validators.safeBN(DOMPurify.sanitize(myresults));
     });
     var steps = parseInt(networkvars[1]) + parseInt(networkvars[2]);
     var myhash = web3.utils.keccak256(web3.eth.abi.encodeParameters(['string','uint256[' + steps.toString() + ']','uint256','uint256','address'],[jsonreceipt['address'],jsonreceipt['reserve'],jsonreceipt['section'],jsonreceipt['nonce'],currentaccount]));
@@ -5977,13 +5978,13 @@ async function addLiquidity() {
         bayaddy = BAYRaddy;
     }
     await exchangecontract.methods.getPair(bayaddy, coin1).call().then(function (liqresult) {
-        mypair = DOMPurify.sanitize(liqresult);
+        mypair = Validators.safeAddress(DOMPurify.sanitize(liqresult));
     });
     try {
       try {
           showSpinner();
           await coin1contract.methods.allowance(currentaccount, myrouter).call().then(function (liqresult) {
-              allowance = DOMPurify.sanitize(liqresult);
+              allowance = Validators.safeBN(DOMPurify.sanitize(liqresult));
           });
           if(parseInt(allowance) == 0 || new BN(allowance).lt(new BN("999999999999999999999999999999"))) {
               //document.getElementById("addliquidtext").innerHTML = 'Waiting for router allowance authorization on the blockchain for the first coin...';
@@ -5998,7 +5999,7 @@ async function addLiquidity() {
           }
           allowance = 0;
           await baydatacontract.methods.allowance(currentaccount, myrouter).call().then(function (liqresult) {
-              allowance = DOMPurify.sanitize(liqresult);
+              allowance = Validators.safeBN(DOMPurify.sanitize(liqresult));
           });
           if(parseInt(allowance) == 0 || new BN(allowance).lt(new BN("999999999999999999999999999999"))) {
               //document.getElementById("addliquidtext").innerHTML = 'Waiting for router allowance authorization on the blockchain for BAY...';
@@ -6013,7 +6014,7 @@ async function addLiquidity() {
           }
           allowance = 0;
           await baydatacontract.methods.allowanceReserve(currentaccount, myrouter).call().then(function (liqresult) {
-              allowance = DOMPurify.sanitize(liqresult);
+              allowance = Validators.safeBN(DOMPurify.sanitize(liqresult));
           });
           if(parseInt(allowance) == 0 || new BN(allowance).lt(new BN("999999999999999999999999999999"))) {
               //document.getElementById("addliquidtext").innerHTML = 'Waiting for router allowance authorization on the blockchain for BAYR...';
@@ -6040,7 +6041,7 @@ async function addLiquidity() {
       }
       if(/^0x0+$/.test(mypair) == false) {
           await liquiditypool.methods.poolhighkey(mypair).call().then(function (liqresult) {
-              myhighkey = parseInt(DOMPurify.sanitize(liqresult));
+              myhighkey = parseInt(Validators.safeBN(DOMPurify.sanitize(liqresult)));
           });
           section = Math.floor(networkvars[0] / networkvars[2]);
           if(myhighkey != section) {
@@ -6140,7 +6141,7 @@ async function addLiquidity() {
 
       let returnthis = 0;
       await baylcontract.methods.balanceOf(currentaccount).call().then(function (myliquid) {
-          if (otherval.gt(new BN(DOMPurify.sanitize(myliquid)))) {
+          if (otherval.gt(new BN(Validators.safeBN(DOMPurify.sanitize(myliquid))))) {
               //document.getElementById("addliquidtext").innerHTML = 'Not enough liquid funds for deposit';
               Swal.fire({
                   icon: 'warning',
@@ -6152,7 +6153,7 @@ async function addLiquidity() {
           }
       });
       await bayrcontract.methods.balanceOf(currentaccount).call().then(function (myrval) {
-          if (new BN(totalval).minus(otherval).gt(new BN(DOMPurify.sanitize(myrval)))) {
+          if (new BN(totalval).minus(otherval).gt(new BN(Validators.safeBN(DOMPurify.sanitize(myrval))))) {
               //document.getElementById("addliquidtext").innerHTML = 'Not enough reserve funds for deposit';
               Swal.fire({
                   icon: 'warning',
@@ -6165,7 +6166,7 @@ async function addLiquidity() {
       });
       if(weth) {
           await window.web3.eth.getBalance(myaccounts, function(myliquid) {
-              if (new BigNumber(coin1val).gt(new BigNumber(DOMPurify.sanitize(myliquid)))) {
+              if (new BigNumber(coin1val).gt(new BigNumber(Validators.safeBN(DOMPurify.sanitize(myliquid))))) {
                   //document.getElementById("addliquidtext").innerHTML = 'Not enough coins for deposit';
                   Swal.fire({
                       icon: 'warning',
@@ -6178,7 +6179,7 @@ async function addLiquidity() {
           });
       } else {
           await coin1contract.methods.balanceOf(currentaccount).call().then(function (myliquid) {
-              if (new BigNumber(coin1val).gt(new BigNumber(DOMPurify.sanitize(myliquid)))) {
+              if (new BigNumber(coin1val).gt(new BigNumber(Validators.safeBN(DOMPurify.sanitize(myliquid))))) {
                   //document.getElementById("addliquidtext").innerHTML = 'Not enough coins for deposit';
                   Swal.fire({
                       icon: 'warning',
@@ -6333,7 +6334,7 @@ async function Swap() {
         bayaddy = BAYRaddy;
     }
     await exchangecontract.methods.getPair(bayaddy, coin1).call().then(function (swapresult) {
-        mypair = DOMPurify.sanitize(swapresult);
+        mypair = Validators.safeAddress(DOMPurify.sanitize(swapresult));
     });
     decimals = await getDecimals(mycoin1);
     decimals = "1e" + decimals;
@@ -6341,7 +6342,7 @@ async function Swap() {
       try {
           showSpinner();
           await coin1contract.methods.allowance(chosenaccount, myrouter).call().then(function (swapresult) {
-              allowance = DOMPurify.sanitize(swapresult);
+              allowance = Validators.safeBN(DOMPurify.sanitize(swapresult));
           });
           if(parseInt(allowance) == 0 || new BN(allowance).lt(new BN("999999999999999999999999999999"))) {
               Swal.fire({
@@ -6355,7 +6356,7 @@ async function Swap() {
           }
           allowance = 0;
           await baydatacontract.methods.allowance(chosenaccount, myrouter).call().then(function (swapresult) {
-              allowance = DOMPurify.sanitize(swapresult);
+              allowance = Validators.safeBN(DOMPurify.sanitize(swapresult));
           });
           if(parseInt(allowance) == 0 || new BN(allowance).lt(new BN("999999999999999999999999999999"))) {
               Swal.fire({
@@ -6369,7 +6370,7 @@ async function Swap() {
           }
           allowance = 0;
           await baydatacontract.methods.allowanceReserve(chosenaccount, myrouter).call().then(function (swapresult) {
-              allowance = DOMPurify.sanitize(swapresult);
+              allowance = Validators.safeBN(DOMPurify.sanitize(swapresult));
           });
           if(parseInt(allowance) == 0 || new BN(allowance).lt(new BN("999999999999999999999999999999"))) {
               Swal.fire({
@@ -6395,7 +6396,7 @@ async function Swap() {
       }
       if(/^0x0+$/.test(mypair) == false) {
           await liquiditypool.methods.poolhighkey(mypair).call().then(function (swapresult) {
-              myhighkey = parseInt(DOMPurify.sanitize(swapresult));
+              myhighkey = parseInt(Validators.safeBN(DOMPurify.sanitize(swapresult)));
           });
           section = Math.floor(networkvars[0] / networkvars[2]);
           if(myhighkey != section) {
@@ -6471,7 +6472,7 @@ async function Swap() {
       if(bayselect == 0 || bayselect == 1) {
           if(weth) {
               await window.web3.eth.getBalance(myaccounts, function(myliquid2) {
-                  if (org2.gt(new BN(DOMPurify.sanitize(myliquid2)))) {
+                  if (org2.gt(new BN(Validators.safeBN(DOMPurify.sanitize(myliquid2))))) {
                       console.log(org2.toFixed())
                       console.log(myliquid2.toFixed())
                       Swal.fire({
@@ -6485,7 +6486,7 @@ async function Swap() {
               });
           } else {
               await coin1contract.methods.balanceOf(chosenaccount).call().then(function (myliquid2) {
-                  if (org2.gt(new BN(DOMPurify.sanitize(myliquid2)))) {
+                  if (org2.gt(new BN(Validators.safeBN(DOMPurify.sanitize(myliquid2))))) {
                       Swal.fire({
                           icon: 'warning',
                           text: translateThis('Not enough coins for deposit'),
@@ -6499,7 +6500,7 @@ async function Swap() {
       } else {
           if(bayselect == 2) {
               await baylcontract.methods.balanceOf(chosenaccount).call().then(function (myliquid2) {
-                  if (org1.gt(new BN(DOMPurify.sanitize(myliquid2)))) {
+                  if (org1.gt(new BN(Validators.safeBN(DOMPurify.sanitize(myliquid2))))) {
                       Swal.fire({
                           icon: 'warning',
                           text: translateThis('Not enough liquid BAYL coins for deposit'),
@@ -6511,7 +6512,7 @@ async function Swap() {
               });
           } else {
               await bayrcontract.methods.balanceOf(chosenaccount).call().then(function (myrval2) {
-                  if (org1.gt(new BN(DOMPurify.sanitize(myrval2)))) {
+                  if (org1.gt(new BN(Validators.safeBN(DOMPurify.sanitize(myrval2))))) {
                       Swal.fire({
                           icon: 'warning',
                           text: translateThis('Not enough reserve BAYR coins for deposit'),
@@ -6713,14 +6714,14 @@ async function withdrawLP() {
         bayaddy = BAYRaddy;
     }
     await exchangecontract.methods.getPair(bayaddy, coin1).call().then(function (wresult) {
-        mypair = DOMPurify.sanitize(wresult);
+        mypair = Validators.safeAddress(DOMPurify.sanitize(wresult));
     });
     var paircontract = new web3.eth.Contract(PairABI, mypair);
     try {
       try {
           showSpinner();
           await paircontract.methods.allowance(waccount, myrouter).call().then(function (wresult) {
-              allowance = DOMPurify.sanitize(wresult);
+              allowance = Validators.safeBN(DOMPurify.sanitize(wresult));
           });
           if(parseInt(allowance) == 0 || new BN(allowance).lt(new BN("999999999999999999999999999999"))) {
               Swal.fire({
@@ -6745,7 +6746,7 @@ async function withdrawLP() {
       }
       if(/^0x0+$/.test(mypair) == false) {
           await liquiditypool.methods.poolhighkey(mypair).call().then(function (wresult) {
-              myhighkey = parseInt(DOMPurify.sanitize(wresult));
+              myhighkey = parseInt(Validators.safeBN(DOMPurify.sanitize(wresult)));
           });
           section = Math.floor(networkvars[0] / networkvars[2]);
           if(myhighkey != section) {
@@ -6804,7 +6805,7 @@ async function withdrawLP() {
           return;
       }
       await paircontract.methods.balanceOf(waccount).call().then(function (wval2) {
-          wval2 = new BN(DOMPurify.sanitize(wval2))
+          wval2 = new BN(Validators.safeBN(DOMPurify.sanitize(wval2)))
           if(new BN(wval).gt(wval2)) {
               Swal.fire({
                   icon: 'warning',
