@@ -2302,9 +2302,9 @@ function getEthereumRpc() {
 }
 
 function validation(input) {
-    if (!input && input !== 0) return "";
+    if (!input && input !== 0 && input !== false) return "";
     const str = String(input);
-    return /^[a-zA-Z0-9]+$/.test(str) ? str : "";
+    return /^-?[a-zA-Z0-9]+$/.test(str) ? str : "";
 }
 
 loadRpcSettings();

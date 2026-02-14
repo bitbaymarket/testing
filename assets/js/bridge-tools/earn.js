@@ -700,7 +700,7 @@ async function loadLidoVaultInfo() {
     document.getElementById('lidoTotalYield').textContent = yieldETH;
     
     // Get current and next epoch unlock amounts
-    const epochLength = validation(DOMPurify.sanitize(await lidoContract.methods.EPOCH_LENGTH().call()));
+    const epochLength = parseInt(validation(DOMPurify.sanitize(await lidoContract.methods.EPOCH_LENGTH().call())));
     const currentTime = Math.floor(Date.now() / 1000);
     const currentEpoch = Math.floor(currentTime / epochLength);
     const nextEpoch = currentEpoch + 1;
@@ -803,8 +803,8 @@ async function depositLidoHODL() {
     // Get user's current position and min/max days
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
     const userDeposit = JSON.parse(DOMPurify.sanitize(JSON.stringify(await lidoContract.methods.deposits(myaccounts).call())));
-    const minDays = validation(DOMPurify.sanitize(await lidoContract.methods.mindays().call()));
-    const maxDays = validation(DOMPurify.sanitize(await lidoContract.methods.maxdays().call()));
+    const minDays = parseInt(validation(DOMPurify.sanitize(await lidoContract.methods.mindays().call())));
+    const maxDays = parseInt(validation(DOMPurify.sanitize(await lidoContract.methods.maxdays().call())));
     
     // Get ETH and stETH balances
     const ethBalance = validation(DOMPurify.sanitize(await earnState.ethWeb3.eth.getBalance(myaccounts)));
@@ -2123,8 +2123,8 @@ async function checkAndManageStableVault() {
       const isInRange = validation(DOMPurify.sanitize(await stableContract.methods.isInRange().call())) === 'true';
       
       if (!isInRange) {
-        const lastReposition = validation(DOMPurify.sanitize(await stableContract.methods.lastReposition().call()));
-        const positionTimelock = validation(DOMPurify.sanitize(await stableContract.methods.POSITION_TIMELOCK().call()));
+        const lastReposition = parseInt(validation(DOMPurify.sanitize(await stableContract.methods.lastReposition().call())));
+        const positionTimelock = parseInt(validation(DOMPurify.sanitize(await stableContract.methods.POSITION_TIMELOCK().call())));
         now = Math.floor(Date.now() / 1000);
         
         if (now - lastReposition > positionTimelock) {
@@ -2136,8 +2136,8 @@ async function checkAndManageStableVault() {
       }
       
       // Check if dust needs cleaning
-      const lastDustClean = validation(DOMPurify.sanitize(await stableContract.methods.lastDustClean().call()));
-      const cleanTimelock = validation(DOMPurify.sanitize(await stableContract.methods.CLEAN_TIMELOCK().call()));
+      const lastDustClean = parseInt(validation(DOMPurify.sanitize(await stableContract.methods.lastDustClean().call())));
+      const cleanTimelock = parseInt(validation(DOMPurify.sanitize(await stableContract.methods.CLEAN_TIMELOCK().call())));
       now = Math.floor(Date.now() / 1000);
       
       if (now - lastDustClean > cleanTimelock) {
@@ -2185,10 +2185,10 @@ async function loadStakingInfo() {
     
     document.getElementById('baylTotalStaked').textContent = displayBAYAmount(totalTokens, 4);
     document.getElementById('baylTotalShares').textContent = totalShares;
-    document.getElementById('baylRefreshRate').textContent = Math.floor(refreshRate / 86400) + ' days';
+    document.getElementById('baylRefreshRate').textContent = Math.floor(parseInt(refreshRate) / 86400) + ' days';
     const currentBlock = parseInt(validation(DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber())));
 
-    const blocksRemaining = Math.floor(currentBlock % claimRate);
+    const blocksRemaining = Math.floor(currentBlock % parseInt(claimRate));
     document.getElementById('baylClaimRate').textContent = claimRate + ' blocks (' + blocksRemaining + "/" + claimRate + ")";
     
     // Load user staking info
@@ -2639,7 +2639,7 @@ async function loadVotingInfo() {
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
     
     // Get current epoch
-    const currentEpoch = validation(DOMPurify.sanitize(await voteContract.methods.currentEpoch().call()));
+    const currentEpoch = parseInt(validation(DOMPurify.sanitize(await voteContract.methods.currentEpoch().call())));
     document.getElementById('currentVoteEpoch').textContent = currentEpoch;
     
     // Get epoch block info
