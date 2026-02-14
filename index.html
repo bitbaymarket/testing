@@ -1235,7 +1235,6 @@
 <script type="text/javascript" src="./assets/js/bridge-tools/chartist.js"></script>
 <script type="text/javascript" src="./assets/js/bridge-tools/chartist-plugin-tooltip.js"></script>
 <script type="text/javascript" src="./assets/js/bridge-tools/purify.js"></script>
-<script type="text/javascript" src="./assets/js/bridge-tools/validators.js"></script>
 <script type="text/javascript" src="./assets/js/bridge-tools/sweetalert211.js"></script>
 <script type="text/javascript" src="./assets/js/bridge-tools/zxcvbn.js"></script>
 <script type="text/javascript" src="./rotating-provider.js"></script>
@@ -2300,6 +2299,12 @@ function getEthereumRpc() {
     return DEFAULT_ETHEREUM_RPC;
   }
   return CUSTOM_ETHEREUM_RPC || DEFAULT_ETHEREUM_RPC;
+}
+
+function validation(input) {
+    if (!input && input !== 0) return "";
+    const str = String(input);
+    return /^[a-zA-Z0-9]+$/.test(str) ? str : "";
 }
 
 loadRpcSettings();

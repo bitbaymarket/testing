@@ -2145,8 +2145,8 @@ async function checkAndManageStableVault() {
         const daiToken = new earnState.polWeb3.eth.Contract(ERC20ABI, TREASURY_ADDRESSES.DAI);
         const usdcToken = new earnState.polWeb3.eth.Contract(ERC20ABI, TREASURY_ADDRESSES.USDC);
         const [daiBalance, usdcBalance] = await Promise.all([
-          daiToken.methods.balanceOf(TREASURY_ADDRESSES.STABLE_POOL).call(),
-          usdcToken.methods.balanceOf(TREASURY_ADDRESSES.STABLE_POOL).call()
+          validation(DOMPurify.sanitize(daiToken.methods.balanceOf(TREASURY_ADDRESSES.STABLE_POOL).call())),
+          validation(DOMPurify.sanitize(usdcToken.methods.balanceOf(TREASURY_ADDRESSES.STABLE_POOL).call()))
         ]);        
         if (parseInt(daiBalance) > 0 || parseInt(usdcBalance) > 0) {
           const deadline = now + 300;
