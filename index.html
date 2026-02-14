@@ -2302,6 +2302,22 @@ function getEthereumRpc() {
 }
 
 function validation(input) {
+    // Recursively validate arrays - validate each element
+    if (Array.isArray(input)) {
+      return input.map(function(item) { return validation(item); });
+    }
+    // Recursively validate objects - validate each key and value
+    // Keys must be alphanumeric/underscore; non-matching keys are dropped for safety
+    if (input !== null && typeof input === 'object') {
+      var result = {};
+      Object.keys(input).forEach(function(key) {
+        var safeKey = /^[a-zA-Z0-9_]+$/.test(key) ? key : "";
+        if (safeKey !== "") {
+          result[safeKey] = validation(input[key]);
+        }
+      });
+      return result;
+    }
     if (!input && input !== 0) return "";
     var str = String(input);
     if(str.toLowerCase() == "true") {
@@ -4276,7 +4292,7 @@ async function calculateAndDisplayROIPreLogin() {
     }
     const homeRoiNotification = document.getElementById('homeRoiNotification');
     if (homeRoiNotification) {
-      homeRoiNotification.innerHTML = roiText;
+      homeRoiNotification.textContent = roiText;
       homeRoiNotification.classList.remove('hidden');
     }    
     console.log('ROI calculated:', yearlyROI.toFixed(2) + '%', 'WETH Price:', wethPrice, 'BAY Price:', bayPrice);
