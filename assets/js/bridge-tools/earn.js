@@ -234,7 +234,7 @@ async function showVotePayload(hash) {
     mainContainer.appendChild(headerDiv);
     
     try {
-      payload = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(payload))));
+      payload = JSON.parse(DOMPurify.sanitize(JSON.stringify(payload)));
       
       // 3. Actions Scrollable List
       const actionsContainer = document.createElement('div');
@@ -261,7 +261,7 @@ async function showVotePayload(hash) {
         if (typesArray.length > 0 && argsBlob !== '0x') {
           try {
             decodedArgs = earnState.polWeb3.eth.abi.decodeParameters(typesArray, argsBlob);
-            decodedArgs = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(decodedArgs))));
+            decodedArgs = JSON.parse(DOMPurify.sanitize(JSON.stringify(decodedArgs)));
           } catch (e) {
             console.error('Error decoding arguments: ' + (e.name || 'Unknown error'));
             decodeError = 'Unable to decode arguments';  // Generic message, don't expose e.message
@@ -721,7 +721,7 @@ async function loadUserLidoPosition() {
   
   try {
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
-    const userDeposit = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await lidoContract.methods.deposits(myaccounts).call()))));
+    const userDeposit = JSON.parse(DOMPurify.sanitize(JSON.stringify(await lidoContract.methods.deposits(myaccounts).call())));
     
     if (userDeposit.amount > 0) {
       const amountETH = formatETHAmount(userDeposit.amount, 8);
@@ -802,7 +802,7 @@ async function depositLidoHODL() {
   try {
     // Get user's current position and min/max days
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
-    const userDeposit = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await lidoContract.methods.deposits(myaccounts).call()))));
+    const userDeposit = JSON.parse(DOMPurify.sanitize(JSON.stringify(await lidoContract.methods.deposits(myaccounts).call())));
     const minDays = parseInt(validation(DOMPurify.sanitize(await lidoContract.methods.mindays().call())));
     const maxDays = parseInt(validation(DOMPurify.sanitize(await lidoContract.methods.maxdays().call())));
     
@@ -1092,7 +1092,7 @@ async function withdrawLidoHODL() {
   
   try {
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
-    const userDeposit = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await lidoContract.methods.deposits(myaccounts).call()))));
+    const userDeposit = JSON.parse(DOMPurify.sanitize(JSON.stringify(await lidoContract.methods.deposits(myaccounts).call())));
     
     const BN = earnState.ethWeb3.utils.BN;
     if (new BN(userDeposit.amount).lte(new BN('0'))) {
@@ -1271,7 +1271,7 @@ async function loadUserStablePosition(stableContract, totalShares) {
       // Get pending fees
       const feeVault = validation(DOMPurify.sanitize(await stableContract.methods.feeVault().call()));
       const feeVaultContract = new earnState.polWeb3.eth.Contract(stableVaultFeesABI, feeVault);
-      const pendingFees = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await feeVaultContract.methods.pendingFees(myaccounts).call()))));
+      const pendingFees = JSON.parse(DOMPurify.sanitize(JSON.stringify(await feeVaultContract.methods.pendingFees(myaccounts).call())));
       
       const pendingDAI = new BN(pendingFees[0]).dividedBy('1e18');
       const pendingUSDC = new BN(pendingFees[1]).dividedBy('1e6');
@@ -1835,7 +1835,7 @@ async function checkStakingConditions() {
   
   try {
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
-    const userInfo = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call()))));
+    const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call())));
     
     // Check if user has any stake
     if (parseInt(userInfo.shares) === 0) {
@@ -1933,7 +1933,7 @@ async function checkAndExecuteVote() {
     
     // Check if previous epoch needs execution
     if (prevEpoch >= 0) {
-      const epochData = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await voteContract.methods.epochs(prevEpoch).call()))));
+      const epochData = JSON.parse(DOMPurify.sanitize(JSON.stringify(await voteContract.methods.epochs(prevEpoch).call())));
       
       if (!epochData.executed) {
         // Check if there is a winner
@@ -2067,7 +2067,7 @@ async function checkAndManageStableVault() {
                         sendTo.toLowerCase() !== myaccounts.toLowerCase();
       
       if (isDonating) {
-        const pendingFees = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await feeVaultContract.methods.pendingFees(myaccounts).call()))));
+        const pendingFees = JSON.parse(DOMPurify.sanitize(JSON.stringify(await feeVaultContract.methods.pendingFees(myaccounts).call())));
         const pendingDAI = new BN(pendingFees[0]).dividedBy('1e18');
         const pendingUSDC = new BN(pendingFees[1]).dividedBy('1e6');
         const totalPendingUSD = pendingDAI.plus(pendingUSDC);
@@ -2092,7 +2092,7 @@ async function checkAndManageStableVault() {
     const liquidity = validation(DOMPurify.sanitize(await stableContract.methods.liquidity().call()));
     
     if (isGreaterThanZero(liquidity)) {
-      const unclaimedFees = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await stableContract.methods.getUnclaimedFees().call()))));
+      const unclaimedFees = JSON.parse(DOMPurify.sanitize(JSON.stringify(await stableContract.methods.getUnclaimedFees().call())));
       // Token order depends on address comparison: USDC (0x3c...) < DAI (0x8f...)
       // So currency0 = USDC (6 decimals), currency1 = DAI (18 decimals)
       const daiIsToken0 = await stableContract.methods._daiIsToken0().call();
@@ -2189,7 +2189,7 @@ async function loadStakingInfo() {
     document.getElementById('baylClaimRate').textContent = claimRate + ' blocks (' + blocksRemaining + "/" + claimRate + ")";
     
     // Load user staking info
-    const userInfo = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call()))));
+    const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call())));
     document.getElementById('userShares').textContent = displayBAYAmount(userInfo.shares, 4);
     
     if (userInfo.lastRefresh > 0 && parseInt(totalShares) > 0) {
@@ -2209,7 +2209,7 @@ async function loadStakingInfo() {
     }
     
     // Get user's tracked coins
-    const userCoins = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getUserCoins(myaccounts).call()))));
+    const userCoins = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getUserCoins(myaccounts).call())));
     if (userCoins && userCoins.length > 0) {
       const coinNames = [];
       if (userCoins.includes(TREASURY_ADDRESSES.WETH)) coinNames.push('WETH');
@@ -2224,7 +2224,7 @@ async function loadStakingInfo() {
       
       if (userInterval === currentInterval && parseInt(userInfo.staked) > 0) {
         // User is participating in current interval, get pending rewards
-        const pendingRewards = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.pendingReward(myaccounts).call()))));
+        const pendingRewards = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.pendingReward(myaccounts).call())));
         let rewardsHTML = '';
         for (let i = 0; i < userCoins.length; i++) {
           const coin = userCoins[i];
@@ -2323,7 +2323,7 @@ async function loadTopStakers() {
   
   try {
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
-    const topStakers = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getTopStakers().call()))));
+    const topStakers = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getTopStakers().call())));
     
     let html = '<ol style="list-style-position: inside; padding-left: 0; margin-bottom: 0;">';
     for (const staker of topStakers) {
@@ -2369,7 +2369,7 @@ async function depositStake() {
     const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
     // Check if this is first deposit - if so, set coins first
-    const userCoins = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getUserCoins(myaccounts).call()))));
+    const userCoins = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getUserCoins(myaccounts).call())));
     if (!userCoins || userCoins.length === 0) {
       // Set default coins: WETH, DAI, USDC
       const coins = [
@@ -2441,7 +2441,7 @@ async function unstakeBAYL() {
   const vaultContract = new earnState.polWeb3.eth.Contract(vaultABI, TREASURY_ADDRESSES.VAULT);
   
   // Check if user is currently in a staking interval
-  const userInfo = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call()))));
+  const userInfo = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.accessPool(myaccounts).call())));
   const claimRate = parseInt(validation(DOMPurify.sanitize(await baylTreasury.methods.claimRate().call())));
   const currentBlock = parseInt(validation(DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber())));
   const currentInterval = Math.floor(currentBlock / claimRate);
@@ -2568,8 +2568,8 @@ async function claimStakingRewards(showSwal = false) {
       }
     }
     // Save updated vote counts
-    const userCoins = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getUserCoins(myaccounts).call()))));
-    const pendingRewards = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.pendingReward(myaccounts).call()))));
+    const userCoins = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.getUserCoins(myaccounts).call())));
+    const pendingRewards = JSON.parse(DOMPurify.sanitize(JSON.stringify(await baylTreasury.methods.pendingReward(myaccounts).call())));
     var foundRewards = false;
     for (let i = 0; i < userCoins.length; i++) {
       const coin = userCoins[i];
@@ -2677,7 +2677,7 @@ async function loadVotes(voteContract, currentEpoch, isInVotePeriod) {
     
     // For current epoch: Only show pending votes during the vote period
     if (isInVotePeriod) {
-      const topHashes = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await voteContract.methods.getEpochHashes(currentEpoch).call()))));
+      const topHashes = JSON.parse(DOMPurify.sanitize(JSON.stringify(await voteContract.methods.getEpochHashes(currentEpoch).call())));
       let pendingHTML = '';
       
       for (const hash of topHashes) {

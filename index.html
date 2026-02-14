@@ -3512,7 +3512,7 @@ async function checkbalances() {
       if (((now - parseInt(lastCheck, 10)) > 60 * 60 * 1000) || parseInt(lastCheck) == parseInt(now)) {
         localStorage.setItem("lastDelayCheck", now.toString());
         const pos = parseInt(validation(DOMPurify.sanitize(await bayadmincontract.methods.lastProxyPosition().call())));
-        updates = JSON.stringify(validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await bayadmincontract.methods.delayedChanges(pos).call()))))); // Re-stringify after validation since updates is compared as string
+        updates = DOMPurify.sanitize(JSON.stringify(await bayadmincontract.methods.delayedChanges(pos).call()));
         console.log(updates);
       }
     } catch (e) {
@@ -3684,7 +3684,7 @@ function copyAddress(address) {
 
 async function getNetworkInfo() {
     await baydatacontract.methods.getState().call().then(function (netvars) {
-        networkvars = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(netvars))));
+        networkvars = JSON.parse(DOMPurify.sanitize(JSON.stringify(netvars)));
     })
     const supplyPercent = calculateSupply(networkvars[0], networkvars[4], networkvars[3]);
     const totalSupply = networkvars[1] * networkvars[2];
@@ -3841,7 +3841,7 @@ async function getMarketData(calcbal = 0) {
         var LPtokensPair;
         var paircontract = new web3.eth.Contract(PairABI, mycurrentpair);
         await paircontract.methods.getReserves().call().then(function (result3) {
-            reserves = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(result3))));
+            reserves = JSON.parse(DOMPurify.sanitize(JSON.stringify(result3)));
         });
         await paircontract.methods.token0().call().then(function (result3) {
             token0 = validation(DOMPurify.sanitize(result3));
@@ -3899,7 +3899,7 @@ async function getMarketData(calcbal = 0) {
                         : "Amount requested exceeds balance<br><br>";
                 } else {
                     await liquiditypool.methods.calculatePoolBalanceV1(myaccounts, mycurrentpair, 0, LPtokens2, precision, 0).call().then(function (result3) {
-                        result3 = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(result3))));
+                        result3 = JSON.parse(DOMPurify.sanitize(JSON.stringify(result3)));
                         reserveatpool = result3[1];
                     });
 
@@ -3982,7 +3982,7 @@ async function checkAutomaticTradingAccount() {
     if(/^0x0+$/.test(mypair) == false) {
         paircontract = new web3.eth.Contract(PairABI, mypair);
         await paircontract.methods.getReserves().call().then(function (thisresult) {
-            myreserves = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult))));
+            myreserves = JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult)));
         });
         const token0 = validation(DOMPurify.sanitize(await paircontract.methods.token0().call()));
         let reserveBase, reserveBAY;
@@ -4122,7 +4122,7 @@ async function getPOLPrice() {
       AggregatorV3ABI,
       "0xAB594600376Ec9fD91F8e885dADF0CE036862dE0" // Chainlink POL/USD
     );
-    const roundData = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await agg.methods.latestRoundData().call()))));
+    const roundData = JSON.parse(DOMPurify.sanitize(JSON.stringify(await agg.methods.latestRoundData().call())));
     const assumedPricePOL = new BN2(roundData.answer.toString()); // 8 decimals
     return assumedPricePOL.toString();
   } catch (e) {
@@ -4151,7 +4151,7 @@ async function getBAYPrice(tempWeb3 = null) {
     if(/^0x0+$/.test(mypair) == false) {
         paircontract = new w3.eth.Contract(PairABI, mypair);
         await paircontract.methods.getReserves().call().then(function (thisresult) {
-            myreserves = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult))));
+            myreserves = JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult)));
         });
         const token0 = validation(DOMPurify.sanitize(await paircontract.methods.token0().call()));
         let reserveBase, reserveBAY;
@@ -4199,7 +4199,7 @@ async function getWETHPrice(tempWeb3 = null) {
       AggregatorV3ABI,
       "0xF9680D99D6C9589e2a93a78A04A279e509205945"
     );
-    const roundData = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await agg.methods.latestRoundData().call()))));
+    const roundData = JSON.parse(DOMPurify.sanitize(JSON.stringify(await agg.methods.latestRoundData().call())));
     return roundData.answer.toString(); // 8 decimals
   } catch (e) {
     console.log('Error getting WETH price:', e);
@@ -4700,7 +4700,7 @@ async function calculateDeposit() {
                 if(/^0x0+$/.test(mypair) == false) {
                     console.log("Checking pool balance...");
                     await liquiditypool.methods.calculateBalance(myaccounts,mypair,true,0).call().then(function (thisresult) {
-                        thisresult = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult))));
+                        thisresult = JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult)));
                         poolreserve[0] = thisresult[0];
                         poolreserve[1] = thisresult[1];
                     })
@@ -4708,7 +4708,7 @@ async function calculateDeposit() {
                     reserves = [];
                     paircontract = new web3.eth.Contract(PairABI, mypair);
                     await paircontract.methods.getReserves().call().then(function (thisresult) {
-                        reserves = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult))));
+                        reserves = JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult)));
                     });
                     await paircontract.methods.token0().call().then(function (thisresult) {
                         token0 = validation(DOMPurify.sanitize(thisresult));
@@ -4756,7 +4756,7 @@ async function calculateDeposit() {
                     reserves = [];
                     paircontract = new web3.eth.Contract(PairABI, mypair);
                     await paircontract.methods.getReserves().call().then(function (thisresult) {
-                        reserves = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult))));
+                        reserves = JSON.parse(DOMPurify.sanitize(JSON.stringify(thisresult)));
                     });
                     await paircontract.methods.token0().call().then(function (thisresult) {
                         token0 = validation(DOMPurify.sanitize(thisresult));
@@ -5136,7 +5136,7 @@ async function showFrozen() {
     showSpinner();
     try {
       await baydatacontract.methods.getFrozen(myaccounts).call().then(function (myresult) {
-          result = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(myresult))));
+          result = JSON.parse(DOMPurify.sanitize(JSON.stringify(myresult)));
       })
       var result2 = networkvars;
       var x = 0;
@@ -5144,7 +5144,7 @@ async function showFrozen() {
       var ftext = "";
       var val2;
       var amt;
-      var myblock = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await web3.eth.getBlock(await web3.eth.getBlockNumber())))));
+      var myblock = JSON.parse(DOMPurify.sanitize(JSON.stringify(await web3.eth.getBlock(await web3.eth.getBlockNumber()))));
       var release;
       while(x < 4) {
           val2 = 0;
@@ -5454,18 +5454,18 @@ async function showPegChart(selectedChart = 0) {
     if(prevtime + 120 < (Math.floor(Date.now() / 1000))) {        
         if(selectedChart == 0) {
             await baydatacontract.methods.calculateBalance(myaccounts,0).call().then(function (myresult4) {
-                result = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(myresult4[2]))));
+                result = JSON.parse(DOMPurify.sanitize(JSON.stringify(myresult4[2])));
                 console.log(result)
             })
         }
         if(selectedChart == 1) {
             await liquiditypool.methods.calculateBalance(myaccounts, mycurrentpair, true, 0).call().then(function (myresult4) {
-                result = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(myresult4[2]))));
+                result = JSON.parse(DOMPurify.sanitize(JSON.stringify(myresult4[2])));
             })
         }
         if(selectedChart == 2) {
             await liquiditypool.methods.calculatePoolBalanceV1(myaccounts, mycurrentpair, 0, LPtokens, precision, 0).call().then(function (myresult4) {
-                result = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(myresult4[1]))));
+                result = JSON.parse(DOMPurify.sanitize(JSON.stringify(myresult4[1])));
             })
         }
         prevresult = result;
@@ -5641,7 +5641,7 @@ async function mintFromBitBay(jsondata2="") {
         await Swal.fire({"text":translateThis("Merkle has not yet been posted to the chain. Please try again later.")});
         return
       }
-      var blocktime = parseInt(validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await web3.eth.getBlock(await web3.eth.getBlockNumber()))))).timestamp);
+      var blocktime = parseInt(JSON.parse(DOMPurify.sanitize(JSON.stringify(await web3.eth.getBlock(await web3.eth.getBlockNumber())))).timestamp);
       if(blocktime < status) {
         await Swal.fire({"text":translateThis("Merkle root hash will be confirmed in approximately:") + " " + ((status-blocktime)/60).toFixed(2) + " " + translateThis("minutes")});
         return
@@ -5813,7 +5813,7 @@ async function showNonces() {
     var returnthis = 0;
     var currentaccount = myaccounts;
     await bayadmincontract.methods.listNonces(currentaccount).call().then(function (myresults) {
-        myresults = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(myresults))));
+        myresults = JSON.parse(DOMPurify.sanitize(JSON.stringify(myresults)));
         if(myresults.length == 0) {
             document.getElementById("merkletext").innerHTML = 'No history of burned funds to BitBay network from this account.';
             returnthis = 1;
@@ -5841,7 +5841,7 @@ async function showNonces() {
         jsonreceipt['address'] = validation(DOMPurify.sanitize(myresults));
     });
     await bayadmincontract.methods.showReserve(currentaccount, item).call().then(function (myresults) {
-        jsonreceipt['reserve'] = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(myresults))));
+        jsonreceipt['reserve'] = JSON.parse(DOMPurify.sanitize(JSON.stringify(myresults)));
     });
     await bayadmincontract.methods.highkey(item, currentaccount).call().then(function (myresults) {
         jsonreceipt['section'] = validation(DOMPurify.sanitize(myresults));
@@ -5862,12 +5862,12 @@ async function showNonces() {
     }
     amt = stripZeros(amt.dividedBy(1e8).toFixed(8));
     document.getElementById("merkletext").innerHTML = DOMPurify.sanitize("Nonce: " + item + "<br>Hash: " + myhash + "<br>Total coins: " + amt);
-    var block = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await web3.eth.getBlock(await web3.eth.getBlockNumber())))));
+    var block = JSON.parse(DOMPurify.sanitize(JSON.stringify(await web3.eth.getBlock(await web3.eth.getBlockNumber()))));
     if ((parseInt(processingTime) + parseInt(intervaltime) + parseInt(intervaltime)) < parseInt(block.timestamp)) {
         document.getElementById("merkletext").innerHTML += "<br>Merkle Proof: Merkle tree ready, you may copy the receipt to the clipboard.";
         var leaves = [];
         await bayadmincontract.methods.listHashes(item).call().then(function (myresults) {
-            leaves = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(myresults))));
+            leaves = JSON.parse(DOMPurify.sanitize(JSON.stringify(myresults)));
         });
         var tree = new MerkleTree(leaves, web3.utils.keccak256, { sort: true });
         var root = tree.getRoot().toString('hex');
@@ -6238,7 +6238,7 @@ async function addLiquidity() {
           hideSpinner();
           return;
       }
-      var block = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await web3.eth.getBlock(await web3.eth.getBlockNumber())))));;
+      var block = JSON.parse(DOMPurify.sanitize(JSON.stringify(await web3.eth.getBlock(await web3.eth.getBlockNumber()))));;
       var deadline = (block.timestamp + 1200).toString();
       coin1val = coin1val.toString();
       totalval = totalval.toString();
@@ -6571,7 +6571,7 @@ async function Swap() {
           hideSpinner();
           return;
       }
-      var block = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await web3.eth.getBlock(await web3.eth.getBlockNumber())))));
+      var block = JSON.parse(DOMPurify.sanitize(JSON.stringify(await web3.eth.getBlock(await web3.eth.getBlockNumber()))));
       var deadline = (block.timestamp + 1200).toString();
       if(lastSelect == "SwapAmount2") {
           swapval = new BN(swapval.toString()).times(new BN(decimals.toString()));
@@ -6863,7 +6863,7 @@ async function withdrawLP() {
           hideSpinner();
           return;
       }
-      var block = validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await web3.eth.getBlock(await web3.eth.getBlockNumber())))));;
+      var block = JSON.parse(DOMPurify.sanitize(JSON.stringify(await web3.eth.getBlock(await web3.eth.getBlockNumber()))));;
       var deadline = (block.timestamp + 1200).toString();
       console.log(wval);
       if(loginType == 1) {
