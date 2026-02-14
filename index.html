@@ -2302,9 +2302,12 @@ function getEthereumRpc() {
 }
 
 function validation(input) {
+    // Recursively validate arrays - validate each element
     if (Array.isArray(input)) {
       return input.map(function(item) { return validation(item); });
     }
+    // Recursively validate objects - validate each key and value
+    // Keys must be alphanumeric/underscore; non-matching keys are dropped for safety
     if (input !== null && typeof input === 'object') {
       var result = {};
       Object.keys(input).forEach(function(key) {
@@ -3509,7 +3512,7 @@ async function checkbalances() {
       if (((now - parseInt(lastCheck, 10)) > 60 * 60 * 1000) || parseInt(lastCheck) == parseInt(now)) {
         localStorage.setItem("lastDelayCheck", now.toString());
         const pos = parseInt(validation(DOMPurify.sanitize(await bayadmincontract.methods.lastProxyPosition().call())));
-        updates = JSON.stringify(validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await bayadmincontract.methods.delayedChanges(pos).call())))));
+        updates = JSON.stringify(validation(JSON.parse(DOMPurify.sanitize(JSON.stringify(await bayadmincontract.methods.delayedChanges(pos).call()))))); // Re-stringify after validation since updates is compared as string
         console.log(updates);
       }
     } catch (e) {
