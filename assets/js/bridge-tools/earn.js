@@ -1826,14 +1826,6 @@ function stopStakingAutomation() {
   console.log('Staking automation stopped');
 }
 
-function showResult(res) {
-  try {
-    return validation(DOMPurify.sanitize(res.transactionHash));
-  } catch (e) {
-    return "Transaction submitted";
-  }
-}
-
 async function checkStakingConditions() {
   if (!earnState.stakingEnabled || !earnState.isPasswordLogin || !myaccounts) {
     return;
@@ -1876,7 +1868,7 @@ async function checkStakingConditions() {
       console.log('User is close to refresh deadline, refreshing vault...');
       logToConsole('Refreshing vault before deadline...');
       const res = await sendTx(baylTreasury, "refreshVault", [myaccounts], 1500000, "0", false, false, false);
-      logToConsole(showResult(res));
+      logToConsole(res);
       return;
     }
     
@@ -1898,7 +1890,7 @@ async function checkStakingConditions() {
         console.log('User interval is behind current, calling updateShares to register...');
         logToConsole('Registering for new staking interval...');
         const res = await sendTx(baylTreasury, "updateShares", [], 300000, "0", false, false, false);
-        logToConsole(showResult(res));
+        logToConsole(res);
         return;
       }
     }
@@ -1950,7 +1942,7 @@ async function checkAndExecuteVote() {
         if (winner && winner !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
           logToConsole(`Executing winning vote for epoch ${prevEpoch}...`);
           const tx = await sendTx(voteContract, "confirmVotes", [prevEpoch], 3000000, "0", false, false, false);
-          logToConsole(`Vote execution successful for epoch ${prevEpoch}, tx: ${showResult(tx)}`);
+          logToConsole(`Vote execution successful for epoch ${prevEpoch}, tx: ${tx}`);
         }
       }
     }
@@ -1999,7 +1991,7 @@ async function checkAndDripFlow() {
     
     if (shouldDrip) {
       const tx = await sendTx(flowContract, "drip", [], 200000, "0", false, false, false);
-      logToConsole(`Flow drip successful, tx: ${showResult(tx)}`);
+      logToConsole(`Flow drip successful, tx: ${tx}`);
     }
   } catch (error) {
     console.error('Error checking/dripping flow:', error);
@@ -2050,7 +2042,7 @@ async function checkAndHarvestLido() {
           const tx = await sendTx(lidoContract, "harvestAndSwapToETH", [100, 0], estimatedGas, "0", false, true, false);
           
           localStorage.setItem(myaccounts+'lidoLastCollection', now.toString());
-          logToConsole(`Lido harvest successful, tx: ${showResult(tx)}`);
+          logToConsole(`Lido harvest successful, tx: ${tx}`);
         }
       }
     }
@@ -2090,7 +2082,7 @@ async function checkAndManageStableVault() {
             logToConsole('Collecting personal fees from StableVault (donating user)');
             const tx = await sendTx(feeVaultContract, "claim", [], 500000, "0", false, false, false);            
             localStorage.setItem(myaccounts+'stableFeeLastCollection', now.toString());
-            logToConsole(`Personal fees collected $${stripZeros(totalPendingUSD.toFixed(8))}: ` + showResult(tx));
+            logToConsole(`Personal fees collected $${stripZeros(totalPendingUSD.toFixed(8))}: ` + tx);
           }
         }
       }
@@ -2121,7 +2113,7 @@ async function checkAndManageStableVault() {
         
         logToConsole(`StableVault unclaimed fees: $${stripZeros(totalUnclaimedUSD.toFixed(8))}, collecting...`);        
         const tx = await sendTx(stableContract, "collectFees", [deadline], 500000, "0", false, false, false);        
-        logToConsole('StableVault pool fees collected successfully: ' + showResult(tx));
+        logToConsole('StableVault pool fees collected successfully: ' + tx);
       }
       
       // Check if position needs repositioning (if out of range)
@@ -2136,7 +2128,7 @@ async function checkAndManageStableVault() {
           logToConsole('StableVault is out of range, repositioning...');
           const deadline = now + 300;          
           const tx = await sendTx(stableContract, "reposition", [deadline], 2000000, "0", false, false, false);          
-          logToConsole('StableVault repositioned successfully: ' + showResult(tx));
+          logToConsole('StableVault repositioned successfully: ' + tx);
         }
       }
       
@@ -2156,7 +2148,7 @@ async function checkAndManageStableVault() {
         if (parseInt(daiBalance) > 0 || parseInt(usdcBalance) > 0) {
           const deadline = now + 300;
           const tx = await sendTx(stableContract, "cleanDust", [deadline], 1500000, "0", false, false, false);        
-          logToConsole('StableVault dust cleaned successfully: ' + showResult(tx));
+          logToConsole('StableVault dust cleaned successfully: ' + tx);
         }
       }
     }
@@ -2619,7 +2611,7 @@ async function claimStakingRewards(showSwal = false) {
       message += ` -- ${votesToCast.length} vote(s) cast.`;
     }
     if(!showSwal) {
-      logToConsole(message+` -- tx: ${showResult(tx)}`);
+      logToConsole(message+` -- tx: ${tx}`);
     }
     if(showSwal) {
       await Swal.fire(translateThis('Success'), message, 'success');

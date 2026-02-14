@@ -3188,7 +3188,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
           await new Promise(r => setTimeout(r, 1000));
           netSwitch = false;
         }
-        return receipt;
+        return showResult(receipt);
       }
       if (Date.now() - startTime > 120_000) { // 2 minutes
         await Swal.fire({
@@ -3232,7 +3232,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
           await new Promise(r => setTimeout(r, 1000));
           netSwitch = false;
         }
-        return txReceipt;
+        return showResult(txReceipt);
       }
       await new Promise(r => setTimeout(r, 5000)); // poll every 5 seconds
     }
@@ -3241,7 +3241,7 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
       await new Promise(r => setTimeout(r, 1000));
       netSwitch = false;
     }
-    return txReceipt;
+    return showResult(txReceipt);
   } catch (e) {
     await Swal.close();
     // Switch back provider if we switched for loginType 2
@@ -3258,6 +3258,14 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
       }
     }
     throw new Error(e.message || e);
+  }
+}
+
+function showResult(res) {
+  try {
+    return validation(DOMPurify.sanitize(res.transactionHash));
+  } catch (e) {
+    return "Transaction submitted";
   }
 }
 
