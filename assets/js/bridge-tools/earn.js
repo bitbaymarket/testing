@@ -331,7 +331,7 @@ async function showVotePayload(hash) {
     } catch (error) {
       // Log only safe error type information, never raw error objects or payload data
       // Console logging can also be exploited (console XSS, format string injection, log injection)
-      console.error('Error decoding payload: ' + (error.name || 'Unknown error'));
+      console.log(error)
       
       // Display generic error message without exposing any details
       const errDiv = document.createElement('div');
@@ -700,7 +700,7 @@ async function loadLidoVaultInfo() {
     document.getElementById('lidoTotalYield').textContent = yieldETH;
     
     // Get current and next epoch unlock amounts
-    const epochLength = validation(DOMPurify.sanitize(await lidoContract.methods.EPOCH_LENGTH().call()));
+    const epochLength = parseInt(validation(DOMPurify.sanitize(await lidoContract.methods.EPOCH_LENGTH().call())));
     const currentTime = Math.floor(Date.now() / 1000);
     const currentEpoch = Math.floor(currentTime / epochLength);
     const nextEpoch = currentEpoch + 1;
@@ -803,8 +803,8 @@ async function depositLidoHODL() {
     // Get user's current position and min/max days
     const lidoContract = new earnState.ethWeb3.eth.Contract(lidoVaultABI, TREASURY_ADDRESSES.LIDO_VAULT);
     const userDeposit = JSON.parse(DOMPurify.sanitize(JSON.stringify(await lidoContract.methods.deposits(myaccounts).call())));
-    const minDays = validation(DOMPurify.sanitize(await lidoContract.methods.mindays().call()));
-    const maxDays = validation(DOMPurify.sanitize(await lidoContract.methods.maxdays().call()));
+    const minDays = parseInt(validation(DOMPurify.sanitize(await lidoContract.methods.mindays().call())));
+    const maxDays = parseInt(validation(DOMPurify.sanitize(await lidoContract.methods.maxdays().call())));
     
     // Get ETH and stETH balances
     const ethBalance = validation(DOMPurify.sanitize(await earnState.ethWeb3.eth.getBalance(myaccounts)));
@@ -1073,8 +1073,9 @@ async function depositLidoHODL() {
       
     } catch (error) {
       hideSpinner();
-      console.error('Error depositing to Lido HODL:', error);
-      await showScrollableError(translateThis('Error'), error.message || 'Deposit failed');
+      console.log(error);
+      const message = translateThis("Please check your browsers console for the full error message");
+      await showScrollableError(translateThis('Transaction failed'), message);
     }
     
   } catch (error) {
@@ -1160,8 +1161,9 @@ async function withdrawLidoHODL() {
       
     } catch (error) {
       hideSpinner();
-      console.error('Error withdrawing from Lido HODL:', error);
-      await showScrollableError(translateThis('Error'), error.message || translateThis('Withdrawal failed'));
+      console.log(error);
+      const message = translateThis("Please check your browsers console for the full error message");
+      await showScrollableError(translateThis('Transaction failed'), message);
     }
     
   } catch (error) {
@@ -1417,8 +1419,9 @@ async function depositStableVault() {
     
   } catch (error) {
     hideSpinner();
-    console.error('Error depositing to StableVault:', error);
-    await showScrollableError(translateThis('Error'), error.message || translateThis('Deposit failed'));
+    console.log(error);
+    const message = translateThis("Please check your browsers console for the full error message");
+    await showScrollableError(translateThis('Transaction failed'), message);
   }
 }
 
@@ -1443,8 +1446,9 @@ async function collectStableFees() {
     
   } catch (error) {
     hideSpinner();
-    console.error('Error collecting fees:', error);
-    await showScrollableError(translateThis('Error'), error.message || translateThis('Fee collection failed'));
+    console.log(error);
+    const message = translateThis("Please check your browsers console for the full error message");
+    await showScrollableError(translateThis('Transaction failed'), message);
   }
 }
 
@@ -1491,8 +1495,9 @@ async function withdrawStableVault() {
     
   } catch (error) {
     hideSpinner();
-    console.error('Error withdrawing from StableVault:', error);
-    await showScrollableError(translateThis('Error'), error.message || translateThis('Withdrawal failed'));
+    console.log(error);
+    const message = translateThis("Please check your browsers console for the full error message");
+    await showScrollableError(translateThis('Transaction failed'), message);
   }
 }
 
@@ -1668,7 +1673,7 @@ async function verifyTotalPoolLiquidity() {
   } catch (e) {
     console.error("Liquidity check failed:", e);
     // Note: If getLiquidity() fails, it usually means the pool doesn't exist yet
-    await Swal.fire("Error", "Pool likely not initialized or StateView ABI mismatch.", "error");
+    await Swal.fire("Error", "Pool likely not initialized or there was an error checking the liquidity.", "error");
   }
 }
 
@@ -1951,7 +1956,7 @@ async function checkAndExecuteVote() {
     }
   } catch (error) {
     console.error('Error checking/executing vote:', error);
-    logToConsole(`Error with vote execution: ${error.message}`);
+    logToConsole(`Error with vote execution: Please check your browsers console to see the error message`);
   }
 }
 
@@ -1998,7 +2003,7 @@ async function checkAndDripFlow() {
     }
   } catch (error) {
     console.error('Error checking/dripping flow:', error);
-    logToConsole(`Error with flow drip: ${error.message}`);
+    logToConsole(`Error with flow/drip: Please check your browsers console to see the error message`);
   }
 }
 
@@ -2051,7 +2056,7 @@ async function checkAndHarvestLido() {
     }
   } catch (error) {
     console.error('Error checking/harvesting Lido:', error);
-    logToConsole(`Error with Lido harvest: ${error.message}`);
+    logToConsole(`Error with Lido Harvest: Please check your browsers console to see the error message`);
   }
 }
 
@@ -2123,8 +2128,8 @@ async function checkAndManageStableVault() {
       const isInRange = validation(DOMPurify.sanitize(await stableContract.methods.isInRange().call())) === 'true';
       
       if (!isInRange) {
-        const lastReposition = validation(DOMPurify.sanitize(await stableContract.methods.lastReposition().call()));
-        const positionTimelock = validation(DOMPurify.sanitize(await stableContract.methods.POSITION_TIMELOCK().call()));
+        const lastReposition = parseInt(validation(DOMPurify.sanitize(await stableContract.methods.lastReposition().call())));
+        const positionTimelock = parseInt(validation(DOMPurify.sanitize(await stableContract.methods.POSITION_TIMELOCK().call())));
         now = Math.floor(Date.now() / 1000);
         
         if (now - lastReposition > positionTimelock) {
@@ -2136,8 +2141,8 @@ async function checkAndManageStableVault() {
       }
       
       // Check if dust needs cleaning
-      const lastDustClean = validation(DOMPurify.sanitize(await stableContract.methods.lastDustClean().call()));
-      const cleanTimelock = validation(DOMPurify.sanitize(await stableContract.methods.CLEAN_TIMELOCK().call()));
+      const lastDustClean = parseInt(validation(DOMPurify.sanitize(await stableContract.methods.lastDustClean().call())));
+      const cleanTimelock = parseInt(validation(DOMPurify.sanitize(await stableContract.methods.CLEAN_TIMELOCK().call())));
       now = Math.floor(Date.now() / 1000);
       
       if (now - lastDustClean > cleanTimelock) {
@@ -2158,7 +2163,7 @@ async function checkAndManageStableVault() {
     
   } catch (error) {
     console.error('Error managing stable vault:', error);
-    logToConsole(`Error managing StableVault: ${error.message}`);
+    logToConsole(`Error with managing stable vault: Please check your browsers console to see the error message`);
   }
 }
 
@@ -2185,10 +2190,10 @@ async function loadStakingInfo() {
     
     document.getElementById('baylTotalStaked').textContent = displayBAYAmount(totalTokens, 4);
     document.getElementById('baylTotalShares').textContent = totalShares;
-    document.getElementById('baylRefreshRate').textContent = Math.floor(refreshRate / 86400) + ' days';
+    document.getElementById('baylRefreshRate').textContent = Math.floor(parseInt(refreshRate) / 86400) + ' days';
     const currentBlock = parseInt(validation(DOMPurify.sanitize(await earnState.polWeb3.eth.getBlockNumber())));
 
-    const blocksRemaining = Math.floor(currentBlock % claimRate);
+    const blocksRemaining = Math.floor(currentBlock % parseInt(claimRate));
     document.getElementById('baylClaimRate').textContent = claimRate + ' blocks (' + blocksRemaining + "/" + claimRate + ")";
     
     // Load user staking info
@@ -2427,8 +2432,9 @@ async function depositStake() {
     await refreshStakingInfo();
   } catch (error) {
     hideSpinner();
-    console.error('Error staking BAYL:', error);
-    await showScrollableError(translateThis('Error'), error.message || translateThis('Staking failed'));
+    console.log(error);
+    const message = translateThis("Please check your browsers console for the full error message");
+    await showScrollableError(translateThis('Transaction failed'), message);
   }
 }
 
@@ -2505,8 +2511,9 @@ async function unstakeBAYL() {
     await refreshStakingInfo();
   } catch (error) {
     hideSpinner();
-    console.error('Error unstaking BAYL:', error);
-    await showScrollableError(translateThis('Error'), error.message || translateThis('Unstaking failed'));
+    console.log(error);
+    const message = translateThis("Please check your browsers console for the full error message");
+    await showScrollableError(translateThis('Transaction failed'), message);
   }
 }
 
@@ -2622,7 +2629,8 @@ async function claimStakingRewards(showSwal = false) {
     hideSpinner();
     console.error('Error claiming rewards:', error);
     if(showSwal) {
-      await showScrollableError(translateThis('Error'), error.message || translateThis('Claiming rewards failed'));
+      const message = translateThis("Please check your browsers console for the full error message");
+      await showScrollableError(translateThis('Transaction failed'), message);
     }
   }
 }
@@ -2639,7 +2647,7 @@ async function loadVotingInfo() {
     const baylTreasury = new earnState.polWeb3.eth.Contract(treasuryABI, TREASURY_ADDRESSES.BAYL_TREASURY);
     
     // Get current epoch
-    const currentEpoch = validation(DOMPurify.sanitize(await voteContract.methods.currentEpoch().call()));
+    const currentEpoch = parseInt(validation(DOMPurify.sanitize(await voteContract.methods.currentEpoch().call())));
     document.getElementById('currentVoteEpoch').textContent = currentEpoch;
     
     // Get epoch block info
@@ -3341,8 +3349,9 @@ async function showWithdrawDialog() {
     }
     
   } catch (error) {
-    console.error('Error in withdraw dialog:', error);
-    await showScrollableError(translateThis('Error'), error.message);
+    console.log(error);
+    const message = translateThis('Transaction failed:') + ' ' + translateThis("Please check your browsers console for the full error message");
+    await showScrollableError(translateThis('Transaction failed'), message);
   }
 }
 
@@ -3421,8 +3430,9 @@ async function executeWithdrawal(withdrawData) {
     await refreshStakingInfo();
   } catch (error) {
     hideSpinner();
-    console.error('Error withdrawing:', error);
-    await showScrollableError(translateThis('Error'), error.message || translateThis('Withdrawal failed'));
+    console.log(error);
+    const message = translateThis('Transaction failed:') + ' ' + translateThis("Please check your browsers console for the full error message");
+    await showScrollableError(translateThis('Transaction failed'), message);
   }
 }
 

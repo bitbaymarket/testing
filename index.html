@@ -2303,7 +2303,13 @@ function getEthereumRpc() {
 
 function validation(input) {
     if (!input && input !== 0) return "";
-    const str = String(input);
+    var str = String(input);
+    if(str.toLowerCase() == "true") {
+      return true;
+    }
+    if(str.toLowerCase() == "false") {
+      return false;
+    }
     return /^[a-zA-Z0-9]+$/.test(str) ? str : "";
 }
 
@@ -3152,7 +3158,8 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
         });
       }
     } catch (err) {
-      throw new Error(`Failed to send transaction: ${err.message || err}`);
+      console.log(err);
+      throw new Error(translateThis(`Failed to send transaction`));
     }
 
     // Show waiting Swal
@@ -3548,7 +3555,8 @@ async function checkbalances() {
     await getMarketData();
     await checkAutomaticTradingAccount();
   } catch (e) {
-    throw new Error(e.message || e);
+    console.log(e);
+    throw new Error("Error loading blockchain data");
   }
 }
 
@@ -4040,7 +4048,7 @@ async function checkAutomaticTradingAccount() {
       return;
     }
     localStorage.setItem('lastTradeError', now.toString());
-    const errorText = (e && e.message ? e.message : JSON.stringify(e)).slice(0, 200) + '... (please check console for full message)';
+    const errorText = 'Please check developer console for full error message';
     console.log('Automatic trade error:', e);
     await Swal.fire({
       icon: 'error',
@@ -5198,7 +5206,8 @@ async function sendLiquid() {
       checkbalances();
     } catch (e) { 
       hideSpinner();
-      const message = translateThis('Transaction failed:') + ' ' + e.message;
+      console.log(e);
+      const message = translateThis('Transaction failed:') + ' ' + translateThis("Please check your browsers console for the full error message");
       await showScrollableError(translateThis('Error'), message);
     }
 }
@@ -5249,7 +5258,8 @@ async function sendReserve() {
       checkbalances();
     } catch (e) { 
       hideSpinner();
-      const message = translateThis('Transaction failed:') + ' ' + e.message;
+      console.log(e);
+      const message = translateThis('Transaction failed:') + ' ' + translateThis("Please check your browsers console for the full error message");
       await showScrollableError(translateThis('Error'), message);      
     }
 }
@@ -5309,7 +5319,8 @@ async function sendALT() {
       checkbalances();
     } catch (e) { 
       hideSpinner();
-      const message = translateThis('Transaction failed:') + ' ' + e.message;
+      console.log(e);
+      const message = translateThis('Transaction failed:') + ' ' + translateThis("Please check your browsers console for the full error message");
       await showScrollableError(translateThis('Error'), message);
     }
 }
@@ -5366,7 +5377,8 @@ async function sendBase() {
       checkbalances();
     } catch (e) { 
       hideSpinner();
-      const message = translateThis('Transaction failed:') + ' ' + e.message;
+      console.log(e);
+      const message = translateThis('Transaction failed:') + ' ' + translateThis("Please check your browsers console for the full error message");
       await showScrollableError(translateThis('Error'), message);
     }
 }
@@ -5393,7 +5405,8 @@ async function sendFrozen() {
           checkbalances();
         } catch (e) { 
           hideSpinner();
-          const message = translateThis('Transaction failed:') + ' ' + e.message;
+          console.log(e);
+          const message = translateThis('Transaction failed:') + ' ' + translateThis("Please check your browsers console for the full error message");
           await showScrollableError(translateThis('Error'), message);
         }
     }
@@ -5625,7 +5638,7 @@ async function mintFromBitBay(jsondata2="") {
     } catch (e) {
       hideSpinner();
       console.log(e);
-      const message = translateThis('Transaction failed:') + ' ' + e.message;
+      const message = translateThis('Transaction failed:') + ' ' + translateThis("Please check your browsers console for the full error message");
       await showScrollableError(translateThis('Error'), message);
     }
 }
@@ -5681,9 +5694,9 @@ async function registerBitBay(regaddy) {
       hideSpinner();
       await Swal.fire(translateThis("Success!"));
     } catch (e) {
-      console.log(e)
       hideSpinner();
-      const message = translateThis('Transaction failed:') + ' ' + e.message;
+      console.log(e);
+      const message = translateThis('Transaction failed:') + ' ' + translateThis("Please check your browsers console for the full error message");
       await showScrollableError(translateThis('Error'), message);      
     } 
 }
@@ -5760,9 +5773,9 @@ async function burnToBitBay(burnamount) {
       hideSpinner();
       await Swal.fire("Success!");
     } catch (e) {
-      console.log(e);
       hideSpinner();
-      const message = 'Transaction failed: ' + e.message;
+      console.log(e);
+      const message = translateThis('Transaction failed:') + ' ' + translateThis("Please check your browsers console for the full error message");
       await showScrollableError(translateThis('Error'), message);      
     } 
 }
@@ -6241,11 +6254,11 @@ async function addLiquidity() {
               await sendTx(routercontract, "addLiquidity", [[bayaddy,coin1],[totalval,coin1val],otherval,amount2min,amount1min,currentaccount,deadline,exchange], 9000000);
           }
       } catch (e) {
-          console.log(e);
           //document.getElementById("addliquidtext").innerHTML = 'Transaction failed';
           //modalDialog('Connect', "Transaction failed", "danger");
           hideSpinner();
-          const message = translateThis('Transaction failed:') + ' ' + e.message;
+          console.log(e);
+          const message = translateThis('Transaction failed:') + ' ' + translateThis("Please check your browsers console for the full error message");
           await showScrollableError(translateThis('Error'), message);
           return;
       }
@@ -6656,10 +6669,10 @@ async function Swap() {
               }
           }
       } catch (e) {
-          console.log(e);
           hideSpinner();
           //document.getElementById("SwapSummary").innerHTML = '<div class="callout callout-danger" >Error: Swap failed!</div>';
-          const message = translateThis('Swap failed:') + ' ' + e.message;
+          console.log(e);
+          const message = translateThis('Transaction failed:') + ' ' + translateThis("Please check your browsers console for the full error message");
           await showScrollableError(translateThis('Transaction failed'), message);
           return;
       }
@@ -6856,11 +6869,11 @@ async function withdrawLP() {
               await sendTx(routercontract, "removeLiquidity", [coin1,bayaddy,wval,withdrawMin1,withdrawMin2,waccount,deadline,exchange], 9000000);
           }
       } catch (e) {
-          console.log(e);
           hideSpinner();
           //document.getElementById("LPdetails1").innerHTML = 'Withdrawal failed';
-          const message = translateThis('Withdrawal failed:') + ' ' + e.message;
-          await showScrollableError(translateThis('Transaction failed'), message);          
+          console.log(e);
+          const message = translateThis('Transaction failed:') + ' ' + translateThis("Please check your browsers console for the full error message");
+          await showScrollableError(translateThis('Transaction failed'), message);
           return;
       }
       document.getElementById("LPdetails1").innerHTML = translateThis('Success!') + '<br><br>' + prevtext;

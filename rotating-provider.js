@@ -77,7 +77,12 @@ var fallbackProvidersDefault = [
       message.includes('rate limit') ||
       message.includes('too many requests') ||
       message.includes('throttle') ||
-      message.includes('invalid json rpc response')
+      message.includes('invalid json rpc response') ||
+      message.includes('did it run out of gas') ||
+      message.includes('execution reverted') ||
+      message.includes('replace is not a function') ||
+      message.includes('exceeded your limit') ||
+      message.includes('dialing to the given tcp address timed out')
     );
   }
 
