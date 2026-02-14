@@ -3067,16 +3067,17 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
       if (val !== "0") {
         try {
           const humanVal = web3.utils.fromWei(val.toString(), "ether"); // assumes wei
-          valLine = `<b>Value:</b> ${humanVal} <br>`;
+          valLine = `<b>Value:</b> ${DOMPurify.sanitize(String(humanVal))} <br>`;
         } catch (e) {
-          valLine = `<b>Value:</b> ${val} <br>`;
+          valLine = `<b>Value:</b> ${DOMPurify.sanitize(String(val))} <br>`;
         }
       }
       let displayMethod = method;
       let argsHtml = "";
+      const sanitizedArgs = args.map(a => DOMPurify.sanitize(String(a)));
       if (method && method.toLowerCase().includes("swap")) {
         displayMethod = "Swap";
-        argsHtml = args.length
+        argsHtml = sanitizedArgs.length
           ? `Transaction data:<br>
              <div style="
                font-size: 9px;
@@ -3091,11 +3092,11 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
                overflow-x: auto;
                white-space: pre-wrap;
              ">
-               ${args.join(", ")}
+               ${sanitizedArgs.join(", ")}
              </div><br>`
           : "";
       } else {
-        argsHtml = `<b>Args:</b> ${args.length ? args.join(", ") : "(none)"}<br>`;
+        argsHtml = `<b>Args:</b> ${sanitizedArgs.length ? sanitizedArgs.join(", ") : "(none)"}<br>`;
       }
       if (method && method.toLowerCase().includes("swap")) {
         displayMethod = "Swap";
@@ -3104,10 +3105,10 @@ async function sendTx(contract, method, args = [], glimit = 2500000, val = "0", 
         icon: "question",
         title: translateThis("Confirm Transaction"),
         html: `
-          <b>${translateThis('Method')}:</b> ${displayMethod}<br>
+          <b>${translateThis('Method')}:</b> ${DOMPurify.sanitize(String(displayMethod))}<br>
           ${argsHtml}
-          <b>${translateThis('Gas Limit')}:</b> ${glimit}<br>
-          <b>${translateThis('Gas Price')}:</b> ${gasPriceOrg}<br>
+          <b>${translateThis('Gas Limit')}:</b> ${DOMPurify.sanitize(String(glimit))}<br>
+          <b>${translateThis('Gas Price')}:</b> ${DOMPurify.sanitize(String(gasPriceOrg))}<br>
           ${valLine}
         `,
         showCancelButton: true,
@@ -3511,7 +3512,7 @@ async function checkbalances() {
     if (unknownHash != "") {
       document.getElementById("balance_network").innerHTML += 
         '<div style="margin-top: 20px; background-color: #fff0f0; color: #800000; border-left: 4px solid #cc0000; padding: 10px; font-family: \'Lucida Console\', monospace; font-size: 13px;">' +
-        '<span style="font-weight: bold;">⚠️ WARNING:</span> Unknown hash detected.<br>Please verify it on the BitBay network – <span style="word-break: break-all;">' + unknownHash + '</span>' +
+        '<span style="font-weight: bold;">⚠️ WARNING:</span> Unknown hash detected.<br>Please verify it on the BitBay network – <span style="word-break: break-all;">' + DOMPurify.sanitize(unknownHash) + '</span>' +
         '</div>';
     }
     
@@ -4276,7 +4277,7 @@ async function calculateAndDisplayROIPreLogin() {
     }
     const homeRoiNotification = document.getElementById('homeRoiNotification');
     if (homeRoiNotification) {
-      homeRoiNotification.innerHTML = roiText;
+      homeRoiNotification.textContent = roiText;
       homeRoiNotification.classList.remove('hidden');
     }    
     console.log('ROI calculated:', yearlyROI.toFixed(2) + '%', 'WETH Price:', wethPrice, 'BAY Price:', bayPrice);

@@ -2244,7 +2244,7 @@ async function loadStakingInfo() {
               pendingDisplay = displayUSDCAmount(pending, 8);
             }
 
-            rewardsHTML += `<div>${coinName}: ${pendingDisplay}</div>`;
+            rewardsHTML += `<div>${DOMPurify.sanitize(coinName)}: ${DOMPurify.sanitize(pendingDisplay)}</div>`;
           }
         }
         document.getElementById('userPendingRewards').innerHTML = rewardsHTML || translateThis('No pending rewards');
@@ -2264,7 +2264,7 @@ async function loadStakingInfo() {
     // Display total rewards from localStorage
     let totalRewardsHTML = '';
     for (const [coin, amount] of Object.entries(earnState.userTotalRewards)) {
-      totalRewardsHTML += `<div>${coin}: ${amount}</div>`;
+      totalRewardsHTML += `<div>${DOMPurify.sanitize(coin)}: ${DOMPurify.sanitize(String(amount))}</div>`;
     }
     document.getElementById('userTotalRewards').innerHTML = totalRewardsHTML || translateThis('No rewards collected yet');
     
@@ -2328,7 +2328,7 @@ async function loadTopStakers() {
     let html = '<ol style="list-style-position: inside; padding-left: 0; margin-bottom: 0;">';
     for (const staker of topStakers) {
       if (isGreaterThanZero(staker[1])) {
-        html += `<li>${staker[0].substring(0, 10)}...:&nbsp&nbsp&nbsp&nbsp${displayBAYAmount(staker[1], 2)} BAYL</li>`;
+        html += `<li>${DOMPurify.sanitize(staker[0].substring(0, 10))}...:&nbsp&nbsp&nbsp&nbsp${DOMPurify.sanitize(displayBAYAmount(staker[1], 2))} BAYL</li>`;
       }
     }
     html += '</ol>';
@@ -2668,7 +2668,7 @@ async function loadVotes(voteContract, currentEpoch, isInVotePeriod) {
       if (winningHash && winningHash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
         const weight = validation(DOMPurify.sanitize(await voteContract.methods.winningWeight(prevEpoch).call()));
         //const payload = DOMPurify.sanitize(JSON.stringify(await voteContract.methods.getProposalPayload(winningHash).call()));
-        prevHTML += `<div><strong>Winner:</strong> <a href="#" onclick="showVotePayload('${winningHash}')">${winningHash.substring(0, 10)}...</a> (${weight} votes)</div>`;
+        prevHTML += `<div><strong>Winner:</strong> <a href="#" onclick="showVotePayload('${DOMPurify.sanitize(winningHash)}')">${DOMPurify.sanitize(winningHash.substring(0, 10))}...</a> (${DOMPurify.sanitize(String(weight))} votes)</div>`;
       } else {
         prevHTML = 'No votes in last epoch';
       }
@@ -2682,7 +2682,8 @@ async function loadVotes(voteContract, currentEpoch, isInVotePeriod) {
       
       for (const hash of topHashes) {
         if (hash && hash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
-          pendingHTML += `<div><a href="#" onclick="showVotePayload('${hash}')">${hash.substring(0, 10)}...</a></div>`;
+          const sanitizedHash = DOMPurify.sanitize(hash);
+          pendingHTML += `<div><a href="#" onclick="showVotePayload('${sanitizedHash}')">${DOMPurify.sanitize(hash.substring(0, 10))}...</a></div>`;
         }
       }
       
