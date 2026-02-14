@@ -2311,7 +2311,7 @@ function validation(input) {
     if (input !== null && typeof input === 'object') {
       var result = {};
       Object.keys(input).forEach(function(key) {
-        var safeKey = /^[a-zA-Z0-9_]+$/.test(key) ? key : "";
+        var safeKey = /^[a-zA-Z0-9_-]+$/.test(key) ? key : "";
         if (safeKey !== "") {
           result[safeKey] = validation(input[key]);
         }
@@ -2326,7 +2326,7 @@ function validation(input) {
     if(str.toLowerCase() == "false") {
       return false;
     }
-    return /^[a-zA-Z0-9]+$/.test(str) ? str : "";
+    return /^[a-zA-Z0-9_-]+$/.test(str) ? str : "";
 }
 
 loadRpcSettings();
