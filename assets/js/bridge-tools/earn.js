@@ -2683,7 +2683,7 @@ async function loadVotes(voteContract, currentEpoch, isInVotePeriod) {
       for (const hash of topHashes) {
         if (hash && hash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
           const sanitizedHash = DOMPurify.sanitize(hash);
-          pendingHTML += `<div><a href="#" onclick="showVotePayload('${sanitizedHash}')">${DOMPurify.sanitize(hash.substring(0, 10))}...</a></div>`;
+          pendingHTML += `<div><a href="#" onclick="showVotePayload('${sanitizedHash}')">${sanitizedHash.substring(0, 10)}...</a></div>`;
         }
       }
       
