@@ -70,7 +70,7 @@ var fallbackProvidersDefault = [
     var code = err.code;
     console.log(err)
     
-    // Common rate limit indicators
+    // Common rate limit indicators and transient RPC errors
     return (
       code === 429 ||
       code === -32005 ||
@@ -79,6 +79,7 @@ var fallbackProvidersDefault = [
       message.includes('throttle') ||
       message.includes('invalid json rpc response') ||
       message.includes('did it run out of gas') ||
+      message.includes("returned values aren't valid") ||
       message.includes('execution reverted') ||
       message.includes('replace is not a function') ||
       message.includes('exceeded your limit') ||
@@ -496,6 +497,13 @@ var fallbackProvidersDefault = [
           rpcError.code = result.error.code;
           rpcError.data = result.error.data;
           reject(rpcError);
+        } else if (formattedPayload && formattedPayload.method === 'eth_call' &&
+                   result && (!result.result || result.result === '0x' || result.result === '0X')) {
+          // Empty eth_call result from an unreliable RPC node - reject so we can retry
+          // This prevents Web3's ABI decoder from throwing "Returned values aren't valid, did it run Out of Gas?"
+          var emptyError = new Error("Returned values aren't valid, did it run Out of Gas? Empty eth_call result from RPC node.");
+          emptyError.code = -32000;
+          reject(emptyError);
         } else {
           // Return the FULL response unchanged - true passthrough
           resolve(result);
@@ -628,6 +636,14 @@ var fallbackProvidersDefault = [
           self._rotateProvider(true);
         }
         callback(err, null);
+      } else if (formattedPayload && formattedPayload.method === 'eth_call' &&
+                 result && (!result.result || result.result === '0x' || result.result === '0X')) {
+        // Empty eth_call result from an unreliable RPC node - rotate and report error
+        // This prevents Web3's ABI decoder from throwing "Returned values aren't valid, did it run Out of Gas?"
+        self._rotateProvider(true);
+        var emptyError = new Error("Returned values aren't valid, did it run Out of Gas? Empty eth_call result from RPC node.");
+        emptyError.code = -32000;
+        callback(emptyError, null);
       } else {
         // On successful request, update cooldown state
         self._updateCooldownOnSuccess();
