@@ -70,7 +70,7 @@ var fallbackProvidersDefault = [
     var code = err.code;
     console.log(err)
     
-    // Common rate limit indicators
+    // Common rate limit indicators and transient RPC errors
     return (
       code === 429 ||
       code === -32005 ||
@@ -79,6 +79,7 @@ var fallbackProvidersDefault = [
       message.includes('throttle') ||
       message.includes('invalid json rpc response') ||
       message.includes('did it run out of gas') ||
+      message.includes("returned values aren't valid") ||
       message.includes('execution reverted') ||
       message.includes('replace is not a function') ||
       message.includes('exceeded your limit') ||
@@ -496,6 +497,13 @@ var fallbackProvidersDefault = [
           rpcError.code = result.error.code;
           rpcError.data = result.error.data;
           reject(rpcError);
+        } else if (formattedPayload && formattedPayload.method === 'eth_call' &&
+                   result && (!result.result || result.result === '0x' || result.result === '0X')) {
+          // Empty eth_call result from an unreliable RPC node - reject so we can retry
+          // This prevents Web3's ABI decoder from throwing "Returned values aren't valid, did it run Out of Gas?"
+          var emptyError = new Error("Returned values aren't valid, did it run Out of Gas? Empty eth_call result from RPC node.");
+          emptyError.code = -32000;
+          reject(emptyError);
         } else {
           // Return the FULL response unchanged - true passthrough
           resolve(result);
@@ -589,7 +597,7 @@ var fallbackProvidersDefault = [
 
   /**
    * Web3 provider interface - send method (legacy callback style)
-   * TRUE PASSTHROUGH - passes the response from HttpProvider unchanged
+   * Retries with the next provider on transient errors instead of failing outright.
    * @param {Object} payload - JSON-RPC request payload
    * @param {Function} callback - Callback function(error, result)
    */
@@ -602,39 +610,48 @@ var fallbackProvidersDefault = [
     
     this._ensureInitialized();
     
-    // Get the current provider and send directly
-    var provider = this._getCurrentProvider();
-    var stats = this._getCurrentStats();
-    
-    if (!provider) {
-      callback(new Error('No provider available'), null);
-      return;
-    }
-    
-    // Record the request
-    stats.recordRequest();
-    this._updateGlobalState();
-    
-    // Ensure payload has required JSON-RPC 2.0 fields
-    // Some RPC providers are strict and reject requests without jsonrpc/id
+    var maxAttempts = this.preferredProviders.length +
+      Math.min(4, this.fallbackProviders.length);
+    var attempts = 0;
     var formattedPayload = ensureJsonRpcFormat(payload);
-    
-    // TRUE PASSTHROUGH: Call the underlying HttpProvider's send directly
-    // Pass response unchanged
-    provider.send(formattedPayload, function(err, result) {
-      if (err) {
-        // Check if we should rotate on error
-        if (isRateLimitError(err)) {
-          self._rotateProvider(true);
-        }
-        callback(err, null);
-      } else {
-        // On successful request, update cooldown state
-        self._updateCooldownOnSuccess();
-        // Pass through the FULL response unchanged (whether success or JSON-RPC error)
-        callback(null, result);
+
+    function trySend() {
+      var provider = self._getCurrentProvider();
+      var stats = self._getCurrentStats();
+
+      if (!provider) {
+        callback(new Error('No provider available'), null);
+        return;
       }
-    });
+
+      stats.recordRequest();
+      self._updateGlobalState();
+      attempts++;
+
+      provider.send(formattedPayload, function(err, result) {
+        // Build an error object for empty eth_call results
+        if (!err && formattedPayload && formattedPayload.method === 'eth_call' &&
+            result && (!result.result || result.result === '0x' || result.result === '0X')) {
+          err = new Error("Returned values aren't valid, did it run Out of Gas? Empty eth_call result from RPC node.");
+          err.code = -32000;
+          result = null;
+        }
+
+        if (err) {
+          if (isRateLimitError(err) && attempts < maxAttempts) {
+            // Transient error - rotate and retry with next provider
+            self._rotateProvider(true);
+            return trySend();
+          }
+          callback(err, null);
+        } else {
+          self._updateCooldownOnSuccess();
+          callback(null, result);
+        }
+      });
+    }
+
+    trySend();
   };
 
   /**
