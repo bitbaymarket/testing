@@ -2137,8 +2137,7 @@ async function checkAndManageStableVault() {
       const cleanTimelock = parseInt(validation(DOMPurify.sanitize(await stableContract.methods.CLEAN_TIMELOCK().call())));
       now = Math.floor(Date.now() / 1000);
       
-      if (now - lastDustClean > cleanTimelock) {
-        logToConsole('Cleaning StableVault dust...');
+      if (now - lastDustClean > cleanTimelock) {        
         const daiToken = new earnState.polWeb3.eth.Contract(ERC20ABI, TREASURY_ADDRESSES.DAI);
         const usdcToken = new earnState.polWeb3.eth.Contract(ERC20ABI, TREASURY_ADDRESSES.USDC);
         const [daiBalance, usdcBalance] = await Promise.all([
@@ -2146,6 +2145,7 @@ async function checkAndManageStableVault() {
           validation(DOMPurify.sanitize(usdcToken.methods.balanceOf(TREASURY_ADDRESSES.STABLE_POOL).call()))
         ]);        
         if (parseInt(daiBalance) > 0 || parseInt(usdcBalance) > 0) {
+          logToConsole('Cleaning StableVault dust...');
           const deadline = now + 300;
           const tx = await sendTx(stableContract, "cleanDust", [deadline], 1500000, "0", false, false, false);        
           logToConsole('StableVault dust cleaned successfully: ' + tx);
