@@ -29,6 +29,7 @@ contract StakingVote {
 
     event voted(address indexed from, uint256 weight, uint256 epoch, bytes32 hash);
     event confirmEpoch(bytes32 indexed winner);
+    event callResult(bytes32 indexed winner, uint256 index, bool success);
 
     constructor(uint256 _epochLength, address _treasury) {
         epochLength = _epochLength; //7200 is the default for the treasury
@@ -138,6 +139,11 @@ contract StakingVote {
     }
 
     //Users should only run proposals they trust. Stakers should automatically vote on some null proposal if nothing is being voted on.
+    //Note: Individual calls use try-catch style so that a single failed call does not block
+    //the entire payload. The epoch is marked executed regardless of individual outcomes.
+    //This prevents users from wasting gas retrying a permanently failing proposal and
+    //stops griefing attacks where one bad call blocks the rest. Each call emits a
+    //callResult event so that success or failure is transparent and auditable on-chain.
     function confirmVotes(uint256 epoch) external returns (bool) {
         require(epoch + 1 == currentEpoch(), "epoch is outside of range");
         Epoch storage e = epochs[epoch];
@@ -146,14 +152,17 @@ contract StakingVote {
         if(e.winner == bytes32(0)) {
             return false;
         }
-        _executePayload(proposals[e.winner].payload);
+        _executePayload(e.winner, proposals[e.winner].payload);
         emit confirmEpoch(e.winner);
         return true;
     }
 
     //This can run multiple arbitrary calls to any contract
-    function _executePayload(bytes[] storage payload) internal {
+    //Each call is executed independently; failures are logged but do not revert the batch
+    function _executePayload(bytes32 winner, bytes[] storage payload) internal {
+        require(payload.length % 3 == 0, "malformed payload");
         uint256 i = 0;
+        uint256 callIndex = 0;
         while (i < payload.length) {
             // function signature (human-readable)
             string memory sig = abi.decode(payload[i], (string));
@@ -166,7 +175,8 @@ contract StakingVote {
             i++;
             // We hash the signature string to get the selector (first 4 bytes)
             (bool ok, ) = target.call(abi.encodePacked(bytes4(keccak256(bytes(sig))), args));
-            require(ok, "call failed");
+            emit callResult(winner, callIndex, ok);
+            callIndex++;
         }
     }
 }
